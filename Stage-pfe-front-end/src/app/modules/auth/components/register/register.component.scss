@@ -1,0 +1,28 @@
+@import '../../styles/auth-shared.scss';
+
+// Styles spécifiques au composant d'inscription
+.register-wrapper {
+  @extend .auth-wrapper;
+}
+
+.register-container {
+  @extend .auth-container;
+}
+
+.register-title {
+  @extend .auth-title;
+}
+
+.btn-register {
+  @extend .auth-btn;
+}
+
+.login-link {
+  @extend .auth-link;
+}
+
+// Styles spécifiques pour les validations du formulaire d'inscription
+.text-danger.small {
+  @extend .text-danger;
+  font-size: 0.8em;
+}

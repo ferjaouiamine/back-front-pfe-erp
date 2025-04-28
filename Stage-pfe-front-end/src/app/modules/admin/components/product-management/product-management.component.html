@@ -1,0 +1,270 @@
+<div class="product-management-container">
+  <div class="dashboard-header">
+    <h1>Gestion des Produits</h1>
+    <div class="action-buttons">
+      <button class="btn btn-primary" (click)="newProduct()">
+        <i class="fas fa-plus"></i> Nouveau Produit
+      </button>
+      <button class="btn btn-outline-secondary" (click)="exportInventory()">
+        <i class="fas fa-file-export"></i> Exporter l'inventaire
+      </button>
+    </div>
+  </div>
+
+  <!-- Affichage des messages -->
+  <div class="alert alert-danger" *ngIf="errorMessage">
+    <i class="fas fa-exclamation-circle"></i> {{ errorMessage }}
+    <button type="button" class="close" (click)="errorMessage = null">&times;</button>
+  </div>
+  <div class="alert alert-success" *ngIf="successMessage">
+    <i class="fas fa-check-circle"></i> {{ successMessage }}
+    <button type="button" class="close" (click)="successMessage = null">&times;</button>
+  </div>
+
+  <!-- Alertes de stock bas -->
+  <div class="low-stock-alert" *ngIf="lowStockProducts.length > 0">
+    <h3><i class="fas fa-exclamation-triangle"></i> Alertes de stock</h3>
+    <p>{{ lowStockProducts.length }} produit(s) en stock faible (moins de {{ lowStockThreshold }} unités)</p>
+    <div class="low-stock-products">
+      <div class="low-stock-item" *ngFor="let product of lowStockProducts">
+        <span class="product-name">{{ product.name }}</span>
+        <span class="product-quantity" [ngClass]="getStockStatusClass(product.quantity)">
+          {{ product.quantity }} unité(s)
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <div class="dashboard-content">
+    <!-- Panneau de gauche: Liste des produits -->
+    <div class="product-list-section">
+      <div class="section-header">
+        <h2>Catalogue de produits</h2>
+        <div class="search-filters">
+          <div class="input-group">
+            <input type="text" class="form-control" placeholder="Rechercher un produit..." 
+                  [(ngModel)]="searchTerm" (keyup)="searchProducts()">
+            <div class="input-group-append">
+              <button class="btn btn-outline-secondary" type="button" (click)="searchProducts()">
+                <i class="fas fa-search"></i>
+              </button>
+            </div>
+          </div>
+          <div class="category-filter">
+            <select class="form-control" [(ngModel)]="selectedCategory" (change)="searchProducts()">
+              <option value="">Toutes les catégories</option>
+              <option *ngFor="let category of categories" [value]="category">{{ category }}</option>
+            </select>
+          </div>
+          <button class="btn btn-sm btn-outline-secondary" (click)="resetFilters()">
+            <i class="fas fa-sync-alt"></i> Réinitialiser
+          </button>
+        </div>
+      </div>
+
+      <div class="product-list" *ngIf="!isLoading; else loadingProducts">
+        <div class="product-card" *ngFor="let product of filteredProducts" 
+             [class.selected]="selectedProduct?.id === product.id"
+             (click)="selectProduct(product)">
+          <div class="product-info">
+            <h3>{{ product.name }}</h3>
+            <p class="product-description">{{ product.description }}</p>
+            <div class="product-details">
+              <span class="product-price">{{ product.price | currency:'EUR' }}</span>
+              <span class="product-stock" [ngClass]="getStockStatusClass(product.quantity)">
+                Stock: {{ product.quantity }}
+              </span>
+              <span class="product-category" *ngIf="product.category">
+                {{ product.category }}
+              </span>
+            </div>
+          </div>
+          <div class="product-actions">
+            <button class="btn btn-sm btn-info" (click)="showStockMovements(product); $event.stopPropagation()">
+              <i class="fas fa-exchange-alt"></i> Mouvements
+            </button>
+            <button class="btn btn-sm btn-danger" (click)="deleteProduct(product); $event.stopPropagation()">
+              <i class="fas fa-trash"></i> Supprimer
+            </button>
+          </div>
+        </div>
+        
+        <div class="no-products" *ngIf="filteredProducts.length === 0">
+          <i class="fas fa-box-open fa-3x"></i>
+          <p>Aucun produit trouvé</p>
+        </div>
+      </div>
+      
+      <ng-template #loadingProducts>
+        <div class="loading-spinner">
+          <i class="fas fa-spinner fa-spin fa-3x"></i>
+          <p>Chargement des produits...</p>
+        </div>
+      </ng-template>
+    </div>
+
+    <!-- Panneau de droite: Formulaire d'édition de produit -->
+    <div class="product-form-section" [class.active]="isEditing">
+      <div class="section-header">
+        <h2>{{ selectedProduct ? 'Modifier le produit' : 'Nouveau produit' }}</h2>
+        <button class="btn-close" (click)="cancelEdit()"></button>
+      </div>
+
+      <div *ngIf="formErrorMessage" class="alert alert-danger mb-3">
+        {{ formErrorMessage }}
+        <button type="button" class="btn-close float-end" aria-label="Close" (click)="formErrorMessage = null"></button>
+      </div>
+
+      <form [formGroup]="productForm" (ngSubmit)="saveProduct()">
+        <div class="form-group">
+          <label for="name">Nom du produit*</label>
+          <input type="text" id="name" class="form-control" formControlName="name">
+          <div *ngIf="productForm.get('name')?.invalid && productForm.get('name')?.touched" class="text-danger mt-1">
+            <small *ngIf="productForm.get('name')?.errors?.['required']">Le nom du produit est requis</small>
+            <small *ngIf="productForm.get('name')?.errors?.['minlength']">Le nom doit contenir au moins 3 caractères</small>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="description">Description*</label>
+          <textarea id="description" class="form-control" formControlName="description" rows="3"></textarea>
+          <div *ngIf="productForm.get('description')?.invalid && productForm.get('description')?.touched" class="text-danger mt-1">
+            <small *ngIf="productForm.get('description')?.errors?.['required']">La description est requise</small>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group col-md-6">
+            <label for="price">Prix*</label>
+            <div class="input-group">
+              <input type="number" id="price" class="form-control" formControlName="price" min="0" step="0.01">
+              <div class="input-group-append">
+                <span class="input-group-text">€</span>
+              </div>
+            </div>
+            <div *ngIf="productForm.get('price')?.invalid && productForm.get('price')?.touched" class="text-danger mt-1">
+              <small *ngIf="productForm.get('price')?.errors?.['required']">Le prix est requis</small>
+              <small *ngIf="productForm.get('price')?.errors?.['min']">Le prix doit être positif</small>
+            </div>
+          </div>
+
+          <div class="form-group col-md-6">
+            <label for="quantity">Quantité en stock*</label>
+            <input type="number" id="quantity" class="form-control" formControlName="quantity" min="0" step="1">
+            <div *ngIf="productForm.get('quantity')?.invalid && productForm.get('quantity')?.touched" class="text-danger mt-1">
+              <small *ngIf="productForm.get('quantity')?.errors?.['required']">La quantité est requise</small>
+              <small *ngIf="productForm.get('quantity')?.errors?.['min']">La quantité doit être positive</small>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="category">Catégorie*</label>
+          <input type="text" id="category" class="form-control" formControlName="category" list="categoryList">
+          <datalist id="categoryList">
+            <option *ngFor="let category of categories" [value]="category"></option>
+          </datalist>
+          <div *ngIf="productForm.get('category')?.invalid && productForm.get('category')?.touched" class="text-danger mt-1">
+            <small *ngIf="productForm.get('category')?.errors?.['required']">La catégorie est requise</small>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="imageUrl">URL de l'image</label>
+          <input type="text" id="imageUrl" class="form-control" formControlName="imageUrl">
+        </div>
+
+        <div class="form-actions">
+          <button type="button" class="btn btn-secondary" (click)="cancelEdit()">Annuler</button>
+          <button type="submit" class="btn btn-primary" [disabled]="isLoading || productForm.invalid">
+            <span *ngIf="isLoading" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+            {{ selectedProduct ? 'Mettre à jour' : 'Créer' }}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal pour les mouvements de stock -->
+  <div class="modal" [class.show]="showMovementsModal" *ngIf="showMovementsModal">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Mouvements de stock - {{ selectedProduct?.name }}</h5>
+          <button type="button" class="close" (click)="closeMovementsModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="stock-movement-form">
+            <h6>Ajouter un mouvement</h6>
+            <div class="form-row">
+              <div class="form-group col-md-3">
+                <label>Type</label>
+                <select #movementType class="form-control">
+                  <option value="ENTREE">Entrée</option>
+                  <option value="SORTIE">Sortie</option>
+                  <option value="AJUSTEMENT">Ajustement</option>
+                </select>
+              </div>
+              <div class="form-group col-md-3">
+                <label>Quantité</label>
+                <input type="number" #movementQuantity class="form-control" min="0" value="1">
+              </div>
+              <div class="form-group col-md-4">
+                <label>Motif</label>
+                <input type="text" #movementReason class="form-control" placeholder="Motif du mouvement">
+              </div>
+              <div class="form-group col-md-2 d-flex align-items-end">
+                <button class="btn btn-primary w-100" 
+                        (click)="addStockMovement(movementType.value, 
+                                               +movementQuantity.value, 
+                                               movementReason.value)">
+                  Ajouter
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="stock-movement-list">
+            <h6>Historique des mouvements</h6>
+            <table class="table table-striped">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Type</th>
+                  <th>Quantité</th>
+                  <th>Motif</th>
+                  <th>Utilisateur</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let movement of selectedProductMovements">
+                  <td>{{ movement.date | date:'dd/MM/yyyy HH:mm' }}</td>
+                  <td>
+                    <span class="badge" 
+                          [ngClass]="{
+                            'badge-success': movement.type === 'ENTREE',
+                            'badge-danger': movement.type === 'SORTIE',
+                            'badge-warning': movement.type === 'AJUSTEMENT'
+                          }">
+                      {{ movement.type === 'ENTREE' ? 'Entrée' : 
+                         movement.type === 'SORTIE' ? 'Sortie' : 'Ajustement' }}
+                    </span>
+                  </td>
+                  <td>{{ movement.quantity }}</td>
+                  <td>{{ movement.reason }}</td>
+                  <td>{{ movement.userName }}</td>
+                </tr>
+                <tr *ngIf="selectedProductMovements.length === 0">
+                  <td colspan="5" class="text-center">Aucun mouvement de stock enregistré</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" (click)="closeMovementsModal()">Fermer</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

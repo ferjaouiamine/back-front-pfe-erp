@@ -1,0 +1,285 @@
+<div class="register-wrapper">
+  <div class="register-container" data-aos="fade-up" data-aos-duration="1000">
+    <h2 class="register-title">Créer un compte</h2>
+    <p class="auth-subtitle">Rejoignez-nous pour accéder à toutes les fonctionnalités de l'application.</p>
+
+    <form [formGroup]="registerForm" (ngSubmit)="onRegister()">
+      <!-- Message d'erreur -->
+      <div *ngIf="errorMessage" class="alert alert-danger">
+        <i class="fas fa-exclamation-circle me-2"></i>
+        {{ errorMessage }}
+      </div>
+
+      <!-- Champ Nom d'utilisateur -->
+      <div class="form-group">
+        <label for="username">
+          <i class="fas fa-user me-2"></i>Nom d'utilisateur
+        </label>
+        <input 
+          type="text" 
+          id="username" 
+          class="form-control" 
+          formControlName="username"
+          placeholder="Entrez votre nom d'utilisateur"
+          autocomplete="username"
+          required
+        >
+        <div *ngIf="registerForm.get('username')?.invalid && (registerForm.get('username')?.dirty || registerForm.get('username')?.touched)" class="text-danger small">
+          <div *ngIf="registerForm.get('username')?.errors?.['required']">
+            <i class="fas fa-exclamation-circle me-1"></i>Le nom d'utilisateur est requis.
+          </div>
+          <div *ngIf="registerForm.get('username')?.errors?.['minlength']">
+            <i class="fas fa-exclamation-circle me-1"></i>Le nom d'utilisateur doit contenir au moins 3 caractères.
+          </div>
+        </div>
+      </div>
+
+      <!-- Champ Email -->
+      <div class="form-group">
+        <label for="email">
+          <i class="fas fa-envelope me-2"></i>Email
+        </label>
+        <input 
+          type="email" 
+          id="email" 
+          class="form-control" 
+          formControlName="email"
+          placeholder="Entrez votre email"
+          autocomplete="email"
+          required
+        >
+        <div *ngIf="registerForm.get('email')?.invalid && (registerForm.get('email')?.dirty || registerForm.get('email')?.touched)" class="text-danger small">
+          <div *ngIf="registerForm.get('email')?.errors?.['required']">
+            <i class="fas fa-exclamation-circle me-1"></i>L'email est requis.
+          </div>
+          <div *ngIf="registerForm.get('email')?.errors?.['email']">
+            <i class="fas fa-exclamation-circle me-1"></i>Veuillez entrer une adresse email valide.
+          </div>
+        </div>
+      </div>
+
+      <!-- Champ Adresse -->
+      <div class="form-group">
+        <label for="address">
+          <i class="fas fa-map-marker-alt me-2"></i>Adresse
+        </label>
+        <input 
+          type="text" 
+          id="address" 
+          class="form-control" 
+          formControlName="address"
+          placeholder="Entrez votre adresse complète"
+          required
+        >
+        <div *ngIf="registerForm.get('address')?.invalid && (registerForm.get('address')?.dirty || registerForm.get('address')?.touched)" class="text-danger small">
+          <div *ngIf="registerForm.get('address')?.errors?.['required']">
+            <i class="fas fa-exclamation-circle me-1"></i>L'adresse est requise.
+          </div>
+        </div>
+      </div>
+
+      <!-- Champ Mot de passe -->
+      <div class="form-group">
+        <label for="password">
+          <i class="fas fa-lock me-2"></i>Mot de passe
+        </label>
+        <div class="password-input-container">
+          <input 
+            [type]="showPassword ? 'text' : 'password'" 
+            id="password" 
+            class="form-control" 
+            formControlName="password"
+            placeholder="Entrez votre mot de passe"
+            autocomplete="new-password"
+            required
+          >
+          <button type="button" class="password-toggle" (click)="togglePasswordVisibility()">
+            <i class="fas" [ngClass]="showPassword ? 'fa-eye-slash' : 'fa-eye'"></i>
+          </button>
+        </div>
+        <div *ngIf="registerForm.get('password')?.invalid && (registerForm.get('password')?.dirty || registerForm.get('password')?.touched)" class="text-danger small">
+          <div *ngIf="registerForm.get('password')?.errors?.['required']">
+            <i class="fas fa-exclamation-circle me-1"></i>Le mot de passe est requis.
+          </div>
+          <div *ngIf="registerForm.get('password')?.errors?.['minlength']">
+            <i class="fas fa-exclamation-circle me-1"></i>Le mot de passe doit contenir au moins 6 caractères.
+          </div>
+        </div>
+        <div class="password-strength" *ngIf="registerForm.get('password')?.value">
+          <div class="strength-meter">
+            <div class="strength-meter-fill" [style.width.%]="passwordStrength" [ngClass]="getPasswordStrengthClass()"></div>
+          </div>
+          <div class="strength-text" [ngClass]="getPasswordStrengthClass()">
+            {{ getPasswordStrengthText() }}
+          </div>
+        </div>
+      </div>
+
+      <!-- Champ Confirmation du mot de passe -->
+      <div class="form-group">
+        <label for="confirmPassword">
+          <i class="fas fa-lock me-2"></i>Confirmer le mot de passe
+        </label>
+        <div class="password-input-container">
+          <input 
+            [type]="showConfirmPassword ? 'text' : 'password'" 
+            id="confirmPassword" 
+            class="form-control" 
+            formControlName="confirmPassword"
+            placeholder="Confirmez votre mot de passe"
+            autocomplete="new-password"
+            required
+          >
+          <button type="button" class="password-toggle" (click)="toggleConfirmPasswordVisibility()">
+            <i class="fas" [ngClass]="showConfirmPassword ? 'fa-eye-slash' : 'fa-eye'"></i>
+          </button>
+        </div>
+        <div *ngIf="registerForm.get('confirmPassword')?.invalid && (registerForm.get('confirmPassword')?.dirty || registerForm.get('confirmPassword')?.touched)" class="text-danger small">
+          <div *ngIf="registerForm.get('confirmPassword')?.errors?.['required']">
+            <i class="fas fa-exclamation-circle me-1"></i>La confirmation du mot de passe est requise.
+          </div>
+        </div>
+        <div *ngIf="registerForm.errors?.['passwordMismatch'] && registerForm.get('confirmPassword')?.touched" class="text-danger small">
+          <i class="fas fa-exclamation-circle me-1"></i>Les mots de passe ne correspondent pas.
+        </div>
+      </div>
+
+      <!-- Champ Rôle -->
+      <div class="form-group">
+        <label for="role">
+          <i class="fas fa-user-tag me-2"></i>Rôle
+        </label>
+        <select 
+          id="role" 
+          class="form-control" 
+          formControlName="role"
+          required
+        >
+          <option *ngFor="let role of availableRoles" [value]="role.id">{{ role.name }}</option>
+        </select>
+        <div *ngIf="registerForm.get('role')?.invalid && (registerForm.get('role')?.dirty || registerForm.get('role')?.touched)" class="text-danger small">
+          <div *ngIf="registerForm.get('role')?.errors?.['required']">
+            <i class="fas fa-exclamation-circle me-1"></i>Le rôle est requis.
+          </div>
+        </div>
+      </div>
+
+      <div class="form-check mb-3">
+        <input type="checkbox" class="form-check-input" id="acceptTerms" formControlName="acceptTerms">
+        <label class="form-check-label" for="acceptTerms">
+          J'accepte les <a href="#" class="terms-link">termes et conditions</a>
+        </label>
+        <div *ngIf="registerForm.get('acceptTerms')?.invalid && registerForm.get('acceptTerms')?.touched" class="text-danger small">
+          <i class="fas fa-exclamation-circle me-1"></i>Vous devez accepter les termes et conditions.
+        </div>
+      </div>
+
+      <!-- Bouton d'inscription -->
+      <button type="submit" class="btn-register" [disabled]="registerForm.invalid || isLoading">
+        <i *ngIf="!isLoading" class="fas fa-user-plus me-2"></i>
+        <span *ngIf="!isLoading">S'inscrire</span>
+        <span *ngIf="isLoading" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+        <span *ngIf="isLoading"> Inscription en cours...</span>
+      </button>
+
+      <div class="login-link">
+        <p>Déjà inscrit ? <a routerLink="/auth/login">Connectez-vous</a></p>
+      </div>
+    </form>
+  </div>
+</div>
+
+<style>
+  .password-input-container {
+    position: relative;
+  }
+  
+  .password-toggle {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: #6b7280;
+    cursor: pointer;
+  }
+  
+  .form-check-input {
+    width: 1rem;
+    height: 1rem;
+    margin-top: 0.2rem;
+  }
+  
+  .form-check-label {
+    font-size: 0.9rem;
+    color: #6b7280;
+    margin-left: 0.5rem;
+  }
+  
+  .terms-link {
+    color: #2563eb;
+    text-decoration: none;
+  }
+  
+  .terms-link:hover {
+    text-decoration: underline;
+  }
+  
+  .password-strength {
+    margin-top: 0.5rem;
+  }
+  
+  .strength-meter {
+    height: 4px;
+    background-color: #e5e7eb;
+    border-radius: 2px;
+    margin-bottom: 0.25rem;
+  }
+  
+  .strength-meter-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 0.3s ease, background-color 0.3s ease;
+  }
+  
+  .strength-meter-fill.strength-weak {
+    background-color: #ef4444;
+  }
+  
+  .strength-meter-fill.strength-medium {
+    background-color: #f59e0b;
+  }
+  
+  .strength-meter-fill.strength-strong {
+    background-color: #10b981;
+  }
+  
+  .strength-text {
+    font-size: 0.75rem;
+  }
+  
+  .strength-weak {
+    color: #ef4444;
+  }
+  
+  .strength-medium {
+    color: #f59e0b;
+  }
+  
+  .strength-strong {
+    color: #10b981;
+  }
+  
+  .me-1 {
+    margin-right: 0.25rem;
+  }
+  
+  .me-2 {
+    margin-right: 0.5rem;
+  }
+  
+  .mb-3 {
+    margin-bottom: 1rem;
+  }
+</style>

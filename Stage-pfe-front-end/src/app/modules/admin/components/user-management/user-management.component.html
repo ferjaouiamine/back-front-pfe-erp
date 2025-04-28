@@ -1,0 +1,181 @@
+<div class="user-management-container">
+  <!-- En-tête avec recherche et bouton d'ajout -->
+  <div class="header-actions">
+    <div class="search-box">
+      <input type="text" [(ngModel)]="searchQuery" placeholder="Rechercher un utilisateur..." (input)="filterUsers()">
+      <button class="search-btn" (click)="filterUsers()">
+        <i class="fas fa-search"></i>
+      </button>
+    </div>
+    <button class="btn btn-primary" (click)="newUser()">
+      <i class="fas fa-plus"></i> Nouvel utilisateur
+    </button>
+    <button class="btn btn-primary" (click)="testAdminAccess()">
+      <i class="bi bi-bug"></i> Tester l'accès admin
+    </button>
+  </div>
+
+  <!-- Messages -->
+  <div *ngIf="errorMessage && !users.length" class="alert alert-danger">
+    {{ errorMessage }}
+    <button type="button" class="btn-close float-end" aria-label="Close" (click)="errorMessage = null"></button>
+  </div>
+  <div *ngIf="successMessage" class="alert alert-success">
+    {{ successMessage }}
+    <button type="button" class="btn-close float-end" aria-label="Close" (click)="successMessage = null"></button>
+  </div>
+  <div *ngIf="errorMessage && users.length" class="alert alert-warning">
+    <strong>Attention:</strong> {{ errorMessage }}
+    <button type="button" class="btn-close float-end" aria-label="Close" (click)="errorMessage = null"></button>
+  </div>
+
+  <!-- Tableau des utilisateurs -->
+  <div class="users-table-container">
+    <div *ngIf="isLoading" class="loading-spinner">
+      <div class="spinner-border text-primary" role="status">
+        <span class="visually-hidden">Chargement...</span>
+      </div>
+    </div>
+
+    <table *ngIf="!isLoading && filteredUsers.length > 0" class="users-table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Nom d'utilisateur</th>
+          <th>Email</th>
+          <th>Rôles</th>
+          <th>Statut</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let user of filteredUsers">
+          <td>{{ user.id }}</td>
+          <td>{{ user.username }}</td>
+          <td>{{ user.email }}</td>
+          <td>
+            <span *ngFor="let role of user.roles; let last = last" class="role-badge" [ngClass]="{
+              'admin-role': role === 'ADMIN',
+              'vendeur-role': role === 'VENDEUR',
+              'client-role': role === 'CLIENT'
+            }">
+              {{ role }}{{ !last ? ', ' : '' }}
+            </span>
+          </td>
+          <td>
+            <span class="badge" [ngClass]="{'bg-success': user.active, 'bg-danger': !user.active}">
+              {{ user.active ? 'Actif' : 'Inactif' }}
+            </span>
+          </td>
+          <td class="actions-cell">
+            <button class="btn btn-sm btn-info" (click)="selectUser(user)">
+              <i class="fas fa-edit"></i>
+            </button>
+            <button class="btn btn-sm btn-danger" (click)="confirmDelete(user)">
+              <i class="fas fa-trash"></i>
+            </button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div *ngIf="!isLoading && filteredUsers.length === 0" class="no-results">
+      <p>Aucun utilisateur trouvé</p>
+    </div>
+  </div>
+
+  <!-- Formulaire d'ajout/édition -->
+  <div class="user-form-container" [class.active]="isEditing">
+    <div class="form-header">
+      <h3>{{ selectedUser ? 'Modifier l\'utilisateur' : 'Nouvel utilisateur' }}</h3>
+      <button class="btn-close" (click)="cancelEdit()"></button>
+    </div>
+    <div *ngIf="formErrorMessage" class="alert alert-danger mb-3">
+      {{ formErrorMessage }}
+      <button type="button" class="btn-close float-end" aria-label="Close" (click)="formErrorMessage = null"></button>
+    </div>
+
+    <form [formGroup]="userForm" (ngSubmit)="onSubmit()">
+      <div class="form-group">
+        <label for="username">Nom d'utilisateur</label>
+        <input type="text" id="username" formControlName="username" class="form-control" 
+               [class.is-invalid]="userForm.get('username')?.invalid && userForm.get('username')?.touched">
+        <div *ngIf="userForm.get('username')?.invalid && userForm.get('username')?.touched" class="invalid-feedback">
+          <span *ngIf="userForm.get('username')?.errors?.['required']">Le nom d'utilisateur est requis</span>
+          <span *ngIf="userForm.get('username')?.errors?.['minlength']">Le nom d'utilisateur doit contenir au moins 3 caractères</span>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="email">Email</label>
+        <input type="email" id="email" formControlName="email" class="form-control"
+               [class.is-invalid]="userForm.get('email')?.invalid && userForm.get('email')?.touched">
+        <div *ngIf="userForm.get('email')?.invalid && userForm.get('email')?.touched" class="invalid-feedback">
+          <span *ngIf="userForm.get('email')?.errors?.['required']">L'email est requis</span>
+          <span *ngIf="userForm.get('email')?.errors?.['email']">Veuillez entrer un email valide</span>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Rôles</label>
+        <div class="roles-container">
+          <div *ngFor="let role of availableRoles" class="role-checkbox">
+            <input type="checkbox" [id]="'role-' + role" [checked]="isRoleSelected(role)" (change)="toggleRole(role)">
+            <label [for]="'role-' + role" class="role-label" [ngClass]="{
+              'admin-role': role === 'ADMIN',
+              'vendeur-role': role === 'VENDEUR',
+              'client-role': role === 'CLIENT'
+            }">{{ role }}</label>
+          </div>
+        </div>
+        <div *ngIf="userForm.get('roles')?.invalid && userForm.get('roles')?.touched" class="text-danger mt-1">
+          <small *ngIf="userForm.get('roles')?.errors?.['required']">Au moins un rôle doit être sélectionné</small>
+        </div>
+        <div *ngIf="!userForm.get('roles')?.value?.length" class="text-warning mt-1">
+          <small>Attention : Aucun rôle sélectionné</small>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="password">{{ isEditing ? 'Nouveau mot de passe (laisser vide pour ne pas changer)' : 'Mot de passe' }}</label>
+        <input type="password" id="password" formControlName="password" class="form-control"
+               [class.is-invalid]="userForm.get('password')?.invalid && userForm.get('password')?.touched">
+        <div *ngIf="userForm.get('password')?.invalid && userForm.get('password')?.touched" class="invalid-feedback">
+          <span *ngIf="userForm.get('password')?.errors?.['required']">Le mot de passe est requis</span>
+          <span *ngIf="userForm.get('password')?.errors?.['minlength']">Le mot de passe doit contenir au moins 6 caractères</span>
+        </div>
+      </div>
+
+      <div class="form-actions">
+        <button type="button" class="btn btn-secondary" (click)="cancelEdit()">Annuler</button>
+        <button type="submit" class="btn btn-primary" [disabled]="isLoading || userForm.invalid">
+          <span *ngIf="isLoading" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+          {{ selectedUser ? 'Mettre à jour' : 'Créer' }}
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Modal de confirmation de suppression -->
+  <div class="modal-overlay" *ngIf="showDeleteConfirmation">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Confirmer la suppression</h5>
+          <button type="button" class="btn-close" (click)="cancelDelete()"></button>
+        </div>
+        <div class="modal-body">
+          <p>Êtes-vous sûr de vouloir supprimer l'utilisateur <strong>{{ userToDelete?.username }}</strong> ?</p>
+          <p class="text-danger">Cette action est irréversible.</p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" (click)="cancelDelete()">Annuler</button>
+          <button type="button" class="btn btn-danger" (click)="deleteUser()" [disabled]="isLoading">
+            <span *ngIf="isLoading" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+            Supprimer
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

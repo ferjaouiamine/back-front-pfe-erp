@@ -1,0 +1,407 @@
+// Variables
+$primary-color: #3f51b5;
+$secondary-color: #f50057;
+$success-color: #4caf50;
+$warning-color: #ff9800;
+$danger-color: #f44336;
+$light-gray: #f5f5f5;
+$medium-gray: #e0e0e0;
+$dark-gray: #757575;
+$white: #ffffff;
+$shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+$border-radius: 4px;
+
+// Mixins
+@mixin card {
+  background-color: $white;
+  border-radius: $border-radius;
+  box-shadow: $shadow;
+  padding: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+@mixin flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@mixin flex-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+// Styles généraux
+.vendor-dashboard-container {
+  padding: 1.5rem;
+  background-color: $light-gray;
+  min-height: calc(100vh - 64px); // Ajustez selon la hauteur de votre header
+  
+  .dashboard-header {
+    @include flex-between;
+    margin-bottom: 1.5rem;
+    
+    h1 {
+      color: $primary-color;
+      margin: 0;
+      font-weight: 500;
+    }
+    
+    .user-info {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      
+      span {
+        color: $dark-gray;
+      }
+      
+      button {
+        i {
+          margin-right: 0.5rem;
+        }
+      }
+    }
+  }
+  
+  .alert {
+    @include flex-between;
+    padding: 0.75rem 1rem;
+    border-radius: $border-radius;
+    margin-bottom: 1rem;
+    
+    i {
+      margin-right: 0.5rem;
+    }
+    
+    &.alert-danger {
+      background-color: rgba($danger-color, 0.1);
+      color: $danger-color;
+      border: 1px solid rgba($danger-color, 0.2);
+    }
+    
+    &.alert-success {
+      background-color: rgba($success-color, 0.1);
+      color: $success-color;
+      border: 1px solid rgba($success-color, 0.2);
+    }
+    
+    .close {
+      background: none;
+      border: none;
+      font-size: 1.25rem;
+      cursor: pointer;
+      opacity: 0.7;
+      
+      &:hover {
+        opacity: 1;
+      }
+    }
+  }
+  
+  .dashboard-content {
+    display: flex;
+    gap: 1.5rem;
+    
+    @media (max-width: 992px) {
+      flex-direction: column;
+    }
+  }
+}
+
+// Catalogue de produits
+.product-catalog {
+  flex: 3;
+  @include card;
+  
+  .catalog-header {
+    margin-bottom: 1.5rem;
+    
+    h2 {
+      color: $primary-color;
+      margin-bottom: 1rem;
+      font-weight: 500;
+    }
+    
+    .search-filters {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      
+      .input-group {
+        flex: 2;
+        min-width: 200px;
+      }
+      
+      .category-filter {
+        flex: 1;
+        min-width: 150px;
+      }
+    }
+  }
+  
+  .product-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 1rem;
+    max-height: 600px;
+    overflow-y: auto;
+    padding-right: 0.5rem;
+    
+    &::-webkit-scrollbar {
+      width: 6px;
+    }
+    
+    &::-webkit-scrollbar-track {
+      background: $light-gray;
+    }
+    
+    &::-webkit-scrollbar-thumb {
+      background-color: $medium-gray;
+      border-radius: 20px;
+    }
+    
+    .product-card {
+      @include card;
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      height: 100%;
+      transition: transform 0.2s, box-shadow 0.2s;
+      
+      &:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+      }
+      
+      .product-info {
+        h3 {
+          font-size: 1.1rem;
+          margin-bottom: 0.5rem;
+          color: $primary-color;
+        }
+        
+        .product-description {
+          font-size: 0.9rem;
+          color: $dark-gray;
+          margin-bottom: 0.75rem;
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+        }
+        
+        .product-details {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 0.5rem;
+          margin-bottom: 1rem;
+          
+          span {
+            font-size: 0.85rem;
+            padding: 0.25rem 0.5rem;
+            border-radius: 20px;
+          }
+          
+          .product-price {
+            background-color: rgba($primary-color, 0.1);
+            color: $primary-color;
+            font-weight: bold;
+          }
+          
+          .product-stock {
+            background-color: rgba($success-color, 0.1);
+            color: $success-color;
+            
+            &.low-stock {
+              background-color: rgba($warning-color, 0.1);
+              color: $warning-color;
+            }
+          }
+          
+          .product-category {
+            background-color: rgba($dark-gray, 0.1);
+            color: $dark-gray;
+          }
+        }
+      }
+      
+      .product-actions {
+        button {
+          width: 100%;
+          
+          i {
+            margin-right: 0.5rem;
+          }
+        }
+      }
+    }
+    
+    .no-products, .loading-spinner {
+      @include flex-center;
+      flex-direction: column;
+      grid-column: 1 / -1;
+      padding: 3rem;
+      color: $dark-gray;
+      
+      i {
+        margin-bottom: 1rem;
+      }
+    }
+  }
+}
+
+// Panier et facture
+.cart-invoice {
+  flex: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  
+  .cart-section, .invoice-section {
+    @include card;
+    
+    h2 {
+      color: $primary-color;
+      margin-bottom: 1rem;
+      font-weight: 500;
+    }
+  }
+  
+  .cart-items {
+    max-height: 300px;
+    overflow-y: auto;
+    margin-bottom: 1rem;
+    
+    .cart-item {
+      @include flex-between;
+      padding: 0.75rem;
+      border-bottom: 1px solid $medium-gray;
+      
+      &:last-child {
+        border-bottom: none;
+      }
+      
+      .item-details {
+        flex: 2;
+        
+        h4 {
+          font-size: 1rem;
+          margin: 0 0 0.25rem 0;
+        }
+        
+        .item-price {
+          font-size: 0.9rem;
+          color: $dark-gray;
+        }
+      }
+      
+      .item-quantity {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        
+        input {
+          width: 50px;
+          text-align: center;
+          border: 1px solid $medium-gray;
+          border-radius: $border-radius;
+          padding: 0.25rem;
+        }
+      }
+      
+      .item-total {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        font-weight: bold;
+        color: $primary-color;
+      }
+    }
+  }
+  
+  .empty-cart {
+    @include flex-center;
+    flex-direction: column;
+    padding: 2rem;
+    color: $dark-gray;
+    
+    i {
+      margin-bottom: 1rem;
+    }
+  }
+  
+  .cart-summary {
+    background-color: $light-gray;
+    padding: 1rem;
+    border-radius: $border-radius;
+    
+    .summary-line {
+      @include flex-between;
+      margin-bottom: 0.5rem;
+      
+      &.discount {
+        .discount-input {
+          display: flex;
+          align-items: center;
+          
+          input {
+            width: 80px;
+            text-align: right;
+            border: 1px solid $medium-gray;
+            border-radius: $border-radius;
+            padding: 0.25rem;
+            margin-right: 0.25rem;
+          }
+        }
+      }
+      
+      &.total {
+        font-weight: bold;
+        font-size: 1.1rem;
+        margin-top: 0.5rem;
+        padding-top: 0.5rem;
+        border-top: 1px solid $medium-gray;
+        color: $primary-color;
+      }
+    }
+  }
+  
+  .client-form {
+    .form-group {
+      margin-bottom: 1rem;
+      
+      label {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-weight: 500;
+      }
+      
+      input {
+        width: 100%;
+        padding: 0.5rem;
+        border: 1px solid $medium-gray;
+        border-radius: $border-radius;
+        
+        &:focus {
+          outline: none;
+          border-color: $primary-color;
+        }
+      }
+    }
+  }
+  
+  .invoice-actions {
+    @include flex-between;
+    margin-top: 1.5rem;
+    
+    button {
+      i {
+        margin-right: 0.5rem;
+      }
+    }
+  }
+}

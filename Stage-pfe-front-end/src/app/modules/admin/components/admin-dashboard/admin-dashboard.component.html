@@ -1,0 +1,115 @@
+<div class="admin-dashboard-container">
+  <!-- Message d'erreur -->
+  <div *ngIf="errorMessage" class="alert alert-danger">
+    {{ errorMessage }}
+  </div>
+
+  <!-- Indicateur de chargement -->
+  <div *ngIf="isLoading" class="loading-container">
+    <div class="spinner-border text-primary" role="status">
+      <span class="visually-hidden">Chargement...</span>
+    </div>
+  </div>
+
+  <!-- Contenu principal -->
+  <div *ngIf="!isLoading" class="dashboard-content">
+    <!-- Cartes de statistiques -->
+    <div class="stat-cards-container">
+      <div *ngFor="let card of statCards" class="stat-card" [ngStyle]="{'border-top': '3px solid ' + card.color}">
+        <div class="card-icon" [ngStyle]="{'background-color': card.color + '20'}">
+          <i [class]="card.icon" [ngStyle]="{'color': card.color}"></i>
+        </div>
+        <div class="card-content">
+          <h3 class="card-title">{{ card.title }}</h3>
+          <p class="card-value">
+            {{ card.title === 'Chiffre d\'affaires' ? formatCurrency(card.value) : card.value }}
+          </p>
+          <p class="card-change" *ngIf="card.change">
+            <i [class]="card.changeDirection === 'up' ? 'fas fa-arrow-up' : 'fas fa-arrow-down'"
+               [ngClass]="{'text-success': card.changeDirection === 'up', 'text-danger': card.changeDirection === 'down'}"></i>
+            {{ card.change }}% depuis le mois dernier
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Graphiques et activités récentes -->
+    <div class="dashboard-widgets">
+      <!-- Graphique des ventes -->
+      <div class="widget sales-chart">
+        <div class="widget-header">
+          <h3>Ventes mensuelles</h3>
+        </div>
+        <div class="widget-body">
+          <!-- Emplacement pour le graphique (à implémenter avec Chart.js) -->
+          <div class="chart-container">
+            <p class="chart-placeholder">Graphique des ventes mensuelles</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Graphique des utilisateurs par rôle -->
+      <div class="widget users-chart">
+        <div class="widget-header">
+          <h3>Utilisateurs par rôle</h3>
+        </div>
+        <div class="widget-body">
+          <!-- Emplacement pour le graphique (à implémenter avec Chart.js) -->
+          <div class="chart-container">
+            <p class="chart-placeholder">Graphique des utilisateurs par rôle</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Activités récentes -->
+      <div class="widget recent-activities">
+        <div class="widget-header">
+          <h3>Activités récentes</h3>
+        </div>
+        <div class="widget-body">
+          <ul class="activity-list">
+            <li *ngFor="let activity of recentActivities" class="activity-item">
+              <div class="activity-icon" [ngClass]="getActivityTypeClass(activity.type)">
+                <i [class]="getActivityTypeIcon(activity.type)"></i>
+              </div>
+              <div class="activity-content">
+                <p class="activity-title">
+                  <strong>{{ activity.action }}</strong> - {{ activity.description }}
+                </p>
+                <p class="activity-meta">
+                  <span class="activity-time">{{ activity.date | date:'dd/MM/yyyy HH:mm' }}</span>
+                  <span class="activity-user">par <strong>{{ activity.user }}</strong></span>
+                </p>
+              </div>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- Liens rapides -->
+    <div class="quick-links">
+      <div class="widget-header">
+        <h3>Accès rapides</h3>
+      </div>
+      <div class="links-container">
+        <a routerLink="/admin/users" class="quick-link">
+          <i class="fas fa-users"></i>
+          <span>Gestion des utilisateurs</span>
+        </a>
+        <a routerLink="/admin/factures" class="quick-link">
+          <i class="fas fa-file-invoice"></i>
+          <span>Gestion des factures</span>
+        </a>
+        <a routerLink="/admin/products" class="quick-link">
+          <i class="fas fa-box"></i>
+          <span>Gestion des produits</span>
+        </a>
+        <a href="#" class="quick-link">
+          <i class="fas fa-cog"></i>
+          <span>Paramètres système</span>
+        </a>
+      </div>
+    </div>
+  </div>
+</div>

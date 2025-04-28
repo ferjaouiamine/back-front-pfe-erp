@@ -1,0 +1,204 @@
+// Variables de couleur
+$primary-color: #2563eb;
+$primary-hover: #1d4ed8;
+$secondary-color: #f3f4f6;
+$text-color: #374151;
+$text-light: #6b7280;
+$error-color: #ef4444;
+$success-color: #10b981;
+$white: #ffffff;
+$border-color: #e5e7eb;
+$shadow-color: rgba(0, 0, 0, 0.1);
+
+// Mixins
+@mixin card-shadow {
+  box-shadow: 0 10px 15px -3px $shadow-color, 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+@mixin button-base {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  padding: 0.75rem 1.5rem;
+  font-weight: 600;
+  border: none;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+  
+  &:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+  }
+}
+
+@mixin input-base {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 1px solid $border-color;
+  border-radius: 0.5rem;
+  font-size: 1rem;
+  color: $text-color;
+  background-color: $white;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  
+  &:focus {
+    outline: none;
+    border-color: $primary-color;
+    box-shadow: 0 0 0 3px rgba($primary-color, 0.2);
+  }
+  
+  &::placeholder {
+    color: $text-light;
+  }
+}
+
+// Styles de base partagés
+.auth-wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%);
+  padding: 1.5rem;
+}
+
+.auth-container {
+  background-color: $white;
+  border-radius: 1rem;
+  @include card-shadow;
+  width: 100%;
+  max-width: 450px;
+  padding: 2.5rem;
+  position: relative;
+  overflow: hidden;
+  
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 5px;
+    background: linear-gradient(90deg, $primary-color, lighten($primary-color, 20%));
+  }
+}
+
+.auth-title {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: $text-color;
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+
+.auth-subtitle {
+  font-size: 1rem;
+  color: $text-light;
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.form-group {
+  margin-bottom: 1.25rem;
+  
+  label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+    color: $text-color;
+  }
+  
+  .form-control {
+    @include input-base;
+  }
+}
+
+.auth-btn {
+  @include button-base;
+  background-color: $primary-color;
+  color: $white;
+  margin-top: 1.5rem;
+  
+  &:hover:not(:disabled) {
+    background-color: $primary-hover;
+    transform: translateY(-1px);
+  }
+  
+  &:active:not(:disabled) {
+    transform: translateY(0);
+  }
+  
+  .spinner-border {
+    margin-left: 0.5rem;
+  }
+}
+
+.auth-link {
+  text-align: center;
+  margin-top: 1.5rem;
+  font-size: 0.95rem;
+  color: $text-light;
+  
+  a {
+    color: $primary-color;
+    text-decoration: none;
+    font-weight: 500;
+    
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+}
+
+.alert {
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  margin-bottom: 1.5rem;
+  font-size: 0.95rem;
+  
+  &.alert-danger {
+    background-color: rgba($error-color, 0.1);
+    color: darken($error-color, 10%);
+    border: 1px solid rgba($error-color, 0.2);
+  }
+  
+  &.alert-success {
+    background-color: rgba($success-color, 0.1);
+    color: darken($success-color, 10%);
+    border: 1px solid rgba($success-color, 0.2);
+  }
+}
+
+.text-danger {
+  color: $error-color;
+  font-size: 0.85rem;
+  margin-top: 0.25rem;
+}
+
+// Animation
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.auth-container {
+  animation: fadeIn 0.4s ease-out;
+}
+
+// Spinner
+.spinner-border {
+  display: inline-block;
+  width: 1rem;
+  height: 1rem;
+  vertical-align: text-bottom;
+  border: 0.2em solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spinner-border 0.75s linear infinite;
+}
+
+@keyframes spinner-border {
+  to { transform: rotate(360deg); }
+}

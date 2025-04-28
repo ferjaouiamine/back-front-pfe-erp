@@ -1,0 +1,27 @@
+/* Styles pour le composant de débogage */
+.container {
+  padding: 20px;
+}
+
+pre {
+  background-color: #f5f5f5;
+  padding: 10px;
+  border-radius: 4px;
+  max-height: 300px;
+  overflow: auto;
+}
+
+.card {
+  margin-bottom: 20px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.card-header {
+  background-color: #f8f9fa;
+  font-weight: bold;
+}
+
+.alert-info {
+  background-color: #e8f4f8;
+  border-color: #b8e2f2;
+}

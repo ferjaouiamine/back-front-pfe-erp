@@ -1,0 +1,89 @@
+<div class="admin-layout-container">
+  <!-- Sidebar de navigation -->
+  <div class="admin-sidebar" [class.collapsed]="sidebarCollapsed">
+    <div class="sidebar-header">
+      <h2>Admin Panel</h2>
+    </div>
+    <div class="sidebar-user" *ngIf="authService.getCurrentUser()">
+      <div class="user-avatar">
+        <i class="fas fa-user-shield"></i>
+      </div>
+      <div class="user-info">
+        <h3>{{ authService.getCurrentUser()?.username }}</h3>
+        <span class="user-role">Administrateur</span>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <ul>
+        <li>
+          <a routerLink="/admin/dashboard" routerLinkActive="active">
+            <i class="fas fa-tachometer-alt"></i> Tableau de bord
+          </a>
+        </li>
+        <li>
+          <a routerLink="/admin/users" routerLinkActive="active">
+            <i class="fas fa-users"></i> Gestion des utilisateurs
+          </a>
+        </li>
+        <li>
+          <a routerLink="/admin/factures" routerLinkActive="active">
+            <i class="fas fa-file-invoice"></i> Gestion des factures
+          </a>
+        </li>
+        <li>
+          <a routerLink="/admin/products" routerLinkActive="active">
+            <i class="fas fa-box"></i> Gestion des produits
+          </a>
+        </li>
+        <li class="sidebar-divider"></li>
+        <li>
+          <a (click)="logout()" class="logout-link">
+            <i class="fas fa-sign-out-alt"></i> Déconnexion
+          </a>
+        </li>
+      </ul>
+    </nav>
+  </div>
+
+  <!-- Contenu principal -->
+  <div class="admin-content">
+    <!-- En-tête -->
+    <header class="admin-header">
+      <div class="header-title">
+        <button class="menu-toggle" (click)="toggleSidebar()">
+          <i class="fas fa-bars"></i>
+        </button>
+        <h1>{{ pageTitle }}</h1>
+      </div>
+      <div class="header-actions">
+        <div class="search-box">
+          <input type="text" placeholder="Rechercher..." [(ngModel)]="searchQuery" (keyup.enter)="search()">
+          <button (click)="search()">
+            <i class="fas fa-search"></i>
+          </button>
+        </div>
+        <div class="user-dropdown" *ngIf="authService.getCurrentUser()">
+          <button class="dropdown-toggle" (click)="toggleUserMenu()">
+            <i class="fas fa-user-circle"></i>
+            <span>{{ authService.getCurrentUser()?.username }}</span>
+            <i class="fas fa-chevron-down"></i>
+          </button>
+          <div class="dropdown-menu" [class.show]="showUserMenu">
+            <a routerLink="/admin/profile">
+              <i class="fas fa-user"></i> Profil
+            </a>
+            <a (click)="logout()">
+              <i class="fas fa-sign-out-alt"></i> Déconnexion
+            </a>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Zone de contenu -->
+    <main class="admin-main">
+      <router-outlet></router-outlet>
+    </main>
+  </div>
+</div>
+

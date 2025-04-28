@@ -1,0 +1,217 @@
+<div class="vendor-dashboard-container">
+  <div class="dashboard-header">
+    <div class="header-title">
+      <h1>Tableau de Bord Vendeur</h1>
+      <p *ngIf="authService.getCurrentUser()">
+        Bienvenue, <strong>{{ authService.getCurrentUser()?.username }}</strong>
+      </p>
+    </div>
+    
+    <div class="header-actions">
+      <button class="btn btn-outline-primary" (click)="viewAllFactures()">
+        <i class="fas fa-file-invoice"></i> Toutes les factures
+      </button>
+      <button class="btn btn-primary" (click)="createNewFacture()">
+        <i class="fas fa-plus-circle"></i> Nouvelle facture
+      </button>
+      <button class="btn btn-danger" (click)="logout()">
+        <i class="fas fa-sign-out-alt"></i> Déconnexion
+      </button>
+    </div>
+  </div>
+  
+  <!-- Affichage des messages -->
+  <div class="alert alert-danger" *ngIf="errorMessage">
+    <i class="fas fa-exclamation-circle"></i> {{ errorMessage }}
+    <button type="button" class="close" (click)="errorMessage = null">&times;</button>
+  </div>
+  
+  <!-- Contenu principal -->
+  <div class="dashboard-content" *ngIf="!isLoading; else loadingTemplate">
+    <!-- Cartes de statistiques -->
+    <div class="stats-cards">
+      <div class="stat-card">
+        <div class="stat-icon">
+          <i class="fas fa-euro-sign"></i>
+        </div>
+        <div class="stat-content">
+          <h3>{{ totalSales | currency:'EUR' }}</h3>
+          <p>Ventes totales</p>
+        </div>
+      </div>
+      
+      <div class="stat-card">
+        <div class="stat-icon primary">
+          <i class="fas fa-file-invoice"></i>
+        </div>
+        <div class="stat-content">
+          <h3>{{ totalFactures }}</h3>
+          <p>Factures totales</p>
+        </div>
+      </div>
+      
+      <div class="stat-card">
+        <div class="stat-icon success">
+          <i class="fas fa-check-circle"></i>
+        </div>
+        <div class="stat-content">
+          <h3>{{ paidFactures }}</h3>
+          <p>Factures payées</p>
+        </div>
+      </div>
+      
+      <div class="stat-card">
+        <div class="stat-icon warning">
+          <i class="fas fa-clock"></i>
+        </div>
+        <div class="stat-content">
+          <h3>{{ pendingFactures }}</h3>
+          <p>Factures en attente</p>
+        </div>
+      </div>
+      
+      <div class="stat-card">
+        <div class="stat-icon info">
+          <i class="fas fa-calculator"></i>
+        </div>
+        <div class="stat-content">
+          <h3>{{ averageSale | currency:'EUR' }}</h3>
+          <p>Panier moyen</p>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Graphiques et analyses -->
+    <div class="charts-container">
+      <div class="chart-card">
+        <div class="card-header">
+          <h3>Ventes Mensuelles</h3>
+        </div>
+        <div class="card-body">
+          <div class="chart-placeholder">
+            <!-- Ici, nous simulons un graphique en barres -->
+            <div class="chart-bars">
+              <div *ngFor="let value of monthlySalesData.datasets[0].data; let i = index" 
+                  class="chart-bar" 
+                  [style.height.%]="value > 0 ? (value / getMaxValue(monthlySalesData.datasets[0].data)) * 100 : 0">
+                <div class="bar-value">{{ value | currency:'EUR':'symbol':'1.0-0' }}</div>
+              </div>
+            </div>
+            <div class="chart-labels">
+              <div *ngFor="let label of monthlySalesData.labels" class="chart-label">
+                {{ label }}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="chart-card">
+        <div class="card-header">
+          <h3>Ventes par Catégorie</h3>
+        </div>
+        <div class="card-body">
+          <div class="category-list">
+            <div *ngFor="let category of salesByCategory" class="category-item">
+              <div class="category-info">
+                <span class="category-name">{{ category.category }}</span>
+                <span class="category-amount">{{ category.amount | currency:'EUR' }}</span>
+              </div>
+              <div class="category-bar">
+                <div class="category-progress" [style.width.%]="category.percentage"></div>
+              </div>
+              <div class="category-percentage">{{ category.percentage | number:'1.1-1' }}%</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Factures récentes et produits populaires -->
+    <div class="data-container">
+      <div class="data-card">
+        <div class="card-header">
+          <h3>Factures Récentes</h3>
+          <a (click)="viewAllFactures()" class="view-all">Voir tout</a>
+        </div>
+        <div class="card-body">
+          <table class="data-table" *ngIf="recentFactures.length > 0; else noRecentFactures">
+            <thead>
+              <tr>
+                <th>N° Facture</th>
+                <th>Date</th>
+                <th>Client</th>
+                <th>Montant</th>
+                <th>Statut</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let facture of recentFactures">
+                <td>{{ facture.number || 'N/A' }}</td>
+                <td>{{ facture.date | date:'dd/MM/yyyy' }}</td>
+                <td>{{ facture.clientName }}</td>
+                <td class="amount">{{ facture.total | currency:'EUR' }}</td>
+                <td>
+                  <span class="status-badge" [ngClass]="getStatusClass(facture.status)">
+                    {{ getStatusLabel(facture.status) }}
+                  </span>
+                </td>
+                <td class="actions">
+                  <button class="btn btn-sm btn-info" (click)="viewFacture(facture.id || '')" [disabled]="!facture.id">
+                    <i class="fas fa-eye"></i>
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          
+          <ng-template #noRecentFactures>
+            <div class="no-data">
+              <i class="fas fa-file-invoice fa-3x"></i>
+              <p>Aucune facture récente</p>
+            </div>
+          </ng-template>
+        </div>
+      </div>
+      
+      <div class="data-card">
+        <div class="card-header">
+          <h3>Produits les Plus Vendus</h3>
+        </div>
+        <div class="card-body">
+          <table class="data-table" *ngIf="topProducts.length > 0; else noTopProducts">
+            <thead>
+              <tr>
+                <th>Produit</th>
+                <th>Quantité</th>
+                <th>Montant</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let product of topProducts">
+                <td>{{ product.productName }}</td>
+                <td class="text-center">{{ product.quantity }}</td>
+                <td class="amount">{{ product.amount | currency:'EUR' }}</td>
+              </tr>
+            </tbody>
+          </table>
+          
+          <ng-template #noTopProducts>
+            <div class="no-data">
+              <i class="fas fa-box-open fa-3x"></i>
+              <p>Aucune donnée sur les produits</p>
+            </div>
+          </ng-template>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <ng-template #loadingTemplate>
+    <div class="loading-spinner">
+      <i class="fas fa-spinner fa-spin fa-3x"></i>
+      <p>Chargement des données...</p>
+    </div>
+  </ng-template>
+</div>

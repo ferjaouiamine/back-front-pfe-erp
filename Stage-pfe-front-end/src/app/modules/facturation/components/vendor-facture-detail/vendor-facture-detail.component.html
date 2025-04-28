@@ -1,0 +1,262 @@
+<div class="vendor-facture-detail-container">
+  <div class="facture-header">
+    <div class="header-actions">
+      <button class="btn btn-outline-primary" (click)="goBack()">
+        <i class="fas fa-arrow-left"></i> Retour
+      </button>
+    </div>
+    <div class="header-title">
+      <h1>Détail de la Facture</h1>
+      <p *ngIf="facture?.number">N° {{ facture?.number }}</p>
+    </div>
+    <div class="header-actions">
+      <button class="btn btn-outline-secondary" (click)="printFacture()">
+        <i class="fas fa-print"></i> Imprimer
+      </button>
+      <button class="btn btn-outline-primary" (click)="generatePdf()">
+        <i class="fas fa-file-pdf"></i> PDF
+      </button>
+    </div>
+  </div>
+  
+  <!-- Affichage des messages -->
+  <div class="alert alert-danger" *ngIf="errorMessage">
+    <i class="fas fa-exclamation-circle"></i> {{ errorMessage }}
+    <button type="button" class="close" (click)="errorMessage = null">&times;</button>
+  </div>
+  <div class="alert alert-success" *ngIf="successMessage">
+    <i class="fas fa-check-circle"></i> {{ successMessage }}
+    <button type="button" class="close" (click)="successMessage = null">&times;</button>
+  </div>
+  
+  <!-- Contenu principal -->
+  <div class="facture-content" *ngIf="!isLoading && facture; else loadingTemplate">
+    <!-- Informations de la facture -->
+    <div class="facture-info-container">
+      <div class="facture-info-card">
+        <div class="card-header">
+          <h3>Informations de la Facture</h3>
+        </div>
+        <div class="card-body">
+          <div class="info-row">
+            <div class="info-label">Numéro de facture:</div>
+            <div class="info-value">{{ facture.number || 'N/A' }}</div>
+          </div>
+          <div class="info-row">
+            <div class="info-label">Date:</div>
+            <div class="info-value">{{ facture.date | date:'dd/MM/yyyy' }}</div>
+          </div>
+          <div class="info-row">
+            <div class="info-label">Statut:</div>
+            <div class="info-value">
+              <span class="status-badge" [ngClass]="getStatusClass(facture.status)">
+                {{ getStatusLabel(facture.status) }}
+              </span>
+            </div>
+          </div>
+          <div class="info-row">
+            <div class="info-label">Vendeur:</div>
+            <div class="info-value">{{ authService.getCurrentUser()?.username || 'N/A' }}</div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="facture-info-card">
+        <div class="card-header">
+          <h3>Informations du Client</h3>
+        </div>
+        <div class="card-body">
+          <div class="info-row">
+            <div class="info-label">Nom:</div>
+            <div class="info-value">{{ facture.clientName }}</div>
+          </div>
+          <div class="info-row">
+            <div class="info-label">Email:</div>
+            <div class="info-value">{{ facture.clientEmail || 'N/A' }}</div>
+          </div>
+          <div class="info-row">
+            <div class="info-label">Téléphone:</div>
+            <div class="info-value">N/A</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Tableau des articles -->
+    <div class="facture-items-card">
+      <div class="card-header">
+        <h3>Articles</h3>
+      </div>
+      <div class="card-body">
+        <table class="items-table">
+          <thead>
+            <tr>
+              <th>Produit</th>
+              <th class="text-center">Quantité</th>
+              <th class="text-right">Prix unitaire</th>
+              <th class="text-right">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let item of facture.items">
+              <td>{{ item.productName }}</td>
+              <td class="text-center">{{ item.quantity }}</td>
+              <td class="text-right">{{ item.unitPrice | currency:'EUR' }}</td>
+              <td class="text-right">{{ item.quantity * item.unitPrice | currency:'EUR' }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    
+    <!-- Résumé des totaux -->
+    <div class="facture-summary-card">
+      <div class="card-body">
+        <div class="summary-row">
+          <div class="summary-label">Sous-total:</div>
+          <div class="summary-value">{{ calculateSubtotal() | currency:'EUR' }}</div>
+        </div>
+        <div class="summary-row">
+          <div class="summary-label">TVA ({{ getTaxRate() }}%):</div>
+          <div class="summary-value">{{ getTaxAmount() | currency:'EUR' }}</div>
+        </div>
+        <div class="summary-row" *ngIf="hasDiscount()">
+          <div class="summary-label">Remise:</div>
+          <div class="summary-value">-{{ getDiscount() | currency:'EUR' }}</div>
+        </div>
+        <div class="summary-row total">
+          <div class="summary-label">Total:</div>
+          <div class="summary-value">{{ facture.total | currency:'EUR' }}</div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Actions sur la facture -->
+    <div class="facture-actions-container">
+      <div class="facture-actions-card">
+        <div class="card-header">
+          <h3>Actions</h3>
+        </div>
+        <div class="card-body">
+          <div class="action-buttons">
+            <button class="btn btn-success" [disabled]="facture.status === 'PAID'" 
+                    (click)="updateFactureStatus('PAID')">
+              <i class="fas fa-check-circle"></i> Marquer comme payée
+            </button>
+            <button class="btn btn-warning" [disabled]="facture.status === 'PENDING'" 
+                    (click)="updateFactureStatus('PENDING')">
+              <i class="fas fa-clock"></i> Marquer en attente
+            </button>
+            <button class="btn btn-danger" [disabled]="facture.status === 'CANCELLED'" 
+                    (click)="updateFactureStatus('CANCELLED')">
+              <i class="fas fa-ban"></i> Annuler
+            </button>
+          </div>
+        </div>
+      </div>
+      
+      <div class="facture-actions-card">
+        <div class="card-header">
+          <h3>Envoyer par Email</h3>
+        </div>
+        <div class="card-body">
+          <div class="form-group">
+            <label for="emailRecipient">Destinataire</label>
+            <input type="email" id="emailRecipient" class="form-control" 
+                  [(ngModel)]="emailRecipient" required>
+          </div>
+          <div class="form-group">
+            <label for="emailSubject">Objet</label>
+            <input type="text" id="emailSubject" class="form-control" 
+                  [(ngModel)]="emailSubject" required>
+          </div>
+          <div class="form-group">
+            <label for="emailMessage">Message</label>
+            <textarea id="emailMessage" class="form-control" rows="4" 
+                    [(ngModel)]="emailMessage" required></textarea>
+          </div>
+          <button class="btn btn-primary" (click)="sendEmail()" [disabled]="!emailRecipient">
+            <i class="fas fa-envelope"></i> Envoyer
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <ng-template #loadingTemplate>
+    <div class="loading-spinner">
+      <i class="fas fa-spinner fa-spin fa-3x"></i>
+      <p>Chargement de la facture...</p>
+    </div>
+  </ng-template>
+</div>
+
+<!-- Section imprimable pour l'impression -->
+<div class="print-section">
+  <div class="print-header">
+    <div class="company-info">
+      <h1>FACTURE</h1>
+      <h2>{{ facture?.number || 'N/A' }}</h2>
+      <p>Date: {{ facture?.date | date:'dd/MM/yyyy' }}</p>
+    </div>
+    <div class="logo">
+      <!-- Logo de l'entreprise -->
+    </div>
+  </div>
+  
+  <div class="print-client-info">
+    <div class="info-block">
+      <h3>Facturé à:</h3>
+      <p>{{ facture?.clientName }}</p>
+      <p *ngIf="facture?.clientEmail">Email: {{ facture?.clientEmail }}</p>
+      <p>Tél: N/A</p>
+    </div>
+    <div class="info-block">
+      <h3>Vendeur:</h3>
+      <p>{{ authService.getCurrentUser()?.username || 'N/A' }}</p>
+    </div>
+  </div>
+  
+  <table class="print-items-table">
+    <thead>
+      <tr>
+        <th>Produit</th>
+        <th>Quantité</th>
+        <th>Prix unitaire</th>
+        <th>Total</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let item of facture?.items">
+        <td>{{ item.productName }}</td>
+        <td>{{ item.quantity }}</td>
+        <td>{{ item.unitPrice | currency:'EUR' }}</td>
+        <td>{{ item.quantity * item.unitPrice | currency:'EUR' }}</td>
+      </tr>
+    </tbody>
+  </table>
+  
+  <div class="print-summary">
+    <div class="summary-row">
+      <div class="summary-label">Sous-total:</div>
+      <div class="summary-value">{{ calculateSubtotal() | currency:'EUR' }}</div>
+    </div>
+    <div class="summary-row">
+      <div class="summary-label">TVA ({{ getTaxRate() }}%):</div>
+      <div class="summary-value">{{ getTaxAmount() | currency:'EUR' }}</div>
+    </div>
+    <div class="summary-row" *ngIf="hasDiscount()">
+      <div class="summary-label">Remise:</div>
+      <div class="summary-value">-{{ getDiscount() | currency:'EUR' }}</div>
+    </div>
+    <div class="summary-row total">
+      <div class="summary-label">Total:</div>
+      <div class="summary-value">{{ facture?.total | currency:'EUR' }}</div>
+    </div>
+  </div>
+  
+  <div class="print-footer">
+    <p>Merci pour votre confiance!</p>
+    <p>Pour toute question concernant cette facture, veuillez contacter le service client.</p>
+  </div>
+</div>

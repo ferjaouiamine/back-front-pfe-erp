@@ -1,0 +1,149 @@
+<div class="login-wrapper">
+  <div class="login-container" data-aos="fade-up" data-aos-duration="1000">
+    <h2 class="login-title">Connexion</h2>
+    <p class="auth-subtitle">Bienvenue ! Connectez-vous pour accéder à votre compte.</p>
+    
+    <form [formGroup]="loginForm" (ngSubmit)="onLogin()">
+      <!-- Message d'erreur -->
+      <div *ngIf="errorMessage" class="alert alert-danger">
+        <i class="fas fa-exclamation-circle me-2"></i>
+        {{ errorMessage }}
+      </div>
+      
+      <!-- Message de succès -->
+      <div *ngIf="successMessage" class="alert alert-success">
+        <i class="fas fa-check-circle me-2"></i>
+        {{ successMessage }}
+      </div>
+
+      <div class="form-group">
+        <label for="usernameOrEmail">
+          <i class="fas fa-user me-2"></i>Nom d'utilisateur ou Email
+        </label>
+        <input
+          type="text"
+          id="usernameOrEmail"
+          class="form-control"
+          formControlName="usernameOrEmail" 
+          placeholder="Entrez votre nom d'utilisateur ou email"
+          autocomplete="username"
+          required
+        />
+        <!-- Validation usernameOrEmail -->
+        <div *ngIf="loginForm.get('usernameOrEmail')?.invalid && (loginForm.get('usernameOrEmail')?.dirty || loginForm.get('usernameOrEmail')?.touched)" class="text-danger">
+          <div *ngIf="loginForm.get('usernameOrEmail')?.errors?.['required']">
+            <i class="fas fa-exclamation-circle me-1"></i>Le nom d'utilisateur ou l'email est requis.
+          </div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <div class="d-flex justify-content-between align-items-center">
+          <label for="password">
+            <i class="fas fa-lock me-2"></i>Mot de passe
+          </label>
+          <a class="forgot-password" routerLink="/auth/forgot-password">Mot de passe oublié ?</a>
+        </div>
+        <div class="password-input-container">
+          <input
+            [type]="showPassword ? 'text' : 'password'"
+            id="password"
+            class="form-control"
+            formControlName="password"
+            placeholder="Entrez votre mot de passe"
+            autocomplete="current-password"
+            required
+          />
+          <button type="button" class="password-toggle" (click)="togglePasswordVisibility()">
+            <i class="fas" [ngClass]="showPassword ? 'fa-eye-slash' : 'fa-eye'"></i>
+          </button>
+        </div>
+        <!-- Validation Mot de passe -->
+        <div *ngIf="loginForm.get('password')?.invalid && (loginForm.get('password')?.dirty || loginForm.get('password')?.touched)" class="text-danger">
+          <div *ngIf="loginForm.get('password')?.errors?.['required']">
+            <i class="fas fa-exclamation-circle me-1"></i>Le mot de passe est requis.
+          </div>
+        </div>
+      </div>
+
+      <div class="form-check mb-3">
+        <input type="checkbox" class="form-check-input" id="rememberMe" formControlName="rememberMe">
+        <label class="form-check-label" for="rememberMe">Se souvenir de moi</label>
+      </div>
+
+      <button type="submit" class="btn-login" [disabled]="loginForm.invalid || isLoading">
+        <i *ngIf="!isLoading" class="fas fa-sign-in-alt me-2"></i>
+        <span *ngIf="!isLoading">Se connecter</span>
+        <span *ngIf="isLoading" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+        <span *ngIf="isLoading"> Connexion...</span>
+      </button>
+
+      <div class="signup-link">
+        <p>Pas encore de compte ? <a routerLink="/auth/register">Inscrivez-vous</a></p>
+      </div>
+    </form>
+  </div>
+</div>
+
+<style>
+  .password-input-container {
+    position: relative;
+  }
+  
+  .password-toggle {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: #6b7280;
+    cursor: pointer;
+  }
+  
+  .forgot-password {
+    font-size: 0.85rem;
+    color: #2563eb;
+    text-decoration: none;
+  }
+  
+  .forgot-password:hover {
+    text-decoration: underline;
+  }
+  
+  .form-check-input {
+    width: 1rem;
+    height: 1rem;
+    margin-top: 0.2rem;
+  }
+  
+  .form-check-label {
+    font-size: 0.9rem;
+    color: #6b7280;
+    margin-left: 0.5rem;
+  }
+  
+  .me-1 {
+    margin-right: 0.25rem;
+  }
+  
+  .me-2 {
+    margin-right: 0.5rem;
+  }
+  
+  .d-flex {
+    display: flex;
+  }
+  
+  .justify-content-between {
+    justify-content: space-between;
+  }
+  
+  .align-items-center {
+    align-items: center;
+  }
+  
+  .mb-3 {
+    margin-bottom: 1rem;
+  }
+</style>

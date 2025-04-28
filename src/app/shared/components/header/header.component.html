@@ -1,0 +1,9 @@
+<mat-toolbar color="primary">
+  <span>Gestion Commerciale</span>
+  <span class="spacer"></span>
+  <button mat-button routerLink="/facturation">Facturation</button>
+  <button mat-button routerLink="/stock">Stock</button>
+  <button mat-button routerLink="/caisse">Caisse</button>
+  <button mat-button routerLink="/achat">Achat</button>
+  <button *ngIf="isLoggedIn" mat-button (click)="logout()">Déconnexion</button>
+</mat-toolbar> 

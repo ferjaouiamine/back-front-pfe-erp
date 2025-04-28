@@ -1,0 +1,22 @@
+@import '../../styles/auth-shared.scss';
+
+// Styles spécifiques au composant de connexion
+.login-wrapper {
+  @extend .auth-wrapper;
+}
+
+.login-container {
+  @extend .auth-container;
+}
+
+.login-title {
+  @extend .auth-title;
+}
+
+.btn-login {
+  @extend .auth-btn;
+}
+
+.signup-link {
+  @extend .auth-link;
+}

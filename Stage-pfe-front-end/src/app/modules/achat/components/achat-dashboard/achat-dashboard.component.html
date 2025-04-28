@@ -1,0 +1,45 @@
+<div class="achat-dashboard-container">
+  <div class="sidebar">
+    <div class="logo-container">
+      <h2>Gestion des Achats</h2>
+    </div>
+    <ul class="nav-menu">
+      <li>
+        <a routerLink="/achat/commandes" routerLinkActive="active">
+          <i class="fas fa-shopping-cart"></i> Commandes
+        </a>
+      </li>
+      <li>
+        <a routerLink="/achat/fournisseurs" routerLinkActive="active">
+          <i class="fas fa-truck"></i> Fournisseurs
+        </a>
+      </li>
+      <li>
+        <a routerLink="/admin/products" routerLinkActive="active">
+          <i class="fas fa-box"></i> Produits
+        </a>
+      </li>
+      <li>
+        <a routerLink="/stock" routerLinkActive="active">
+          <i class="fas fa-warehouse"></i> Stock
+        </a>
+      </li>
+    </ul>
+  </div>
+  <div class="main-content">
+    <div class="header">
+      <div class="search-bar">
+        <input type="text" placeholder="Rechercher..." />
+        <button><i class="fas fa-search"></i></button>
+      </div>
+      <div class="user-actions">
+        <button class="btn btn-primary" (click)="createNewOrder()">
+          <i class="fas fa-plus"></i> Nouvelle Commande
+        </button>
+      </div>
+    </div>
+    <div class="content-area">
+      <router-outlet></router-outlet>
+    </div>
+  </div>
+</div>

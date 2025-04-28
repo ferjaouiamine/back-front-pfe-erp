@@ -1,0 +1,175 @@
+<div class="vendor-dashboard-container">
+  <div class="dashboard-header">
+    <h1>Tableau de bord Vendeur</h1>
+    <div class="user-info" *ngIf="authService.getCurrentUser()">
+      <span>Connecté en tant que: <strong>{{ authService.getCurrentUser()?.username }}</strong></span>
+      <button class="btn btn-outline-primary" (click)="viewSales()">
+        <i class="fas fa-file-invoice"></i> Mes ventes
+      </button>
+    </div>
+  </div>
+
+  <!-- Affichage des messages -->
+  <div class="alert alert-danger" *ngIf="errorMessage">
+    <i class="fas fa-exclamation-circle"></i> {{ errorMessage }}
+    <button type="button" class="close" (click)="errorMessage = null">&times;</button>
+  </div>
+  <div class="alert alert-success" *ngIf="successMessage">
+    <i class="fas fa-check-circle"></i> {{ successMessage }}
+    <button type="button" class="close" (click)="successMessage = null">&times;</button>
+  </div>
+
+  <div class="dashboard-content">
+    <!-- Panneau de gauche: Catalogue de produits -->
+    <div class="product-catalog">
+      <div class="catalog-header">
+        <h2>Catalogue de produits</h2>
+        <div class="search-filters">
+          <div class="input-group">
+            <input type="text" class="form-control" placeholder="Rechercher un produit..." 
+                  [(ngModel)]="searchTerm" (keyup)="searchProducts()">
+            <div class="input-group-append">
+              <button class="btn btn-outline-secondary" type="button" (click)="searchProducts()">
+                <i class="fas fa-search"></i>
+              </button>
+            </div>
+          </div>
+          <div class="category-filter">
+            <select class="form-control" [(ngModel)]="selectedCategory" (change)="searchProducts()">
+              <option value="">Toutes les catégories</option>
+              <option *ngFor="let category of categories" [value]="category">{{ category }}</option>
+            </select>
+          </div>
+          <button class="btn btn-sm btn-outline-secondary" (click)="resetFilters()">
+            <i class="fas fa-sync-alt"></i> Réinitialiser
+          </button>
+        </div>
+      </div>
+
+      <div class="product-list" *ngIf="!isLoading; else loadingProducts">
+        <div class="product-card" *ngFor="let product of filteredProducts">
+          <div class="product-info">
+            <h3>{{ product.name }}</h3>
+            <p class="product-description">{{ product.description }}</p>
+            <div class="product-details">
+              <span class="product-price">{{ product.price | currency:'EUR' }}</span>
+              <span class="product-stock" [ngClass]="{'low-stock': product.quantity < 5}">
+                Stock: {{ product.quantity }}
+              </span>
+              <span class="product-category" *ngIf="product.category">
+                {{ product.category }}
+              </span>
+            </div>
+          </div>
+          <div class="product-actions">
+            <button class="btn btn-primary" (click)="addToCart(product)" [disabled]="product.quantity <= 0">
+              <i class="fas fa-cart-plus"></i> Ajouter
+            </button>
+          </div>
+        </div>
+        
+        <div class="no-products" *ngIf="filteredProducts.length === 0">
+          <i class="fas fa-box-open fa-3x"></i>
+          <p>Aucun produit trouvé</p>
+        </div>
+      </div>
+      
+      <ng-template #loadingProducts>
+        <div class="loading-spinner">
+          <i class="fas fa-spinner fa-spin fa-3x"></i>
+          <p>Chargement des produits...</p>
+        </div>
+      </ng-template>
+    </div>
+
+    <!-- Panneau de droite: Panier et création de facture -->
+    <div class="cart-invoice">
+      <div class="cart-section">
+        <h2>Panier</h2>
+        
+        <div class="cart-items" *ngIf="cartItems.length > 0; else emptyCart">
+          <div class="cart-item" *ngFor="let item of cartItems; let i = index">
+            <div class="item-details">
+              <h4>{{ item.productName }}</h4>
+              <span class="item-price">{{ item.unitPrice | currency:'EUR' }}</span>
+            </div>
+            <div class="item-quantity">
+              <button class="btn btn-sm btn-outline-secondary" (click)="updateItemQuantity(i, item.quantity - 1)">
+                <i class="fas fa-minus"></i>
+              </button>
+              <input type="number" min="1" [(ngModel)]="item.quantity" 
+                    (change)="updateItemQuantity(i, item.quantity)">
+              <button class="btn btn-sm btn-outline-secondary" (click)="updateItemQuantity(i, item.quantity + 1)">
+                <i class="fas fa-plus"></i>
+              </button>
+            </div>
+            <div class="item-total">
+              {{ item.quantity * item.unitPrice | currency:'EUR' }}
+              <button class="btn btn-sm btn-danger" (click)="removeFromCart(i)">
+                <i class="fas fa-trash"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+        
+        <ng-template #emptyCart>
+          <div class="empty-cart">
+            <i class="fas fa-shopping-cart fa-3x"></i>
+            <p>Votre panier est vide</p>
+          </div>
+        </ng-template>
+        
+        <div class="cart-summary" *ngIf="cartItems.length > 0">
+          <div class="summary-line">
+            <span>Sous-total:</span>
+            <span>{{ subtotal | currency:'EUR' }}</span>
+          </div>
+          <div class="summary-line">
+            <span>TVA ({{ taxRate }}%):</span>
+            <span>{{ taxAmount | currency:'EUR' }}</span>
+          </div>
+          <div class="summary-line discount">
+            <span>Remise:</span>
+            <div class="discount-input">
+              <input type="number" min="0" [(ngModel)]="discount" 
+                    (change)="updateTotals()">
+              <span>€</span>
+            </div>
+          </div>
+          <div class="summary-line total">
+            <span>Total:</span>
+            <span>{{ total | currency:'EUR' }}</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="invoice-section" *ngIf="cartItems.length > 0">
+        <h2>Informations client</h2>
+        <div class="client-form">
+          <div class="form-group">
+            <label for="clientName">Nom du client *</label>
+            <input type="text" id="clientName" class="form-control" [(ngModel)]="clientName" required>
+          </div>
+          <div class="form-group">
+            <label for="clientEmail">Email</label>
+            <input type="email" id="clientEmail" class="form-control" [(ngModel)]="clientEmail">
+          </div>
+          <div class="form-group">
+            <label for="clientPhone">Téléphone</label>
+            <input type="tel" id="clientPhone" class="form-control" [(ngModel)]="clientPhone">
+          </div>
+        </div>
+        
+        <div class="invoice-actions">
+          <button class="btn btn-secondary" (click)="resetForm()">
+            <i class="fas fa-times"></i> Annuler
+          </button>
+          <button class="btn btn-success" (click)="createFacture()" [disabled]="isLoading">
+            <i class="fas fa-file-invoice"></i> Créer la facture
+            <i class="fas fa-spinner fa-spin" *ngIf="isLoading"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,84 @@
+<div class="container mt-4">
+  <h2>Outil de débogage d'authentification</h2>
+  
+  <div class="alert alert-info">
+    <h4>Informations sur l'utilisateur courant</h4>
+    <pre>{{ getCurrentUserInfo() | json }}</pre>
+  </div>
+  
+  <div class="row">
+    <div class="col-md-6">
+      <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <h5 class="mb-0">Test d'authentification</h5>
+          <button class="btn btn-primary" (click)="testAuth()">Tester</button>
+        </div>
+        <div class="card-body">
+          <div *ngIf="isLoading" class="text-center">
+            <div class="spinner-border" role="status">
+              <span class="visually-hidden">Chargement...</span>
+            </div>
+          </div>
+          <pre *ngIf="authTest">{{ authTest | json }}</pre>
+        </div>
+      </div>
+    </div>
+    
+    <div class="col-md-6">
+      <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <h5 class="mb-0">Test d'accès ADMIN (hasRole)</h5>
+          <button class="btn btn-primary" (click)="testAdminAccess()">Tester</button>
+        </div>
+        <div class="card-body">
+          <div *ngIf="isLoading" class="text-center">
+            <div class="spinner-border" role="status">
+              <span class="visually-hidden">Chargement...</span>
+            </div>
+          </div>
+          <pre *ngIf="adminTest">{{ adminTest | json }}</pre>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <div class="row">
+    <div class="col-md-6">
+      <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <h5 class="mb-0">Test d'accès ROLE_ADMIN (hasAuthority)</h5>
+          <button class="btn btn-primary" (click)="testAdminAuthorityAccess()">Tester</button>
+        </div>
+        <div class="card-body">
+          <div *ngIf="isLoading" class="text-center">
+            <div class="spinner-border" role="status">
+              <span class="visually-hidden">Chargement...</span>
+            </div>
+          </div>
+          <pre *ngIf="adminAuthorityTest">{{ adminAuthorityTest | json }}</pre>
+        </div>
+      </div>
+    </div>
+    
+    <div class="col-md-6">
+      <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <h5 class="mb-0">Rôles des utilisateurs</h5>
+          <button class="btn btn-primary" (click)="loadUserRoles()">Rafraîchir</button>
+        </div>
+        <div class="card-body">
+          <div *ngIf="isLoading" class="text-center">
+            <div class="spinner-border" role="status">
+              <span class="visually-hidden">Chargement...</span>
+            </div>
+          </div>
+          <pre *ngIf="userRoles.length">{{ userRoles | json }}</pre>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <div *ngIf="errorMessage" class="alert alert-danger mt-3">
+    {{ errorMessage }}
+  </div>
+</div>
