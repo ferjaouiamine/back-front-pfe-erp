@@ -1,0 +1,119 @@
+<div class="profil-container">
+  <div class="profil-header">
+    <h1>Mon Profil Fournisseur</h1>
+    <p class="subtitle">Gérez vos informations et préférences</p>
+  </div>
+
+  <!-- Indicateur de chargement -->
+  <div class="loading-container" *ngIf="isLoading">
+    <mat-spinner diameter="40"></mat-spinner>
+    <p>Chargement du profil...</p>
+  </div>
+
+  <!-- Message d'erreur -->
+  <div class="error-container" *ngIf="error">
+    <div class="alert alert-danger">
+      <i class="fas fa-exclamation-circle me-2"></i>
+      {{ error }}
+    </div>
+  </div>
+
+  <!-- Formulaire de profil -->
+  <form [formGroup]="profilForm" (ngSubmit)="enregistrerProfil()" *ngIf="!isLoading && !error">
+    <mat-card class="profil-card">
+      <mat-card-header>
+        <mat-card-title>Informations personnelles</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="form-row">
+          <mat-form-field appearance="outline">
+            <mat-label>Nom de l'entreprise</mat-label>
+            <input matInput formControlName="nom" placeholder="Nom de votre entreprise">
+            <mat-error *ngIf="profilForm.get('nom')?.hasError('required')">
+              Le nom est requis
+            </mat-error>
+            <mat-error *ngIf="profilForm.get('nom')?.hasError('minlength')">
+              Le nom doit contenir au moins 3 caractères
+            </mat-error>
+          </mat-form-field>
+        </div>
+
+        <div class="form-row">
+          <mat-form-field appearance="outline">
+            <mat-label>Email</mat-label>
+            <input matInput formControlName="email" placeholder="Adresse email de contact" type="email">
+            <mat-error *ngIf="profilForm.get('email')?.hasError('required')">
+              L'email est requis
+            </mat-error>
+            <mat-error *ngIf="profilForm.get('email')?.hasError('email')">
+              Veuillez entrer une adresse email valide
+            </mat-error>
+          </mat-form-field>
+        </div>
+
+        <div class="form-row">
+          <mat-form-field appearance="outline">
+            <mat-label>Téléphone</mat-label>
+            <input matInput formControlName="telephone" placeholder="Numéro de téléphone">
+            <mat-error *ngIf="profilForm.get('telephone')?.hasError('required')">
+              Le téléphone est requis
+            </mat-error>
+            <mat-error *ngIf="profilForm.get('telephone')?.hasError('pattern')">
+              Veuillez entrer un numéro de téléphone valide
+            </mat-error>
+          </mat-form-field>
+        </div>
+
+        <div class="form-row">
+          <mat-form-field appearance="outline">
+            <mat-label>Adresse</mat-label>
+            <textarea matInput formControlName="adresse" placeholder="Adresse complète" rows="3"></textarea>
+            <mat-error *ngIf="profilForm.get('adresse')?.hasError('required')">
+              L'adresse est requise
+            </mat-error>
+          </mat-form-field>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <mat-card class="profil-card">
+      <mat-card-header>
+        <mat-card-title>Informations professionnelles</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="form-row">
+          <mat-form-field appearance="outline">
+            <mat-label>Description</mat-label>
+            <textarea matInput formControlName="description" placeholder="Décrivez votre entreprise et vos services" rows="4"></textarea>
+          </mat-form-field>
+        </div>
+
+        <div class="form-row">
+          <mat-form-field appearance="outline">
+            <mat-label>Catégories de produits</mat-label>
+            <mat-select formControlName="categorieProduits" multiple>
+              <mat-option *ngFor="let categorie of categoriesProduits" [value]="categorie">
+                {{ categorie }}
+              </mat-option>
+            </mat-select>
+            <mat-error *ngIf="profilForm.get('categorieProduits')?.hasError('required')">
+              Veuillez sélectionner au moins une catégorie
+            </mat-error>
+          </mat-form-field>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <div class="actions-container">
+      <button mat-stroked-button type="button" (click)="annulerModifications()" [disabled]="isSaving">
+        <mat-icon>cancel</mat-icon> Annuler
+      </button>
+      <button mat-raised-button color="primary" type="submit" [disabled]="profilForm.invalid || isSaving">
+        <mat-icon *ngIf="!isSaving">save</mat-icon>
+        <mat-spinner *ngIf="isSaving" diameter="20" color="accent"></mat-spinner>
+        <span *ngIf="!isSaving">Enregistrer</span>
+        <span *ngIf="isSaving">Enregistrement...</span>
+      </button>
+    </div>
+  </form>
+</div>

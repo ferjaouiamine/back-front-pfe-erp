@@ -38,7 +38,7 @@ export interface AuthResponse {
 export class AuthService {
   private apiUrl = 'http://localhost:8081/api/auth';
   private currentUser: User | null = null;
-  private simulationMode = false; // Mode simulation pour développement sans backend
+  private simulationMode = false; // Mode simulation désactivé pour utiliser le backend réel
 
   constructor(private http: HttpClient, private router: Router) {
     this.loadUserFromToken();

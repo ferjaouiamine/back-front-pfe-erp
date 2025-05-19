@@ -3,6 +3,7 @@ import { Router } from '@angular/router';
 import { Facture, FactureService } from '../../services/facture.service';
 import { AuthService } from '../../../auth/services/auth.service';
 import { ProductService } from '../../../stock/services/product.service';
+import { Product } from '../../../stock/services/product.service';
 
 interface SalesData {
   labels: string[];
@@ -21,6 +22,12 @@ interface SalesByCategory {
   percentage: number;
 }
 
+interface TopProduct {
+  productName: string;
+  quantity: number;
+  amount: number;
+}
+
 @Component({
   selector: 'app-vendor-dashboard',
   templateUrl: './vendor-dashboard.component.html',
@@ -30,7 +37,8 @@ export class VendorDashboardComponent implements OnInit {
   // Exposer Math pour l'utiliser dans le template
   public Math = Math;
   factures: Facture[] = [];
-  isLoading: boolean = false;
+  products: Product[] = [];
+  isLoading: boolean = true;
   errorMessage: string | null = null;
   
   // Statistiques
@@ -60,7 +68,7 @@ export class VendorDashboardComponent implements OnInit {
   recentFactures: Facture[] = [];
   
   // Produits les plus vendus
-  topProducts: { productName: string; quantity: number; amount: number }[] = [];
+  topProducts: TopProduct[] = [];
   
   constructor(
     private factureService: FactureService,
@@ -71,26 +79,53 @@ export class VendorDashboardComponent implements OnInit {
 
   ngOnInit(): void {
     this.loadData();
+    this.loadProducts();
   }
   
   loadData(): void {
     this.isLoading = true;
     this.errorMessage = null;
     
-    this.factureService.getVendorFactures().subscribe({
+    console.log('Chargement des données depuis le backend Spring Boot...');
+    
+    // Utiliser le service de factures qui se connecte au backend Spring Boot
+    this.factureService.getFactures().subscribe({
       next: (factures) => {
+        console.log('Factures chargées avec succès:', factures.length, 'factures');
+        
+        if (factures.length > 0) {
+          console.log('Première facture:', factures[0]);
+        }
+        
         this.factures = factures;
         this.calculateStatistics();
         this.prepareMonthlySalesData();
-        this.calculateSalesByCategory();
         this.getRecentFactures();
         this.calculateTopProducts();
         this.isLoading = false;
       },
       error: (error) => {
         console.error('Erreur lors du chargement des données:', error);
-        this.errorMessage = 'Erreur lors du chargement des données. Veuillez réessayer.';
+        this.errorMessage = 'Impossible de charger les données. Veuillez vérifier votre connexion.';
         this.isLoading = false;
+      }
+    });
+  }
+  
+  loadProducts(): void {
+    console.log('Chargement des produits depuis le backend Spring Boot...');
+    
+    this.productService.getProducts().subscribe({
+      next: (products) => {
+        console.log('Produits chargés avec succès:', products.length, 'produits');
+        this.products = products;
+        this.calculateSalesByCategory();
+      },
+      error: (error) => {
+        console.error('Erreur lors du chargement des produits:', error);
+        // Générer des produits factices si nécessaire
+        this.products = [];
+        this.calculateSalesByCategory();
       }
     });
   }
@@ -109,6 +144,10 @@ export class VendorDashboardComponent implements OnInit {
   }
   
   prepareMonthlySalesData(): void {
+    // Réinitialiser les données
+    this.monthlySalesData.labels = [];
+    this.monthlySalesData.datasets[0].data = [];
+    
     // Créer un objet pour stocker les ventes par mois
     const salesByMonth: { [key: string]: number } = {};
     
@@ -135,42 +174,53 @@ export class VendorDashboardComponent implements OnInit {
         }
       });
     
-    // Convertir l'objet en tableau pour le graphique
+    // Convertir l'objet en tableau pour l'affichage
     this.monthlySalesData.datasets[0].data = Object.values(salesByMonth);
   }
   
   calculateSalesByCategory(): void {
+    if (!this.products || this.products.length === 0 || !this.factures || this.factures.length === 0) {
+      console.log('Pas assez de données pour calculer les ventes par catégorie');
+      return;
+    }
+    
+    console.log('Calcul des ventes par catégorie avec données réelles...');
+    
     // Créer un objet pour stocker les ventes par catégorie
     const salesByCategory: { [key: string]: number } = {};
     let totalCategorySales = 0;
     
-    // Calculer les ventes pour chaque catégorie
+    // Créer un dictionnaire des produits pour une recherche rapide
+    const productsDict: { [key: string]: string } = {};
+    this.products.forEach(product => {
+      productsDict[product.id] = product.category || 'Autre';
+    });
+    
+    // Calculer les ventes pour chaque catégorie en utilisant les données réelles
     this.factures
       .filter(f => f.status === 'PAID')
       .forEach(facture => {
-        facture.items.forEach(item => {
-          // Utiliser le service de produit pour obtenir la catégorie
-          // Pour simplifier, nous utilisons une approche basée sur le nom du produit
-          const productName = item.productName.toLowerCase();
-          let category = 'Autre';
-          
-          if (productName.includes('ordinateur') || productName.includes('laptop')) {
-            category = 'Ordinateurs';
-          } else if (productName.includes('téléphone') || productName.includes('smartphone')) {
-            category = 'Téléphones';
-          } else if (productName.includes('accessoire')) {
-            category = 'Accessoires';
-          } else if (productName.includes('tablette')) {
-            category = 'Tablettes';
-          }
-          
-          if (!salesByCategory[category]) {
-            salesByCategory[category] = 0;
-          }
-          
-          salesByCategory[category] += item.quantity * item.unitPrice;
-          totalCategorySales += item.quantity * item.unitPrice;
-        });
+        if (facture.items && facture.items.length > 0) {
+          facture.items.forEach(item => {
+            // Obtenir la catégorie réelle du produit à partir du dictionnaire
+            let category = productsDict[item.productId] || 'Autre';
+            
+            // Si la catégorie est vide ou null, utiliser 'Autre'
+            if (!category || category === 'null' || category === 'undefined') {
+              category = 'Autre';
+            }
+            
+            // Initialiser la catégorie si elle n'existe pas encore
+            if (!salesByCategory[category]) {
+              salesByCategory[category] = 0;
+            }
+            
+            // Calculer le montant total pour cette catégorie
+            const itemTotal = item.quantity * item.unitPrice;
+            salesByCategory[category] += itemTotal;
+            totalCategorySales += itemTotal;
+          });
+        }
       });
     
     // Convertir l'objet en tableau pour l'affichage
@@ -181,6 +231,8 @@ export class VendorDashboardComponent implements OnInit {
         percentage: totalCategorySales > 0 ? (amount / totalCategorySales) * 100 : 0
       }))
       .sort((a, b) => b.amount - a.amount);
+    
+    console.log('Catégories de ventes calculées:', this.salesByCategory);
   }
   
   getRecentFactures(): void {
@@ -188,9 +240,16 @@ export class VendorDashboardComponent implements OnInit {
     this.recentFactures = [...this.factures]
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
       .slice(0, 5);
+    
+    console.log('Factures récentes:', this.recentFactures.length);
   }
   
   calculateTopProducts(): void {
+    if (!this.factures || this.factures.length === 0) {
+      console.log('Pas assez de données pour calculer les produits les plus vendus');
+      return;
+    }
+    
     // Créer un objet pour stocker les quantités et montants par produit
     const productStats: { [key: string]: { quantity: number; amount: number } } = {};
     
@@ -198,14 +257,16 @@ export class VendorDashboardComponent implements OnInit {
     this.factures
       .filter(f => f.status === 'PAID')
       .forEach(facture => {
-        facture.items.forEach(item => {
-          if (!productStats[item.productName]) {
-            productStats[item.productName] = { quantity: 0, amount: 0 };
-          }
-          
-          productStats[item.productName].quantity += item.quantity;
-          productStats[item.productName].amount += item.quantity * item.unitPrice;
-        });
+        if (facture.items && facture.items.length > 0) {
+          facture.items.forEach(item => {
+            if (!productStats[item.productName]) {
+              productStats[item.productName] = { quantity: 0, amount: 0 };
+            }
+            
+            productStats[item.productName].quantity += item.quantity;
+            productStats[item.productName].amount += item.quantity * item.unitPrice;
+          });
+        }
       });
     
     // Convertir l'objet en tableau pour l'affichage
@@ -217,6 +278,8 @@ export class VendorDashboardComponent implements OnInit {
       }))
       .sort((a, b) => b.quantity - a.quantity)
       .slice(0, 5);
+    
+    console.log('Produits les plus vendus:', this.topProducts.length);
   }
   
   viewAllFactures(): void {

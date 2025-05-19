@@ -1,0 +1,203 @@
+.commande-detail-container {
+  padding: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.commande-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 30px;
+  
+  h1 {
+    font-size: 2rem;
+    margin: 0 0 0 10px;
+    color: #333;
+  }
+}
+
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 200px;
+  
+  p {
+    margin-top: 20px;
+    color: #666;
+  }
+}
+
+.error-container {
+  margin: 20px 0;
+  
+  .alert {
+    padding: 15px;
+    border-radius: 4px;
+    background-color: #f8d7da;
+    border: 1px solid #f5c6cb;
+    color: #721c24;
+  }
+}
+
+.commande-content {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  
+  .info-card, .client-card, .actions-card, .lignes-card, .commentaire-card {
+    margin-bottom: 20px;
+  }
+  
+  .info-card, .client-card {
+    grid-column: auto;
+  }
+  
+  .actions-card, .lignes-card, .commentaire-card {
+    grid-column: 1 / -1;
+  }
+}
+
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 15px;
+  margin-top: 15px;
+  
+  .info-item {
+    display: flex;
+    flex-direction: column;
+    
+    .info-label {
+      font-size: 0.9rem;
+      color: #666;
+      margin-bottom: 5px;
+    }
+    
+    .info-value {
+      font-size: 1.1rem;
+      color: #333;
+      font-weight: 500;
+    }
+  }
+}
+
+.actions-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 15px;
+  margin-top: 15px;
+}
+
+.lignes-table {
+  width: 100%;
+  margin-top: 15px;
+  
+  .produit-info {
+    display: flex;
+    flex-direction: column;
+    
+    .produit-nom {
+      font-weight: 500;
+    }
+    
+    .produit-ref {
+      font-size: 0.8rem;
+      color: #666;
+    }
+  }
+  
+  .statut-badge {
+    padding: 5px 10px;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    text-transform: lowercase;
+    
+    &::first-letter {
+      text-transform: uppercase;
+    }
+  }
+}
+
+.commentaire-text {
+  white-space: pre-line;
+  margin-top: 15px;
+  color: #555;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+// Styles pour les badges de statut
+.statut-brouillon {
+  background-color: #e2e8f0;
+  color: #4a5568;
+}
+
+.statut-en-attente {
+  background-color: #ebf8ff;
+  color: #2b6cb0;
+}
+
+.statut-confirmee {
+  background-color: #ebf4ff;
+  color: #4c51bf;
+}
+
+.statut-en-cours {
+  background-color: #faf5ff;
+  color: #6b46c1;
+}
+
+.statut-livree {
+  background-color: #f0fff4;
+  color: #2f855a;
+}
+
+.statut-annulee {
+  background-color: #fff5f5;
+  color: #c53030;
+}
+
+.statut-disponible {
+  background-color: #f0fff4;
+  color: #2f855a;
+}
+
+.statut-indisponible {
+  background-color: #fff5f5;
+  color: #c53030;
+}
+
+.me-2 {
+  margin-right: 8px;
+}
+
+// Responsive adjustments
+@media (max-width: 768px) {
+  .commande-content {
+    grid-template-columns: 1fr;
+    
+    .info-card, .client-card {
+      grid-column: 1;
+    }
+  }
+  
+  .info-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .actions-container {
+    flex-direction: column;
+    
+    button {
+      width: 100%;
+    }
+  }
+  
+  .lignes-table {
+    display: block;
+    overflow-x: auto;
+  }
+}

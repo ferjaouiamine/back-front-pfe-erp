@@ -5,6 +5,7 @@ import { RoleGuard } from './core/guards/role.guard';
 import { AuthTestComponent } from './auth-test.component';
 
 const routes: Routes = [
+  { path: 'landing', loadChildren: () => import('./modules/landing/landing.module').then(m => m.LandingModule) },
   { path: 'auth', loadChildren: () => import('./modules/auth/auth.module').then(m => m.AuthModule) },
   { 
     path: 'caisse', 
@@ -37,15 +38,25 @@ const routes: Routes = [
     canActivate: [AuthGuard]
   },
   { 
+    path: 'fournisseur', 
+    loadChildren: () => import('./modules/fournisseur/fournisseur.module').then(m => m.FournisseurModule),
+    canActivate: [AuthGuard, RoleGuard],
+    data: { roles: ['FOURNISSEUR'] } // Restreindre l'accès uniquement au rôle FOURNISSEUR
+  },
+  { 
     path: 'access-denied', 
     loadChildren: () => import('./modules/shared/access-denied/access-denied.module').then(m => m.AccessDeniedModule) 
   },
-  { path: '', redirectTo: 'auth', pathMatch: 'full' },
+  { path: '', redirectTo: 'landing', pathMatch: 'full' },
   { path: '**', redirectTo: 'auth' }
 ];
 
 @NgModule({
-  imports: [RouterModule.forRoot(routes)],
+  imports: [RouterModule.forRoot(routes, {
+    scrollPositionRestoration: 'enabled',
+    anchorScrolling: 'enabled',
+    scrollOffset: [0, 64]
+  })],
   exports: [RouterModule]
 })
 export class AppRoutingModule { }

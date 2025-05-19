@@ -1,0 +1,400 @@
+<div class="commande-detail-container">
+  <!-- En-tête -->
+  <div class="header-section">
+    <div class="title-section">
+      <button mat-icon-button routerLink="/achat/commandes" matTooltip="Retour à la liste">
+        <mat-icon>arrow_back</mat-icon>
+      </button>
+      <h1 *ngIf="mode === 'create'">Nouvelle commande</h1>
+      <h1 *ngIf="mode !== 'create' && commande">
+        Commande {{ commande.numero }}
+        <span *ngIf="commande.statut" class="statut-badge" [ngClass]="getStatutClass(commande.statut)">
+          {{ getStatutLabel(commande.statut) }}
+        </span>
+      </h1>
+    </div>
+    
+    <div class="actions-bar" *ngIf="mode === 'view' && commande">
+      <ng-container *ngIf="commande.statut">
+        <!-- Bouton Modifier - visible uniquement en mode brouillon -->
+        <button mat-raised-button color="primary" (click)="startEdit()" 
+                *ngIf="peutModifier(commande)">
+          <mat-icon>edit</mat-icon> Modifier
+        </button>
+        
+        <!-- Bouton Confirmer - visible uniquement en mode brouillon -->
+        <button mat-raised-button color="accent" (click)="confirmerCommande()" 
+                *ngIf="peutConfirmer(commande)">
+          <mat-icon>check_circle</mat-icon> Confirmer
+        </button>
+        
+        <!-- Bouton Livrer - visible uniquement en mode confirmée ou livraison partielle -->
+        <button mat-raised-button color="accent" (click)="livrerCommande()" 
+                *ngIf="peutLivrer(commande)">
+          <mat-icon>local_shipping</mat-icon> Marquer comme livrée
+        </button>
+        
+        <!-- Bouton Annuler - visible sauf si déjà livrée ou annulée -->
+        <button mat-raised-button color="warn" (click)="annulerCommande()" 
+                *ngIf="peutAnnuler(commande)">
+          <mat-icon>cancel</mat-icon> Annuler
+        </button>
+        
+        <!-- Bouton Bon de commande - visible sauf en mode brouillon -->
+        <button mat-raised-button (click)="genererBonCommande()" 
+                *ngIf="peutGenererBonCommande(commande)">
+          <mat-icon>description</mat-icon> Bon de commande
+        </button>
+      </ng-container>
+    </div>
+    
+    <div class="actions-bar" *ngIf="mode !== 'view'">
+      <button mat-raised-button color="primary" (click)="saveCommande()" [disabled]="saving">
+        <mat-icon>save</mat-icon> Enregistrer
+      </button>
+      <button mat-button (click)="cancelEdit()">
+        Annuler
+      </button>
+    </div>
+  </div>
+  
+  <!-- Message d'erreur -->
+  <div *ngIf="error" class="error-message">
+    {{ error }}
+  </div>
+  
+  <!-- Indicateur de chargement -->
+  <div *ngIf="loading" class="loading-container">
+    <mat-spinner diameter="40"></mat-spinner>
+    <span>Chargement de la commande...</span>
+  </div>
+  
+  <!-- Mode vue -->
+  <div *ngIf="mode === 'view' && commande && !loading" class="commande-view">
+    <mat-card class="info-card">
+      <mat-card-header>
+        <mat-card-title>Informations générales</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="info-grid">
+          <div class="info-item">
+            <span class="info-label">Numéro</span>
+            <span class="info-value">{{ commande.numero || 'Non attribué' }}</span>
+          </div>
+          
+          <div class="info-item">
+            <span class="info-label">Fournisseur</span>
+            <span class="info-value">{{ commande.fournisseur && commande.fournisseur.nom || '-' }}</span>
+          </div>
+          
+          <div class="info-item">
+            <span class="info-label">Date de commande</span>
+            <span class="info-value">{{ formatDate(commande.dateCommande) }}</span>
+          </div>
+          
+          <div class="info-item">
+            <span class="info-label">Date de livraison prévue</span>
+            <span class="info-value">{{ formatDate(commande.dateLivraisonPrevue) }}</span>
+          </div>
+          
+          <div class="info-item">
+            <span class="info-label">Statut</span>
+            <span class="info-value">
+              <span class="statut-badge" [ngClass]="getStatutClass(commande.statut || StatutCommande.BROUILLON)">
+                {{ getStatutLabel(commande.statut || StatutCommande.BROUILLON) }}
+              </span>
+            </span>
+          </div>
+          
+          <div class="info-item">
+            <span class="info-label">Total HT</span>
+            <span class="info-value">{{ formatMontant(commande.montantHT) }}</span>
+          </div>
+          
+          <div class="info-item">
+            <span class="info-label">Total TVA</span>
+            <span class="info-value">{{ formatMontant(commande.montantTVA) }}</span>
+          </div>
+          
+          <div class="info-item">
+            <span class="info-label">Total TTC</span>
+            <span class="info-value">{{ formatMontant(commande.montantTTC) }}</span>
+          </div>
+        </div>
+        
+        <mat-divider class="section-divider"></mat-divider>
+        
+        <div *ngIf="commande.notes" class="notes-section">
+          <h3>Notes</h3>
+          <p>{{ commande.notes }}</p>
+        </div>
+      </mat-card-content>
+    </mat-card>
+    
+    <mat-card class="lignes-card">
+      <mat-card-header>
+        <mat-card-title>Lignes de commande</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <table mat-table [dataSource]="commande.lignes || []" class="lignes-table">
+          
+          <!-- Référence -->
+          <ng-container matColumnDef="reference">
+            <th mat-header-cell *matHeaderCellDef>Référence</th>
+            <td mat-cell *matCellDef="let ligne">{{ ligne.reference || '-' }}</td>
+          </ng-container>
+          
+          <!-- Désignation -->
+          <ng-container matColumnDef="designation">
+            <th mat-header-cell *matHeaderCellDef>Désignation</th>
+            <td mat-cell *matCellDef="let ligne">{{ ligne.designation }}</td>
+          </ng-container>
+          
+          <!-- Quantité -->
+          <ng-container matColumnDef="quantite">
+            <th mat-header-cell *matHeaderCellDef>Quantité</th>
+            <td mat-cell *matCellDef="let ligne">{{ ligne.quantite }}</td>
+          </ng-container>
+          
+          <!-- Prix unitaire HT -->
+          <ng-container matColumnDef="prixUnitaireHT">
+            <th mat-header-cell *matHeaderCellDef>Prix unitaire HT</th>
+            <td mat-cell *matCellDef="let ligne">{{ formatMontant(ligne.prixUnitaireHT) }}</td>
+          </ng-container>
+          
+          <!-- Taux TVA -->
+          <ng-container matColumnDef="tauxTVA">
+            <th mat-header-cell *matHeaderCellDef>TVA</th>
+            <td mat-cell *matCellDef="let ligne">{{ ligne.tauxTVA }}%</td>
+          </ng-container>
+          
+          <!-- Montant HT -->
+          <ng-container matColumnDef="montantHT">
+            <th mat-header-cell *matHeaderCellDef>Montant HT</th>
+            <td mat-cell *matCellDef="let ligne">{{ formatMontant(ligne.montantHT) }}</td>
+          </ng-container>
+          
+          <!-- Montant TVA -->
+          <ng-container matColumnDef="montantTVA">
+            <th mat-header-cell *matHeaderCellDef>Montant TVA</th>
+            <td mat-cell *matCellDef="let ligne">{{ formatMontant(ligne.montantTVA) }}</td>
+          </ng-container>
+          
+          <!-- Montant TTC -->
+          <ng-container matColumnDef="montantTTC">
+            <th mat-header-cell *matHeaderCellDef>Montant TTC</th>
+            <td mat-cell *matCellDef="let ligne">{{ formatMontant(ligne.montantTTC) }}</td>
+          </ng-container>
+          
+          <!-- Statut -->
+          <ng-container matColumnDef="statut">
+            <th mat-header-cell *matHeaderCellDef>Statut</th>
+            <td mat-cell *matCellDef="let ligne">{{ ligne.statut }}</td>
+          </ng-container>
+          
+          <!-- Actions -->
+          <ng-container matColumnDef="actions">
+            <th mat-header-cell *matHeaderCellDef>Actions</th>
+            <td mat-cell *matCellDef="let ligne">
+              <!-- Actions spécifiques selon le statut -->
+            </td>
+          </ng-container>
+          
+          <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+          <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+        </table>
+        
+        <!-- Message si aucune ligne -->
+        <div *ngIf="!commande.lignes || commande.lignes.length === 0" class="no-data-message">
+          <p>Aucune ligne de commande</p>
+        </div>
+        
+        <!-- Totaux -->
+        <div *ngIf="commande.lignes && commande.lignes.length > 0" class="totals-section">
+          <div class="total-item">
+            <span class="total-label">Total HT</span>
+            <span class="total-value">{{ formatMontant(commande.montantHT) }}</span>
+          </div>
+          <div class="total-item">
+            <span class="total-label">Total TVA</span>
+            <span class="total-value">{{ formatMontant(commande.montantTVA) }}</span>
+          </div>
+          <div class="total-item">
+            <span class="total-label">Total TTC</span>
+            <span class="total-value">{{ formatMontant(commande.montantTTC) }}</span>
+          </div>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </div>
+  
+  <!-- Mode édition ou création -->
+  <div *ngIf="(mode === 'edit' || mode === 'create') && !loading" class="commande-form">
+    <form [formGroup]="commandeForm">
+      <mat-card class="info-card">
+        <mat-card-header>
+          <mat-card-title>Informations générales</mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+          <div class="form-grid">
+            <mat-form-field appearance="outline">
+              <mat-label>Fournisseur</mat-label>
+              <mat-select formControlName="fournisseur.id">
+                <mat-option *ngFor="let fournisseur of fournisseurs" [value]="fournisseur.id">
+                  {{ fournisseur.nom }}
+                </mat-option>
+              </mat-select>
+              <mat-error *ngIf="commandeForm.get('fournisseur.id')?.hasError('required')">
+                Le fournisseur est requis
+              </mat-error>
+            </mat-form-field>
+            
+            <mat-form-field appearance="outline">
+              <mat-label>Date de livraison prévue</mat-label>
+              <input matInput [matDatepicker]="picker" formControlName="dateLivraisonPrevue">
+              <mat-datepicker-toggle matSuffix [for]="picker"></mat-datepicker-toggle>
+              <mat-datepicker #picker></mat-datepicker>
+            </mat-form-field>
+            
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Notes</mat-label>
+              <textarea matInput formControlName="notes" rows="3"></textarea>
+            </mat-form-field>
+          </div>
+        </mat-card-content>
+      </mat-card>
+      
+      <mat-card class="lignes-card">
+        <mat-card-header>
+          <mat-card-title>Lignes de commande</mat-card-title>
+          <button mat-mini-fab color="primary" (click)="addLigne()" class="add-ligne-button" matTooltip="Ajouter une ligne">
+            <mat-icon>add</mat-icon>
+          </button>
+        </mat-card-header>
+        <mat-card-content>
+          <div formArrayName="lignes">
+            <div *ngFor="let ligneForm of lignesFormArray.controls; let i = index" [formGroupName]="i" class="ligne-form">
+              <mat-expansion-panel>
+                <mat-expansion-panel-header>
+                  <mat-panel-title>
+                    {{ ligneForm.get('designation')?.value || 'Nouvelle ligne' }}
+                  </mat-panel-title>
+                  <mat-panel-description>
+                    {{ formatMontant(calculerMontantTTC(i)) }}
+                  </mat-panel-description>
+                </mat-expansion-panel-header>
+                
+                <div class="ligne-form-grid">
+                  <mat-form-field appearance="outline">
+                    <mat-label>Référence</mat-label>
+                    <input matInput formControlName="reference">
+                  </mat-form-field>
+                  
+                  <mat-form-field appearance="outline">
+                    <mat-label>Désignation</mat-label>
+                    <input matInput formControlName="designation" required>
+                    <mat-error *ngIf="ligneForm.get('designation')?.hasError('required')">
+                      La désignation est requise
+                    </mat-error>
+                  </mat-form-field>
+                  
+                  <mat-form-field appearance="outline" class="full-width">
+                    <mat-label>Description</mat-label>
+                    <textarea matInput formControlName="description" rows="2"></textarea>
+                  </mat-form-field>
+                  
+                  <mat-form-field appearance="outline">
+                    <mat-label>Quantité</mat-label>
+                    <input matInput type="number" formControlName="quantite" min="1" required>
+                    <mat-error *ngIf="ligneForm.get('quantite')?.hasError('required')">
+                      La quantité est requise
+                    </mat-error>
+                    <mat-error *ngIf="ligneForm.get('quantite')?.hasError('min')">
+                      La quantité doit être supérieure à 0
+                    </mat-error>
+                  </mat-form-field>
+                  
+                  <mat-form-field appearance="outline">
+                    <mat-label>Prix unitaire HT</mat-label>
+                    <input matInput type="number" formControlName="prixUnitaireHT" min="0" required>
+                    <mat-error *ngIf="ligneForm.get('prixUnitaireHT')?.hasError('required')">
+                      Le prix unitaire est requis
+                    </mat-error>
+                    <mat-error *ngIf="ligneForm.get('prixUnitaireHT')?.hasError('min')">
+                      Le prix unitaire doit être positif
+                    </mat-error>
+                  </mat-form-field>
+                  
+                  <mat-form-field appearance="outline">
+                    <mat-label>Taux TVA (%)</mat-label>
+                    <input matInput type="number" formControlName="tauxTVA" min="0" required>
+                    <mat-error *ngIf="ligneForm.get('tauxTVA')?.hasError('required')">
+                      Le taux de TVA est requis
+                    </mat-error>
+                    <mat-error *ngIf="ligneForm.get('tauxTVA')?.hasError('min')">
+                      Le taux de TVA doit être positif
+                    </mat-error>
+                  </mat-form-field>
+                </div>
+                
+                <div class="ligne-totals">
+                  <div class="total-item">
+                    <span class="total-label">Montant HT</span>
+                    <span class="total-value">{{ formatMontant(calculerMontantHT(i)) }}</span>
+                  </div>
+                  <div class="total-item">
+                    <span class="total-label">Montant TVA</span>
+                    <span class="total-value">{{ formatMontant(calculerMontantTVA(i)) }}</span>
+                  </div>
+                  <div class="total-item">
+                    <span class="total-label">Montant TTC</span>
+                    <span class="total-value">{{ formatMontant(calculerMontantTTC(i)) }}</span>
+                  </div>
+                </div>
+                
+                <mat-action-row>
+                  <button mat-button color="warn" (click)="removeLigne(i)">
+                    <mat-icon>delete</mat-icon> Supprimer
+                  </button>
+                </mat-action-row>
+              </mat-expansion-panel>
+            </div>
+            
+            <!-- Message si aucune ligne -->
+            <div *ngIf="lignesFormArray.length === 0" class="no-data-message">
+              <p>Aucune ligne de commande</p>
+              <button mat-raised-button color="primary" (click)="addLigne()">
+                <mat-icon>add</mat-icon> Ajouter une ligne
+              </button>
+            </div>
+          </div>
+          
+          <!-- Totaux -->
+          <div *ngIf="lignesFormArray.length > 0" class="totals-section">
+            <div class="total-item">
+              <span class="total-label">Total HT</span>
+              <span class="total-value">{{ formatMontant(calculerTotalHT()) }}</span>
+            </div>
+            <div class="total-item">
+              <span class="total-label">Total TVA</span>
+              <span class="total-value">{{ formatMontant(calculerTotalTVA()) }}</span>
+            </div>
+            <div class="total-item">
+              <span class="total-label">Total TTC</span>
+              <span class="total-value">{{ formatMontant(calculerTotalTTC()) }}</span>
+            </div>
+          </div>
+        </mat-card-content>
+      </mat-card>
+      
+      <div class="form-actions">
+        <button mat-raised-button color="primary" (click)="saveCommande()" [disabled]="commandeForm.invalid || saving">
+          <mat-icon>save</mat-icon> Enregistrer
+        </button>
+        <button mat-button (click)="cancelEdit()">
+          Annuler
+        </button>
+      </div>
+    </form>
+  </div>
+</div>

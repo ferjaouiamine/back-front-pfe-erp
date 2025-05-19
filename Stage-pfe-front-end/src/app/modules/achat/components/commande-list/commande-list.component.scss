@@ -1,0 +1,240 @@
+@import '../../../../../theme-variables.scss';
+
+// Styles pour les en-têtes de colonnes
+.header-cell-content {
+  display: flex;
+  align-items: center;
+  gap: $spacing-xs;
+  
+  .header-icon {
+    font-size: $font-size-md;
+    height: $font-size-md;
+    width: $font-size-md;
+  }
+}
+
+// Style pour les lignes du tableau
+.commande-row {
+  cursor: pointer;
+  
+  &:hover {
+    background-color: rgba($primary-color, 0.04);
+  }
+}
+
+.commande-list-container {
+  padding: $spacing-lg;
+  background-color: $background-color;
+  min-height: calc(100vh - 64px); // Hauteur de la page moins la navbar
+  
+  .header-section {
+    @include flex-between;
+    margin-bottom: $spacing-lg;
+    background-color: $surface-color;
+    padding: $spacing-lg;
+    border-radius: $border-radius-md;
+    box-shadow: $shadow-sm;
+    
+    h1 {
+      margin: 0;
+      font-size: $font-size-xxl;
+      font-weight: 500;
+      color: $text-primary;
+      position: relative;
+      
+      &:after {
+        content: '';
+        position: absolute;
+        bottom: -8px;
+        left: 0;
+        width: 40px;
+        height: 3px;
+        background-color: $primary-color;
+        border-radius: 2px;
+      }
+    }
+    
+    .actions-bar {
+      display: flex;
+      gap: $spacing-sm;
+      
+      button {
+        transition: transform $transition-fast;
+        
+        &:hover {
+          transform: translateY(-2px);
+        }
+      }
+    }
+  }
+  
+  .filter-card {
+    margin-bottom: $spacing-lg;
+    border-radius: $border-radius-md;
+    box-shadow: $shadow-sm;
+    overflow: hidden;
+    
+    mat-card-header {
+      background-color: $primary-light;
+      color: white;
+      padding: $spacing-md;
+      
+      mat-card-title {
+        margin: 0;
+        font-size: $font-size-md;
+      }
+    }
+    
+    mat-card-content {
+      padding: $spacing-lg;
+    }
+    
+    .filter-form {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: $spacing-md;
+      margin-bottom: $spacing-md;
+    }
+    
+    .filter-actions {
+      display: flex;
+      gap: $spacing-md;
+      justify-content: flex-end;
+      
+      button {
+        min-width: 120px;
+      }
+    }
+  }
+  
+  .error-message {
+    background-color: $error-light;
+    color: $error-color;
+    padding: $spacing-md;
+    border-radius: $border-radius-md;
+    margin-bottom: $spacing-lg;
+    display: flex;
+    align-items: center;
+    
+    &:before {
+      content: '⚠️';
+      margin-right: $spacing-md;
+      font-size: $font-size-lg;
+    }
+  }
+  
+  .loading-container {
+    @include flex-center;
+    flex-direction: column;
+    padding: $spacing-xxl;
+    background-color: $surface-color;
+    border-radius: $border-radius-md;
+    box-shadow: $shadow-sm;
+    
+    span {
+      margin-top: $spacing-md;
+      color: $text-secondary;
+      font-size: $font-size-md;
+    }
+  }
+  
+  .table-container {
+    background-color: $surface-color;
+    border-radius: $border-radius-md;
+    box-shadow: $shadow-sm;
+    overflow: hidden;
+    
+    .commandes-table {
+      width: 100%;
+      
+      .mat-header-cell {
+        background-color: $primary-color;
+        color: white;
+        font-weight: 500;
+        font-size: $font-size-sm;
+        padding: $spacing-md;
+      }
+      
+      .mat-cell {
+        padding: $spacing-md;
+        font-size: $font-size-sm;
+        color: $text-primary;
+      }
+      
+      .mat-row {
+        transition: background-color $transition-fast;
+        
+        &:hover {
+          background-color: rgba($primary-color, 0.04);
+        }
+      }
+      
+      .mat-column-actions {
+        width: 60px;
+        text-align: center;
+      }
+      
+      .commande-link {
+        color: $primary-color;
+        text-decoration: none;
+        font-weight: 500;
+        transition: color $transition-fast;
+        
+        &:hover {
+          color: $primary-dark;
+          text-decoration: underline;
+        }
+      }
+    }
+    
+    mat-paginator {
+      border-top: 1px solid $border-color;
+    }
+  }
+  
+  .no-data-message {
+    @include flex-center;
+    flex-direction: column;
+    padding: $spacing-xxl;
+    background-color: $surface-color;
+    border-radius: $border-radius-md;
+    box-shadow: $shadow-sm;
+    
+    mat-icon {
+      font-size: 64px;
+      height: 64px;
+      width: 64px;
+      color: lighten($text-hint, 20%);
+      margin-bottom: $spacing-md;
+    }
+    
+    p {
+      font-size: $font-size-lg;
+      color: $text-secondary;
+      margin-bottom: $spacing-lg;
+      text-align: center;
+    }
+    
+    button {
+      transition: transform $transition-fast;
+      
+      &:hover {
+        transform: translateY(-2px);
+      }
+    }
+  }
+  
+  // Badges de statut
+  @each $status, $colors in $status-colors {
+    .statut-#{$status} {
+      @include status-badge(nth($colors, 1), nth($colors, 2));
+    }
+  }
+  
+  // Menu divider
+  .menu-divider {
+    margin: $spacing-xs 0;
+    border: none;
+    border-top: 1px solid $border-color;
+  }
+}

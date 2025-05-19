@@ -1,0 +1,157 @@
+<div class="container mt-4">
+  <div class="card">
+    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+      <h2 class="mb-0">{{ isNewFacture ? 'Créer une facture' : 'Modifier la facture' }}</h2>
+      <button mat-icon-button (click)="onCancel()">
+        <mat-icon>close</mat-icon>
+      </button>
+    </div>
+    
+    <div class="card-body">
+      <div *ngIf="loading" class="text-center py-5">
+        <mat-spinner diameter="50" class="mx-auto"></mat-spinner>
+        <p class="mt-3">Chargement des données...</p>
+      </div>
+      
+      <div *ngIf="!loading">
+        <div class="row mb-4">
+          <div class="col-md-6">
+            <div class="card">
+              <div class="card-header bg-light">
+                <h5 class="mb-0">Détails de la commande</h5>
+              </div>
+              <div class="card-body">
+                <p><strong>Numéro:</strong> {{ commande.numero }}</p>
+                <p><strong>Date:</strong> {{ commande.date | date:'dd/MM/yyyy' }}</p>
+                <p><strong>Statut:</strong> <span class="badge" [ngClass]="{
+                  'bg-warning': commande.statut === 'EN_ATTENTE',
+                  'bg-info': commande.statut === 'CONFIRMEE',
+                  'bg-primary': commande.statut === 'EN_COURS',
+                  'bg-success': commande.statut === 'LIVREE',
+                  'bg-danger': commande.statut === 'ANNULEE'
+                }">{{ commande.statut }}</span></p>
+                <p><strong>Montant total:</strong> {{ commande.montantTotal | currency:'EUR' }}</p>
+              </div>
+            </div>
+          </div>
+          
+          <div class="col-md-6" *ngIf="!isNewFacture">
+            <div class="card">
+              <div class="card-header bg-light">
+                <h5 class="mb-0">Détails de la facture</h5>
+              </div>
+              <div class="card-body">
+                <p><strong>Numéro:</strong> {{ facture.numero }}</p>
+                <p><strong>Date de création:</strong> {{ facture.dateFacture | date:'dd/MM/yyyy' }}</p>
+                <p><strong>Statut de paiement:</strong> <span class="badge" [ngClass]="{
+                  'bg-warning': facture.statutPaiement === 'EN_ATTENTE',
+                  'bg-info': facture.statutPaiement === 'PARTIEL',
+                  'bg-success': facture.statutPaiement === 'PAYE',
+                  'bg-danger': facture.statutPaiement === 'REJETE' || facture.statutPaiement === 'ANNULE'
+                }">{{ facture.statutPaiement }}</span></p>
+                <p *ngIf="facture.datePaiement"><strong>Date de paiement:</strong> {{ facture.datePaiement | date:'dd/MM/yyyy' }}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <form [formGroup]="factureForm" (ngSubmit)="onSubmit()">
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <mat-form-field appearance="outline" class="w-100">
+                <mat-label>Date de facture</mat-label>
+                <input matInput [matDatepicker]="pickerFact" formControlName="dateFacture" required>
+                <mat-datepicker-toggle matSuffix [for]="pickerFact"></mat-datepicker-toggle>
+                <mat-datepicker #pickerFact></mat-datepicker>
+                <mat-error *ngIf="factureForm.get('dateFacture')?.hasError('required')">
+                  La date de facture est requise
+                </mat-error>
+              </mat-form-field>
+            </div>
+            
+            <div class="col-md-6 mb-3">
+              <mat-form-field appearance="outline" class="w-100">
+                <mat-label>Date d'échéance</mat-label>
+                <input matInput [matDatepicker]="pickerEch" formControlName="dateEcheance" required>
+                <mat-datepicker-toggle matSuffix [for]="pickerEch"></mat-datepicker-toggle>
+                <mat-datepicker #pickerEch></mat-datepicker>
+                <mat-error *ngIf="factureForm.get('dateEcheance')?.hasError('required')">
+                  La date d'échéance est requise
+                </mat-error>
+              </mat-form-field>
+            </div>
+          </div>
+          
+          <div class="row">
+            <div class="col-md-4 mb-3">
+              <mat-form-field appearance="outline" class="w-100">
+                <mat-label>Montant HT</mat-label>
+                <input matInput type="number" formControlName="montantHT" required>
+                <span matSuffix>€</span>
+                <mat-error *ngIf="factureForm.get('montantHT')?.hasError('required')">
+                  Le montant HT est requis
+                </mat-error>
+                <mat-error *ngIf="factureForm.get('montantHT')?.hasError('min')">
+                  Le montant HT doit être positif
+                </mat-error>
+              </mat-form-field>
+            </div>
+            
+            <div class="col-md-4 mb-3">
+              <mat-form-field appearance="outline" class="w-100">
+                <mat-label>Montant TVA</mat-label>
+                <input matInput type="number" formControlName="montantTVA" required>
+                <span matSuffix>€</span>
+                <mat-error *ngIf="factureForm.get('montantTVA')?.hasError('required')">
+                  Le montant TVA est requis
+                </mat-error>
+                <mat-error *ngIf="factureForm.get('montantTVA')?.hasError('min')">
+                  Le montant TVA doit être positif
+                </mat-error>
+              </mat-form-field>
+            </div>
+            
+            <div class="col-md-4 mb-3">
+              <mat-form-field appearance="outline" class="w-100">
+                <mat-label>Montant TTC</mat-label>
+                <input matInput type="number" formControlName="montantTTC" required readonly>
+                <span matSuffix>€</span>
+                <mat-hint>Calculé automatiquement (HT + TVA)</mat-hint>
+              </mat-form-field>
+            </div>
+          </div>
+          
+          <div class="row">
+            <div class="col-12 mb-3">
+              <mat-form-field appearance="outline" class="w-100">
+                <mat-label>Commentaires</mat-label>
+                <textarea matInput formControlName="commentaires" rows="4" placeholder="Commentaires ou instructions spéciales"></textarea>
+              </mat-form-field>
+            </div>
+          </div>
+          
+          <div class="row mb-4">
+            <div class="col-12">
+              <label class="form-label">Pièce jointe (PDF de la facture)</label>
+              <div class="input-group">
+                <input type="file" class="form-control" accept=".pdf" (change)="onFileSelected($event)">
+                <button class="btn btn-outline-secondary" type="button">Parcourir</button>
+              </div>
+              <small class="form-text text-muted">Formats acceptés: PDF uniquement (max 5 MB)</small>
+            </div>
+          </div>
+          
+          <div class="d-flex justify-content-end">
+            <button type="button" mat-button (click)="onCancel()" [disabled]="submitting">
+              Annuler
+            </button>
+            <button type="submit" mat-raised-button color="primary" [disabled]="factureForm.invalid || submitting" class="ms-2">
+              <mat-spinner diameter="20" *ngIf="submitting" class="me-2"></mat-spinner>
+              {{ isNewFacture ? 'Créer la facture' : 'Mettre à jour la facture' }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,126 @@
+<div class="commandes-container">
+  <div class="commandes-header">
+    <h1>Mes Commandes</h1>
+    <p class="subtitle">Gérez les commandes que vous avez reçues</p>
+  </div>
+  
+  <!-- Filtres -->
+  <div class="filtres-container">
+    <div class="filtre-texte">
+      <mat-form-field appearance="outline">
+        <mat-label>Rechercher</mat-label>
+        <input matInput [(ngModel)]="filtreTexte" placeholder="Numéro, client...">
+        <button *ngIf="filtreTexte" matSuffix mat-icon-button aria-label="Effacer" (click)="filtreTexte=''; appliquerFiltreTexte()">
+          <mat-icon>close</mat-icon>
+        </button>
+        <mat-hint>Recherchez par numéro ou nom du client</mat-hint>
+      </mat-form-field>
+      <button mat-raised-button color="primary" (click)="appliquerFiltreTexte()">
+        <mat-icon>search</mat-icon> Rechercher
+      </button>
+    </div>
+    
+    <div class="filtre-statut">
+      <mat-form-field appearance="outline">
+        <mat-label>Statut</mat-label>
+        <mat-select [(ngModel)]="filtreStatut" (selectionChange)="appliquerFiltreStatut()">
+          <mat-option value="">Tous les statuts</mat-option>
+          <mat-option [value]="StatutCommande.EN_ATTENTE">En attente</mat-option>
+          <mat-option [value]="StatutCommande.CONFIRMEE">Confirmée</mat-option>
+          <mat-option [value]="StatutCommande.EN_COURS">En cours</mat-option>
+          <mat-option [value]="StatutCommande.LIVREE">Livrée</mat-option>
+          <mat-option [value]="StatutCommande.ANNULEE">Annulée</mat-option>
+        </mat-select>
+      </mat-form-field>
+      
+      <button mat-stroked-button color="warn" (click)="reinitialiserFiltres()" [disabled]="!filtreTexte && !filtreStatut">
+        <mat-icon>clear</mat-icon> Réinitialiser
+      </button>
+    </div>
+  </div>
+  
+  <!-- Indicateur de chargement -->
+  <div class="loading-container" *ngIf="isLoading">
+    <mat-spinner diameter="40"></mat-spinner>
+    <p>Chargement des commandes...</p>
+  </div>
+  
+  <!-- Message d'erreur -->
+  <div class="error-container" *ngIf="error">
+    <div class="alert alert-danger">
+      <i class="fas fa-exclamation-circle me-2"></i>
+      {{ error }}
+    </div>
+  </div>
+  
+  <!-- Tableau des commandes -->
+  <div class="table-container mat-elevation-z2" *ngIf="!isLoading && !error">
+    <table mat-table [dataSource]="dataSource" matSort>
+      
+      <!-- Colonne Numéro -->
+      <ng-container matColumnDef="numero">
+        <th mat-header-cell *matHeaderCellDef mat-sort-header>Numéro</th>
+        <td mat-cell *matCellDef="let commande">{{ commande.numero }}</td>
+      </ng-container>
+      
+      <!-- Colonne Date -->
+      <ng-container matColumnDef="date">
+        <th mat-header-cell *matHeaderCellDef mat-sort-header>Date</th>
+        <td mat-cell *matCellDef="let commande">{{ commande.date | date:'dd/MM/yyyy' }}</td>
+      </ng-container>
+      
+      <!-- Colonne Client -->
+      <ng-container matColumnDef="client">
+        <th mat-header-cell *matHeaderCellDef mat-sort-header>Client</th>
+        <td mat-cell *matCellDef="let commande">{{ commande.client.nom }}</td>
+      </ng-container>
+      
+      <!-- Colonne Montant Total -->
+      <ng-container matColumnDef="montantTotal">
+        <th mat-header-cell *matHeaderCellDef mat-sort-header>Montant</th>
+        <td mat-cell *matCellDef="let commande">{{ commande.montantTotal | currency:'EUR' }}</td>
+      </ng-container>
+      
+      <!-- Colonne Statut -->
+      <ng-container matColumnDef="statut">
+        <th mat-header-cell *matHeaderCellDef mat-sort-header>Statut</th>
+        <td mat-cell *matCellDef="let commande">
+          <span class="statut-badge" [ngClass]="getStatutClass(commande.statut)">
+            {{ commande.statut }}
+          </span>
+        </td>
+      </ng-container>
+      
+      <!-- Colonne Actions -->
+      <ng-container matColumnDef="actions">
+        <th mat-header-cell *matHeaderCellDef>Actions</th>
+        <td mat-cell *matCellDef="let commande">
+          <button mat-icon-button color="primary" matTooltip="Voir les détails" (click)="voirCommande(commande.id)">
+            <mat-icon>visibility</mat-icon>
+          </button>
+        </td>
+      </ng-container>
+      
+      <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+      <tr mat-row *matRowDef="let row; columns: displayedColumns;" (click)="voirCommande(row.id)" class="commande-row"></tr>
+    </table>
+    
+    <!-- Message si aucune commande -->
+    <div class="no-data-message" *ngIf="dataSource.data.length === 0">
+      <mat-icon>inbox</mat-icon>
+      <p>Aucune commande trouvée</p>
+      <button mat-stroked-button color="primary" (click)="reinitialiserFiltres()">
+        Réinitialiser les filtres
+      </button>
+    </div>
+    
+    <!-- Pagination -->
+    <mat-paginator 
+      [length]="totalCommandes"
+      [pageSize]="pageSize"
+      [pageSizeOptions]="[5, 10, 25, 50]"
+      (page)="onPageChange($event)"
+      showFirstLastButtons>
+    </mat-paginator>
+  </div>
+</div>

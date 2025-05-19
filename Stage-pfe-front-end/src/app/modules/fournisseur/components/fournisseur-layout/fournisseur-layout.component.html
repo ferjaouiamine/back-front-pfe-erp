@@ -1,0 +1,84 @@
+<div class="fournisseur-layout">
+  <!-- Barre de navigation supérieure -->
+  <header class="top-navbar">
+    <div class="navbar-left">
+      <button class="menu-toggle" (click)="toggleMenu()">
+        <i class="fas fa-bars"></i>
+      </button>
+      <div class="logo">
+        <img src="assets/images/logo.png" alt="Logo" class="logo-img">
+        <span class="logo-text">Espace Fournisseur</span>
+      </div>
+    </div>
+    <div class="navbar-right">
+      <div class="user-info">
+        <span class="username">{{ username }}</span>
+        <button class="user-menu" [matMenuTriggerFor]="userMenu">
+          <i class="fas fa-user-circle"></i>
+        </button>
+        <mat-menu #userMenu="matMenu">
+          <button mat-menu-item routerLink="/fournisseur/profil">
+            <i class="fas fa-user me-2"></i>Mon profil
+          </button>
+          <button mat-menu-item (click)="logout()">
+            <i class="fas fa-sign-out-alt me-2"></i>Déconnexion
+          </button>
+        </mat-menu>
+      </div>
+    </div>
+  </header>
+
+  <div class="main-container">
+    <!-- Menu latéral -->
+    <aside class="sidebar" [class.open]="isMenuOpen">
+      <nav class="sidebar-nav">
+        <ul class="nav-list">
+          <li class="nav-item">
+            <a routerLink="/fournisseur" routerLinkActive="active" [routerLinkActiveOptions]="{exact: true}">
+              <i class="fas fa-tachometer-alt"></i>
+              <span>Tableau de bord</span>
+            </a>
+          </li>
+          <li class="nav-item">
+            <a routerLink="/fournisseur/commandes" routerLinkActive="active">
+              <i class="fas fa-shopping-cart"></i>
+              <span>Commandes</span>
+            </a>
+          </li>
+          <li class="nav-item">
+            <a routerLink="/fournisseur/factures" routerLinkActive="active">
+              <i class="fas fa-file-invoice-dollar"></i>
+              <span>Factures</span>
+            </a>
+          </li>
+          <li class="nav-item">
+            <a routerLink="/fournisseur/produits" routerLinkActive="active">
+              <i class="fas fa-box"></i>
+              <span>Mes produits</span>
+            </a>
+          </li>
+          <li class="nav-item">
+            <a routerLink="/fournisseur/profil" routerLinkActive="active">
+              <i class="fas fa-user"></i>
+              <span>Mon profil</span>
+            </a>
+          </li>
+          <li class="nav-item">
+            <a routerLink="/fournisseur/notifications" routerLinkActive="active">
+              <i class="fas fa-bell"></i>
+              <span>Notifications</span>
+            </a>
+          </li>
+        </ul>
+      </nav>
+    </aside>
+
+    <!-- Contenu principal -->
+    <main class="content">
+      <router-outlet></router-outlet>
+    </main>
+  </div>
+
+  <!-- Overlay pour fermer le menu sur mobile -->
+  <div class="sidebar-overlay" *ngIf="isMenuOpen" (click)="toggleMenu()"></div>
+</div>

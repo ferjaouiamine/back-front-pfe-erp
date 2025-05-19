@@ -1,0 +1,76 @@
+<div class="dashboard-container">
+  <div class="dashboard-header">
+    <h1>Tableau de bord Fournisseur</h1>
+    <p class="welcome-message">Bienvenue, <strong>{{ username }}</strong></p>
+  </div>
+
+  <div class="loading-container" *ngIf="isLoading">
+    <mat-spinner diameter="40"></mat-spinner>
+    <p>Chargement des données...</p>
+  </div>
+
+  <div class="error-container" *ngIf="error">
+    <div class="alert alert-danger">
+      <i class="fas fa-exclamation-circle me-2"></i>
+      {{ error }}
+    </div>
+  </div>
+
+  <div class="dashboard-content" *ngIf="!isLoading && !error">
+    <!-- Statistiques -->
+    <div class="stats-container">
+      <div class="stat-card">
+        <div class="stat-icon">
+          <i class="fas fa-clock"></i>
+        </div>
+        <div class="stat-content">
+          <h3>{{ commandesEnAttente }}</h3>
+          <p>Commandes en attente</p>
+        </div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-icon">
+          <i class="fas fa-spinner"></i>
+        </div>
+        <div class="stat-content">
+          <h3>{{ commandesEnCours }}</h3>
+          <p>Commandes en cours</p>
+        </div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-icon">
+          <i class="fas fa-check-circle"></i>
+        </div>
+        <div class="stat-content">
+          <h3>{{ commandesLivrees }}</h3>
+          <p>Commandes livrées</p>
+        </div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-icon">
+          <i class="fas fa-shopping-cart"></i>
+        </div>
+        <div class="stat-content">
+          <h3>{{ totalCommandes }}</h3>
+          <p>Total commandes</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Actions rapides -->
+    <div class="quick-actions">
+      <h2>Actions rapides</h2>
+      <div class="actions-container">
+        <button mat-raised-button color="primary" (click)="voirCommandes()">
+          <i class="fas fa-list me-2"></i>Voir toutes les commandes
+        </button>
+        <button mat-raised-button color="accent" (click)="voirProfil()">
+          <i class="fas fa-user me-2"></i>Gérer mon profil
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

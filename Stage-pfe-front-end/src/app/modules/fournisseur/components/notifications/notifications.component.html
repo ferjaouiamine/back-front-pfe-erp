@@ -1,0 +1,88 @@
+<div class="notifications-container">
+  <div class="notifications-header">
+    <h1>Notifications</h1>
+    <p class="subtitle">Restez informé des mises à jour importantes</p>
+  </div>
+  
+  <!-- Actions principales -->
+  <div class="actions-principales">
+    <button mat-raised-button color="primary" (click)="marquerToutesCommeLues()" [disabled]="!hasUnreadNotifications()">
+      <mat-icon>done_all</mat-icon> Marquer tout comme lu
+    </button>
+  </div>
+  
+  <!-- Filtres -->
+  <div class="filtres-container">
+    <mat-form-field appearance="outline">
+      <mat-label>Type</mat-label>
+      <mat-select [ngModel]="filtreType" (ngModelChange)="filtreType = $event; filtrerParType()">
+        <mat-option value="">Tous les types</mat-option>
+        <mat-option value="info">Information</mat-option>
+        <mat-option value="success">Succès</mat-option>
+        <mat-option value="warning">Avertissement</mat-option>
+        <mat-option value="error">Erreur</mat-option>
+      </mat-select>
+    </mat-form-field>
+    
+    <mat-form-field appearance="outline">
+      <mat-label>Statut</mat-label>
+      <mat-select [ngModel]="filtreLues" (ngModelChange)="filtreLues = $event; filtrerParLecture()">
+        <mat-option value="">Toutes</mat-option>
+        <mat-option value="non-lues">Non lues</mat-option>
+        <mat-option value="lues">Lues</mat-option>
+      </mat-select>
+    </mat-form-field>
+    
+    <button mat-stroked-button color="warn" (click)="reinitialiserFiltres()" [disabled]="!hasFiltresActifs()">
+      <mat-icon>clear</mat-icon> Réinitialiser
+    </button>
+  </div>
+  
+  <!-- Indicateur de chargement -->
+  <div class="loading-container" *ngIf="isLoading">
+    <mat-spinner diameter="40"></mat-spinner>
+    <p>Chargement des notifications...</p>
+  </div>
+  
+  <!-- Message d'erreur -->
+  <div class="error-container" *ngIf="error">
+    <div class="alert alert-danger">
+      <i class="fas fa-exclamation-circle me-2"></i>
+      {{ error }}
+    </div>
+  </div>
+  
+  <!-- Liste des notifications -->
+  <div class="notifications-list" *ngIf="!isLoading && !error">
+    <!-- Message si aucune notification -->
+    <div class="no-notifications" *ngIf="notifications.length === 0">
+      <mat-icon>notifications_off</mat-icon>
+      <p>Aucune notification</p>
+    </div>
+    
+    <!-- Notifications -->
+    <mat-card *ngFor="let notification of notifications" class="notification-card" [ngClass]="{'notification-non-lue': !notification.lue}">
+      <div class="notification-icon">
+        <i [ngClass]="getIconClass(notification.type)"></i>
+      </div>
+      <div class="notification-content">
+        <div class="notification-header">
+          <h3 class="notification-titre">{{ notification.titre }}</h3>
+          <span class="notification-date">{{ notification.date | date }}</span>
+        </div>
+        <p class="notification-message">{{ notification.message }}</p>
+        <div class="notification-actions">
+          <a *ngIf="notification.lien" [routerLink]="notification.lien" mat-button color="primary">
+            <mat-icon>visibility</mat-icon> Voir
+          </a>
+          <button mat-button color="accent" *ngIf="!notification.lue" (click)="marquerCommeLue(notification)">
+            <mat-icon>done</mat-icon> Marquer comme lu
+          </button>
+          <button mat-button color="warn" (click)="supprimerNotification(notification.id)">
+            <mat-icon>delete</mat-icon> Supprimer
+          </button>
+        </div>
+      </div>
+    </mat-card>
+  </div>
+</div>

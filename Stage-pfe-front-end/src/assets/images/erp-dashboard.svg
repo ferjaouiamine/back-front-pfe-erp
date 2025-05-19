@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500" width="800" height="500">
+  <!-- Background -->
+  <rect width="800" height="500" fill="#f8f9fa" />
+  
+  <!-- Header -->
+  <rect x="0" y="0" width="800" height="60" fill="#3f51b5" />
+  <text x="30" y="38" font-family="Arial" font-size="24" fill="white">ERP Dashboard</text>
+  
+  <!-- Sidebar -->
+  <rect x="0" y="60" width="200" height="440" fill="#f0f2f5" />
+  
+  <!-- Sidebar Menu Items -->
+  <rect x="20" y="100" width="160" height="40" rx="5" fill="#3f51b5" opacity="0.8" />
+  <text x="55" y="125" font-family="Arial" font-size="14" fill="white">Dashboard</text>
+  
+  <rect x="20" y="150" width="160" height="40" rx="5" fill="white" />
+  <text x="55" y="175" font-family="Arial" font-size="14" fill="#333">Stock</text>
+  
+  <rect x="20" y="200" width="160" height="40" rx="5" fill="white" />
+  <text x="55" y="225" font-family="Arial" font-size="14" fill="#333">Achats</text>
+  
+  <rect x="20" y="250" width="160" height="40" rx="5" fill="white" />
+  <text x="55" y="275" font-family="Arial" font-size="14" fill="#333">Facturation</text>
+  
+  <rect x="20" y="300" width="160" height="40" rx="5" fill="white" />
+  <text x="55" y="325" font-family="Arial" font-size="14" fill="#333">Point de Vente</text>
+  
+  <!-- Main Content -->
+  <rect x="220" y="80" width="560" height="100" rx="10" fill="white" stroke="#ddd" stroke-width="1" />
+  <text x="240" y="110" font-family="Arial" font-size="18" font-weight="bold" fill="#333">Aperçu des ventes</text>
+  
+  <!-- Chart -->
+  <rect x="240" y="120" width="520" height="50" fill="none" />
+  <rect x="260" y="140" width="40" height="30" fill="#3f51b5" />
+  <rect x="320" y="130" width="40" height="40" fill="#3f51b5" />
+  <rect x="380" y="120" width="40" height="50" fill="#3f51b5" />
+  <rect x="440" y="110" width="40" height="60" fill="#3f51b5" />
+  <rect x="500" y="125" width="40" height="45" fill="#3f51b5" />
+  <rect x="560" y="135" width="40" height="35" fill="#3f51b5" />
+  <rect x="620" y="145" width="40" height="25" fill="#3f51b5" />
+  <rect x="680" y="130" width="40" height="40" fill="#3f51b5" />
+  
+  <!-- Cards -->
+  <rect x="220" y="200" width="270" height="120" rx="10" fill="white" stroke="#ddd" stroke-width="1" />
+  <text x="240" y="230" font-family="Arial" font-size="16" font-weight="bold" fill="#333">Produits en stock</text>
+  <text x="240" y="270" font-family="Arial" font-size="32" font-weight="bold" fill="#3f51b5">1,245</text>
+  <text x="240" y="300" font-family="Arial" font-size="14" fill="#666">+12% depuis le mois dernier</text>
+  
+  <rect x="510" y="200" width="270" height="120" rx="10" fill="white" stroke="#ddd" stroke-width="1" />
+  <text x="530" y="230" font-family="Arial" font-size="16" font-weight="bold" fill="#333">Chiffre d'affaires</text>
+  <text x="530" y="270" font-family="Arial" font-size="32" font-weight="bold" fill="#3f51b5">45,890 €</text>
+  <text x="530" y="300" font-family="Arial" font-size="14" fill="#666">+8% depuis le mois dernier</text>
+  
+  <rect x="220" y="340" width="270" height="120" rx="10" fill="white" stroke="#ddd" stroke-width="1" />
+  <text x="240" y="370" font-family="Arial" font-size="16" font-weight="bold" fill="#333">Commandes</text>
+  <text x="240" y="410" font-family="Arial" font-size="32" font-weight="bold" fill="#3f51b5">328</text>
+  <text x="240" y="440" font-family="Arial" font-size="14" fill="#666">+15% depuis le mois dernier</text>
+  
+  <rect x="510" y="340" width="270" height="120" rx="10" fill="white" stroke="#ddd" stroke-width="1" />
+  <text x="530" y="370" font-family="Arial" font-size="16" font-weight="bold" fill="#333">Alertes stock</text>
+  <text x="530" y="410" font-family="Arial" font-size="32" font-weight="bold" fill="#ff4081">12</text>
+  <text x="530" y="440" font-family="Arial" font-size="14" fill="#666">Produits sous le seuil d'alerte</text>
+</svg>

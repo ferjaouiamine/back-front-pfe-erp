@@ -1,0 +1,578 @@
+<div class="landing-container">
+  <!-- Navbar -->
+  <nav class="landing-navbar">
+    <div class="navbar-container">
+      <div class="logo">
+        <h2>Tijartek ERP</h2>
+      </div>
+      <div class="nav-links">
+        <a routerLink="" fragment="fonctionnalites" class="nav-link">Fonctionnalités</a>
+        <a routerLink="" fragment="modules" class="nav-link">Modules</a>
+        <a routerLink="" fragment="materiel" class="nav-link">Matériel</a>
+        <a routerLink="" fragment="tarifs" class="nav-link">Tarifs</a>
+        <a routerLink="" fragment="contact" class="nav-link">Contact</a>
+      </div>
+      <div class="nav-buttons">
+        <button mat-stroked-button class="login-button" (click)="navigateTo('/auth')">
+          Se connecter
+        </button>
+        <button mat-raised-button color="primary" class="demo-button" (click)="navigateTo('/auth')">
+          Essayer gratuitement
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Hero Section -->
+  <section class="hero-section">
+    <div class="hero-content">
+      <h1 class="hero-title">Un Tijartek ERP complet sur lequel vous pouvez compter</h1>
+      <p class="hero-subtitle">Notre solution Tijartek ERP est intuitive, fiable en ligne et hors ligne, et offre une large gamme d'options pour répondre à tous les besoins de votre entreprise. Installez-la en quelques minutes, commencez à l'utiliser en quelques secondes, et gardez votre personnel et vos clients satisfaits !</p>
+      <div class="hero-buttons">
+        <button mat-raised-button color="primary" class="cta-button" (click)="navigateTo('/auth')">
+          Lancez-vous - C'est gratuit !
+        </button>
+        <div class="demo-dropdown">
+          <button mat-stroked-button class="secondary-button">
+            Rencontrer un conseiller
+            <mat-icon>arrow_drop_down</mat-icon>
+          </button>
+          <div class="dropdown-content">
+            <a href="#" (click)="$event.preventDefault(); openContactForm('micro')">Micro entreprise (1-5 employés)</a>
+            <a href="#" (click)="$event.preventDefault(); openContactForm('small')">Petite entreprise (6-50 employés)</a>
+            <a href="#" (click)="$event.preventDefault(); openContactForm('medium')">Démo avec un expert (50-250 employés)</a>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="hero-image">
+      <img src="assets/images/erp-dashboard.svg" alt="Tijartek ERP Dashboard" class="dashboard-preview">
+    </div>
+  </section>
+
+  <!-- Fonctionnalités Section -->
+  <section id="fonctionnalites" class="features-section">
+    <div class="section-header">
+      <h2>La complexité rencontre l'intuition</h2>
+      <p>Notre solution Tijartek ERP combine puissance et simplicité pour une expérience utilisateur optimale</p>
+    </div>
+    
+    <div class="features-grid">
+      <div class="feature-card" *ngFor="let feature of features">
+        <div class="feature-icon">
+          <mat-icon>{{feature.icon}}</mat-icon>
+        </div>
+        <h3>{{feature.title}}</h3>
+        <p>{{ feature.description }}</p>
+        <button mat-button color="primary" (click)="navigateTo('/auth')">En savoir plus <mat-icon>arrow_forward</mat-icon></button>
+      </div>
+    </div>
+
+    <div class="feature-highlight">
+      <div class="highlight-content">
+        <h2>Interface intuitive</h2>
+        <p>L'interface qui a tout pour plaire : particulièrement intuitive, n'importe qui peut la maîtriser en quelques minutes, et dotée d'une série d'options avancées. Gérez n'importe quelle transaction en toute simplicité et concentrez-vous sur l'essentiel : vos clients.</p>
+        <button mat-stroked-button color="primary" (click)="navigateTo('/auth')">
+          Essayer maintenant
+        </button>
+      </div>
+      <div class="highlight-image">
+        <img src="assets/images/erp-dashboard.svg" alt="Interface intuitive">
+      </div>
+    </div>
+
+    <div class="feature-highlight reverse">
+      <div class="highlight-content">
+        <h2>Fidélisez vos clients</h2>
+        <p>Améliorez leur expérience d'achat grâce à des programmes de fidélité : points, récompenses et cartes-cadeaux. Vous devez effectuer un remboursement ? Utilisez l'e-wallet pour augmenter le taux de rétention tout en gardant les clients heureux.</p>
+        <div class="feature-tags">
+          <span class="feature-tag">Bons de réduction</span>
+          <span class="feature-tag">Cartes de fidélité</span>
+          <span class="feature-tag">Promotion</span>
+          <span class="feature-tag">eWallet</span>
+          <span class="feature-tag">Cartes cadeaux</span>
+        </div>
+      </div>
+      <div class="highlight-image">
+        <img src="assets/images/customer-loyalty.svg" alt="Fidélité client">
+      </div>
+    </div>
+  </section>
+
+  <!-- Modules Section -->
+  <section id="modules" class="modules-section">
+    <div class="section-header">
+      <h2>Des fonctionnalités bien conçues</h2>
+      <p>Notre solution Tijartek ERP intègre tous les modules dont vous avez besoin</p>
+    </div>
+    
+    <div class="modules-grid">
+      <div class="module-card">
+        <div class="module-icon">
+          <mat-icon>inventory_2</mat-icon>
+        </div>
+        <h3>Stock</h3>
+        <ul>
+          <li>Gestion des produits et catégories</li>
+          <li>Suivi des mouvements de stock</li>
+          <li>Alertes de stock minimum</li>
+          <li>Inventaire et valorisation</li>
+        </ul>
+        <button mat-button color="primary" (click)="navigateTo('/stock')">
+          Découvrir <mat-icon>arrow_forward</mat-icon>
+        </button>
+      </div>
+
+      <div class="module-card">
+        <div class="module-icon">
+          <mat-icon>point_of_sale</mat-icon>
+        </div>
+        <h3>Point de Vente (POS)</h3>
+        <ul class="module-features">
+          <li>Interface caisse intuitive</li>
+          <li>Recherche rapide par code-barres ou nom</li>
+          <li>Gestion des remises (ligne/total)</li>
+          <li>Calcul automatique TTC</li>
+          <li>Multiples modes de paiement</li>
+          <li>Impression des tickets</li>
+          <li>Historique des ventes</li>
+        </ul>
+        <button mat-button color="primary" (click)="navigateTo('/caisse')">
+          Découvrir <mat-icon>arrow_forward</mat-icon>
+        </button>
+      </div>
+
+      <div class="module-card">
+        <div class="module-icon">
+          <mat-icon>inventory_2</mat-icon>
+        </div>
+        <h3>Gestion des Produits / Stock</h3>
+        <ul class="module-features">
+          <li>CRUD complet des produits</li>
+          <li>Catégorisation des produits</li>
+          <li>Suivi des quantités disponibles</li>
+          <li>Alertes stock minimum</li>
+          <li>Historique des mouvements</li>
+          <li>Mise à jour automatique après vente/achat</li>
+        </ul>
+        <button mat-button color="primary" (click)="navigateTo('/stock')">
+          Découvrir <mat-icon>arrow_forward</mat-icon>
+        </button>
+      </div>
+
+      <div class="module-card">
+        <div class="module-icon">
+          <mat-icon>receipt_long</mat-icon>
+        </div>
+        <h3>Facturation / Ventes</h3>
+        <ul class="module-features">
+          <li>Génération automatique des factures</li>
+          <li>Affichage HT, TVA et TTC</li>
+          <li>Application de remises</li>
+          <li>Gestion des statuts de paiement</li>
+          <li>Génération PDF des factures</li>
+          <li>Envoi par email</li>
+          <li>Historique par période</li>
+        </ul>
+        <button mat-button color="primary" (click)="navigateTo('/facturation')">
+          Découvrir <mat-icon>arrow_forward</mat-icon>
+        </button>
+      </div>
+
+      <div class="module-card">
+        <div class="module-icon">
+          <mat-icon>shopping_cart</mat-icon>
+        </div>
+        <h3>Achats</h3>
+        <ul class="module-features">
+          <li>Création de commandes d'achat</li>
+          <li>Association aux fournisseurs</li>
+          <li>Suivi des statuts de commande</li>
+          <li>Mise à jour auto du stock à réception</li>
+          <li>Génération de bons de commande PDF</li>
+        </ul>
+        <button mat-button color="primary" (click)="navigateTo('/achat')">
+          Découvrir <mat-icon>arrow_forward</mat-icon>
+        </button>
+      </div>
+    </div>
+
+    <div class="modules-cta">
+      <a routerLink="" fragment="modules" class="view-all-features">Découvrir toutes les fonctionnalités</a>
+    </div>
+  </section>
+
+  <!-- Architecture Section -->
+  <section class="architecture-section">
+    <div class="section-header">
+      <h2>Architecture microservices performante</h2>
+      <p>Une solution robuste et évolutive pour répondre à vos besoins</p>
+    </div>
+    
+    <div class="architecture-content">
+      <div class="architecture-text">
+        <div class="architecture-feature">
+          <h3><mat-icon>security</mat-icon> Sécurité avancée</h3>
+          <p>Authentification JWT, gestion des rôles et protection des données sensibles</p>
+        </div>
+        <div class="architecture-feature">
+          <h3><mat-icon>device_hub</mat-icon> Services indépendants</h3>
+          <p>Chaque module fonctionne de manière autonome pour une meilleure stabilité</p>
+        </div>
+        <div class="architecture-feature">
+          <h3><mat-icon>speed</mat-icon> Haute performance</h3>
+          <p>Temps de réponse optimisés et équilibrage de charge automatique</p>
+        </div>
+        <div class="architecture-feature">
+          <h3><mat-icon>trending_up</mat-icon> Évolutivité</h3>
+          <p>Ajoutez de nouvelles fonctionnalités sans perturber le système existant</p>
+        </div>
+      </div>
+      <div class="architecture-image">
+        <img src="assets/images/microservices.svg" alt="Architecture microservices" class="arch-diagram">
+      </div>
+    </div>
+  </section>
+
+  <!-- Matériel Section -->
+  <section id="materiel" class="hardware-section">
+    <div class="section-header">
+      <h2>Tous les appareils nécessaires pour votre entreprise</h2>
+      <p>Notre solution Tijartek ERP est compatible avec une large gamme de matériels</p>
+    </div>
+
+    <div class="hardware-categories">
+      <div class="hardware-category">
+        <div class="category-icon">
+          <mat-icon>computer</mat-icon>
+        </div>
+        <h3>Appareils compatibles</h3>
+        <ul class="hardware-list">
+          <li>
+            <span class="hardware-name">Ordinateurs de bureau et portables</span>
+            <p>Windows, Mac, Linux</p>
+          </li>
+          <li>
+            <span class="hardware-name">Appareils mobiles</span>
+            <p>Tablettes et smartphones iOS/Android</p>
+          </li>
+          <li>
+            <span class="hardware-name">Écrans tactiles industriels</span>
+            <p>Pour environnements exigeants</p>
+          </li>
+        </ul>
+      </div>
+
+      <div class="hardware-category">
+        <div class="category-icon">
+          <mat-icon>payment</mat-icon>
+        </div>
+        <h3>Périphériques de paiement</h3>
+        <ul class="hardware-list">
+          <li>
+            <span class="hardware-name">Terminaux de paiement</span>
+            <p>Compatibles avec les principales solutions du marché</p>
+          </li>
+          <li>
+            <span class="hardware-name">Caisses enregistreuses</span>
+            <p>Intégration complète avec notre module POS</p>
+          </li>
+        </ul>
+      </div>
+
+      <div class="hardware-category">
+        <div class="category-icon">
+          <mat-icon>print</mat-icon>
+        </div>
+        <h3>Imprimantes</h3>
+        <ul class="hardware-list">
+          <li>
+            <span class="hardware-name">Imprimantes de tickets</span>
+            <p>Thermiques et matricielles</p>
+          </li>
+          <li>
+            <span class="hardware-name">Imprimantes d'étiquettes</span>
+            <p>Codes-barres et QR codes</p>
+          </li>
+        </ul>
+      </div>
+
+      <div class="hardware-category">
+        <div class="category-icon">
+          <mat-icon>qr_code_scanner</mat-icon>
+        </div>
+        <h3>Périphériques de scan</h3>
+        <ul class="hardware-list">
+          <li>
+            <span class="hardware-name">Lecteurs de codes-barres</span>
+            <p>Filaires et sans fil</p>
+          </li>
+          <li>
+            <span class="hardware-name">Balances</span>
+            <p>Connexion directe au système</p>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- Tarifs Section -->
+  <section id="tarifs" class="pricing-section">
+    <div class="section-header">
+      <h2>Des tarifs adaptés à vos besoins</h2>
+      <p>Choisissez la formule Tijartek ERP qui correspond le mieux à votre entreprise</p>
+    </div>
+
+    <div class="pricing-toggle">
+      <span [class.active]="!isAnnualBilling" (click)="isAnnualBilling = false">Mensuel</span>
+      <div class="toggle-switch" (click)="isAnnualBilling = !isAnnualBilling">
+        <div class="toggle-button" [class.annual]="isAnnualBilling"></div>
+      </div>
+      <span [class.active]="isAnnualBilling" (click)="isAnnualBilling = true">Annuel <span class="discount">-20%</span></span>
+    </div>
+
+    <div class="pricing-grid">
+      <div class="pricing-card starter">
+        <div class="pricing-header">
+          <h3>Starter</h3>
+          <p class="pricing-description">Idéal pour les petites entreprises</p>
+          <div class="pricing-amount">
+            <span class="currency">€</span>
+            <span class="amount">{{ isAnnualBilling ? '39' : '49' }}</span>
+            <span class="period">/mois</span>
+          </div>
+          <p class="pricing-note" *ngIf="isAnnualBilling">Facturé annuellement : €468</p>
+        </div>
+        <div class="pricing-features">
+          <ul>
+            <li><mat-icon>check_circle</mat-icon> 3 utilisateurs inclus</li>
+            <li><mat-icon>check_circle</mat-icon> Stock + Facturation</li>
+            <li><mat-icon>check_circle</mat-icon> Support par email</li>
+            <li><mat-icon>check_circle</mat-icon> 5 GB de stockage</li>
+            <li><mat-icon>check_circle</mat-icon> Mises à jour incluses</li>
+            <li class="disabled"><mat-icon>cancel</mat-icon> Module Achats</li>
+            <li class="disabled"><mat-icon>cancel</mat-icon> Module Point de Vente</li>
+            <li class="disabled"><mat-icon>cancel</mat-icon> Support téléphonique</li>
+          </ul>
+        </div>
+        <div class="pricing-cta">
+          <button mat-raised-button color="primary" (click)="navigateTo('/auth')">
+            Essayer gratuitement
+          </button>
+          <p class="trial-note">Essai gratuit de 14 jours</p>
+        </div>
+      </div>
+
+      <div class="pricing-card professional">
+        <div class="pricing-badge">Populaire</div>
+        <div class="pricing-header">
+          <h3>Professional</h3>
+          <p class="pricing-description">Pour les entreprises en croissance</p>
+          <div class="pricing-amount">
+            <span class="currency">€</span>
+            <span class="amount">{{ isAnnualBilling ? '79' : '99' }}</span>
+            <span class="period">/mois</span>
+          </div>
+          <p class="pricing-note" *ngIf="isAnnualBilling">Facturé annuellement : €948</p>
+        </div>
+        <div class="pricing-features">
+          <ul>
+            <li><mat-icon>check_circle</mat-icon> 10 utilisateurs inclus</li>
+            <li><mat-icon>check_circle</mat-icon> Tous les modules</li>
+            <li><mat-icon>check_circle</mat-icon> Support par email et chat</li>
+            <li><mat-icon>check_circle</mat-icon> 20 GB de stockage</li>
+            <li><mat-icon>check_circle</mat-icon> Mises à jour incluses</li>
+            <li><mat-icon>check_circle</mat-icon> Rapports avancés</li>
+            <li><mat-icon>check_circle</mat-icon> API complète</li>
+            <li class="disabled"><mat-icon>cancel</mat-icon> Support téléphonique 24/7</li>
+          </ul>
+        </div>
+        <div class="pricing-cta">
+          <button mat-raised-button color="primary" (click)="navigateTo('/auth')">
+            Essayer gratuitement
+          </button>
+          <p class="trial-note">Essai gratuit de 14 jours</p>
+        </div>
+      </div>
+
+      <div class="pricing-card enterprise">
+        <div class="pricing-header">
+          <h3>Enterprise</h3>
+          <p class="pricing-description">Pour les grandes organisations</p>
+          <div class="pricing-amount">
+            <span class="currency">€</span>
+            <span class="amount">{{ isAnnualBilling ? '159' : '199' }}</span>
+            <span class="period">/mois</span>
+          </div>
+          <p class="pricing-note" *ngIf="isAnnualBilling">Facturé annuellement : €1908</p>
+        </div>
+        <div class="pricing-features">
+          <ul>
+            <li><mat-icon>check_circle</mat-icon> Utilisateurs illimités</li>
+            <li><mat-icon>check_circle</mat-icon> Tous les modules</li>
+            <li><mat-icon>check_circle</mat-icon> Support prioritaire 24/7</li>
+            <li><mat-icon>check_circle</mat-icon> 100 GB de stockage</li>
+            <li><mat-icon>check_circle</mat-icon> Mises à jour incluses</li>
+            <li><mat-icon>check_circle</mat-icon> Rapports personnalisés</li>
+            <li><mat-icon>check_circle</mat-icon> API complète</li>
+            <li><mat-icon>check_circle</mat-icon> Intégrations avancées</li>
+          </ul>
+        </div>
+        <div class="pricing-cta">
+          <button mat-raised-button color="primary" (click)="navigateTo('/auth')">
+            Essayer gratuitement
+          </button>
+          <p class="trial-note">Essai gratuit de 14 jours</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Testimonials Section -->
+  <section class="testimonials-section">
+    <div class="section-header">
+      <h2>Ce que nos clients disent</h2>
+      <p>Découvrez comment notre solution Tijartek ERP transforme les entreprises</p>
+    </div>
+    
+    <div class="testimonials-grid">
+      <div class="testimonial-card" *ngFor="let testimonial of testimonials">
+        <div class="quote-icon">
+          <mat-icon>format_quote</mat-icon>
+        </div>
+        <p class="quote-text">{{ testimonial.quote }}</p>
+        <div class="testimonial-author">
+          <h4>{{ testimonial.author }}</h4>
+          <p>{{ testimonial.position }}</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Contact Section -->
+  <section id="contact" class="contact-section">
+    <div class="section-header">
+      <h2>Contactez-nous</h2>
+      <p>Notre équipe est à votre disposition pour répondre à toutes vos questions</p>
+    </div>
+
+    <div class="contact-container">
+      <div class="contact-info">
+        <div class="info-item">
+          <mat-icon>email</mat-icon>
+          <div>
+            <h4>Email</h4>
+            <p>contact&#64;tijartek-erp.com</p>
+          </div>
+        </div>
+        <div class="info-item">
+          <mat-icon>phone</mat-icon>
+          <div>
+            <h4>Téléphone</h4>
+            <p>+33 (0)1 23 45 67 89</p>
+          </div>
+        </div>
+        <div class="info-item">
+          <mat-icon>location_on</mat-icon>
+          <div>
+            <h4>Adresse</h4>
+            <p>123 Avenue des Microservices<br>75000 Paris, France</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="contact-form">
+        <form>
+          <div class="form-group">
+            <label for="name">Nom</label>
+            <input type="text" id="name" placeholder="Votre nom">
+          </div>
+          <div class="form-group">
+            <label for="email">Email</label>
+            <input type="email" id="email" placeholder="Votre email">
+          </div>
+          <div class="form-group">
+            <label for="company">Entreprise</label>
+            <input type="text" id="company" placeholder="Votre entreprise">
+          </div>
+          <div class="form-group">
+            <label for="message">Message</label>
+            <textarea id="message" rows="5" placeholder="Votre message"></textarea>
+          </div>
+          <button mat-raised-button color="primary" type="submit">
+            Envoyer
+          </button>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA Section -->
+  <section class="cta-section">
+    <div class="cta-content">
+      <h2>Prêt à transformer votre entreprise?</h2>
+      <p>Commencez dès aujourd'hui avec Tijartek ERP, une solution complète et modulaire</p>
+      <button mat-raised-button color="primary" class="cta-button" (click)="navigateTo('/auth')">
+        Essayer gratuitement
+      </button>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="landing-footer">
+    <div class="footer-container">
+      <div class="footer-column">
+        <h3>Tijartek ERP</h3>
+        <p>Une solution complète pour gérer efficacement tous les aspects de votre entreprise, du stock à la facturation.</p>
+        <div class="social-icons">
+          <a href="#" class="social-icon"><mat-icon>facebook</mat-icon></a>
+          <a href="#" class="social-icon"><mat-icon>twitter</mat-icon></a>
+          <a href="#" class="social-icon"><mat-icon>linkedin</mat-icon></a>
+          <a href="#" class="social-icon"><mat-icon>youtube_searched_for</mat-icon></a>
+        </div>
+      </div>
+
+      <div class="footer-column">
+        <h4>Modules</h4>
+        <ul>
+          <li><a routerLink="" fragment="modules">Stock</a></li>
+          <li><a routerLink="" fragment="modules">Achats</a></li>
+          <li><a routerLink="" fragment="modules">Facturation</a></li>
+          <li><a routerLink="" fragment="modules">Point de Vente</a></li>
+          <li><a routerLink="" fragment="modules">Administration</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-column">
+        <h4>Ressources</h4>
+        <ul>
+          <li><a href="#">Documentation</a></li>
+          <li><a href="#">API</a></li>
+          <li><a href="#">Blog</a></li>
+          <li><a href="#">Tutoriels</a></li>
+          <li><a href="#">Support</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-column">
+        <h4>Entreprise</h4>
+        <ul>
+          <li><a href="#">À propos</a></li>
+          <li><a href="#">Équipe</a></li>
+          <li><a href="#">Carrières</a></li>
+          <li><a href="#">Partenaires</a></li>
+          <li><a routerLink="" fragment="contact">Contact</a></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="footer-bottom">
+      <p>&copy; 2025 Tijartek ERP. Tous droits réservés.</p>
+      <div class="footer-links">
+        <a href="#">Mentions légales</a>
+        <a href="#">Politique de confidentialité</a>
+        <a href="#">Conditions d'utilisation</a>
+      </div>
+    </div>
+  </footer>
+</div>

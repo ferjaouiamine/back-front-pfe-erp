@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
-import { Observable, of, throwError } from 'rxjs';
+import { Observable, of } from 'rxjs';
 import { delay, map, catchError } from 'rxjs/operators';
 import { AuthService } from '../../auth/services/auth.service';
 
@@ -12,6 +12,7 @@ export interface FactureItem {
   description?: string;
   quantity: number;
   unitPrice: number;
+  total: number;
 }
 
 export interface Facture {
@@ -38,7 +39,8 @@ export interface Facture {
   providedIn: 'root'
 })
 export class FactureService {
-  private apiUrl = 'http://localhost:8081/api/factures';
+  // URL de l'API pour les factures - point d'accès à votre backend Spring Boot
+  private apiUrl = 'http://localhost:8085/api/factures';
 
   constructor(
     private http: HttpClient,
@@ -54,136 +56,201 @@ export class FactureService {
     });
   }
 
-  // Récupérer toutes les factures du vendeur connecté
+  // Récupérer toutes les factures depuis le backend Spring Boot
   getFactures(): Observable<Facture[]> {
-    console.log('Tentative de récupération des factures depuis:', this.apiUrl);
-    return this.http.get<Facture[]>(this.apiUrl, { headers: this.getAuthHeaders() }).pipe(
-      map(factures => {
-        console.log('Factures récupérées depuis l\'API:', factures);
-        return factures;
-      }),
-      catchError(error => {
-        console.error('ERREUR API: Impossible de récupérer les factures:', error);
-        // Ne pas utiliser de données fictives, retourner un tableau vide
-        return of([]);
-      })
-    );
+    console.log('Récupération des factures depuis le backend Spring Boot:', this.apiUrl);
+    return this.http.get<any>(this.apiUrl, { headers: this.getAuthHeaders() })
+      .pipe(
+        map(response => {
+          console.log('Réponse du backend Spring Boot:', response);
+          // Mapper les données du backend aux objets Facture
+          if (Array.isArray(response)) {
+            const factures = response.map(item => this.mapSpringResponseToFacture(item));
+            console.log('Factures récupérées avec succès:', factures.length);
+            return factures;
+          } else {
+            console.error('Format de réponse inattendu:', response);
+            throw new Error('Format de réponse inattendu');
+          }
+        }),
+        catchError(error => {
+          // En cas d'erreur, propager l'erreur au composant
+          console.error('Erreur lors de la récupération des factures:', error);
+          throw error;
+        })
+      );
   }
-
+  
   // Récupérer les factures du vendeur connecté
   getVendorFactures(): Observable<Facture[]> {
     const currentUser = this.authService.getCurrentUser();
     if (!currentUser) {
-      return throwError(() => new Error('Utilisateur non connecté'));
+      return of([]);
     }
     
-    return this.http.get<Facture[]>(`${this.apiUrl}/vendor/${currentUser.id}`, { headers: this.getAuthHeaders() }).pipe(
-      map(factures => {
-        console.log('Factures du vendeur récupérées depuis l\'API:', factures);
-        return factures;
+    const vendorId = currentUser.id;
+    const url = `${this.apiUrl}/vendor/${vendorId}`;
+    
+    return this.http.get<any[]>(url, { headers: this.getAuthHeaders() }).pipe(
+      map(response => {
+        if (!Array.isArray(response)) {
+          return this.generateMockFactures();
+        }
+        
+        return response.map(item => this.mapSpringResponseToFacture(item));
       }),
       catchError(error => {
-        console.error(`Erreur lors de la récupération des factures du vendeur ${currentUser.id}:`, error);
-        // En cas d'erreur, utiliser les données factices comme fallback
+        console.error('Erreur lors de la rÃ©cupÃ©ration des factures du vendeur:', error);
         return of(this.generateMockFactures());
       })
     );
   }
   
-  // Générer des données factices pour le tableau de bord
-  private generateMockFactures(): Facture[] {
-    const statuses: ('DRAFT' | 'PENDING' | 'PAID' | 'CANCELLED')[] = ['DRAFT', 'PENDING', 'PAID', 'CANCELLED'];
-    const currentUser = this.authService.getCurrentUser();
-    const vendorId = currentUser?.id || 'vendor_123';
-    const vendorName = currentUser?.username || 'Vendeur Test';
-    const vendorEmail = 'vendeur@example.com';
-    const facturesCount = 30; // Nombre total de factures à générer
+  // Récupérer une facture par son ID
+  getFactureById(id: string): Observable<Facture> {
+    console.log(`Récupération de la facture ${id} depuis le backend Spring Boot`);
     
-    const factureItems: FactureItem[][] = [
-      // Exemple d'items pour la première facture
-      [
-        {
-          id: 'item_1',
-          factureId: 'fact_1',
-          productId: 'prod_1',
-          productName: 'Ordinateur portable',
-          description: 'Ordinateur portable HP EliteBook avec processeur Intel Core i7',
-          quantity: 2,
-          unitPrice: 1200
-        },
-        {
-          id: 'item_2',
-          factureId: 'fact_1',
-          productId: 'prod_2',
-          productName: 'Écran 27 pouces',
-          description: 'Écran Dell UltraSharp 27" 4K',
-          quantity: 3,
-          unitPrice: 350
+    return this.http.get<any>(`${this.apiUrl}/${id}`, { headers: this.getAuthHeaders() }).pipe(
+      map(response => {
+        console.log('Réponse du backend Spring Boot pour la facture:', response);
+        if (!response) {
+          throw new Error(`Facture ${id} non trouvée`);
         }
-      ],
-      // Exemple d'items pour la deuxième facture
-      [
-        {
-          id: 'item_3',
-          factureId: 'fact_2',
-          productId: 'prod_3',
-          productName: 'Clavier mécanique',
-          description: 'Clavier mécanique Corsair K95 RGB',
-          quantity: 5,
-          unitPrice: 120
-        }
-      ]
-    ];
-
-    // Générer des factures avec des données aléatoires
+        return this.mapSpringResponseToFacture(response);
+      }),
+      catchError(error => {
+        console.error(`Erreur lors de la récupération de la facture ${id}:`, error);
+        throw error; // Propager l'erreur au composant
+      })
+    );
+  }
+  
+  // Mapper une réponse du backend Spring Boot vers un objet Facture
+  private mapSpringResponseToFacture(item: any): Facture {
+    console.log('Mapping de la réponse Spring Boot:', item);
+    return {
+      id: item.id?.toString() || '',
+      number: item.numeroFacture || '',
+      vendorId: item.vendeurId?.toString() || '1',
+      vendorName: item.vendeurNom || 'Entreprise',
+      vendorEmail: item.vendeurEmail || 'contact@entreprise.com',
+      clientId: item.client?.id?.toString() || '',
+      clientName: item.client?.nom || 'Client',
+      clientEmail: item.client?.email || 'client@example.com',
+      date: new Date(item.dateFacture || Date.now()),
+      dueDate: new Date(item.dateEcheance || Date.now()),
+      status: this.mapStatusFromSpring(item.statut || 'BROUILLON'),
+      total: parseFloat(item.montantTotal) || 0,
+      discount: parseFloat(item.remise) || 0,
+      notes: item.notes || '',
+      items: this.mapLignesFacture(item.lignes || []),
+      createdAt: new Date(item.dateCreation || Date.now()),
+      updatedAt: new Date(item.dateModification || Date.now())
+    };
+  }
+  
+  // Mapper les lignes de facture du backend Spring Boot
+  private mapLignesFacture(lignes: any[]): FactureItem[] {
+    if (!Array.isArray(lignes)) {
+      return [];
+    }
+    
+    return lignes.map(ligne => ({
+      id: ligne.id?.toString() || '',
+      factureId: ligne.factureId?.toString() || '',
+      productId: ligne.produitId?.toString() || '',
+      productName: ligne.nomProduit || '',
+      description: ligne.description || '',
+      quantity: ligne.quantite || 0,
+      unitPrice: ligne.prixUnitaire || 0,
+      total: ligne.total || 0
+    }));
+  }
+  
+  // Mapper le statut du backend Spring Boot au format attendu par l'application
+  mapStatusFromSpring(status: string): 'DRAFT' | 'PENDING' | 'PAID' | 'CANCELLED' {
+    if (!status) return 'DRAFT';
+    
+    switch (status.toUpperCase()) {
+      case 'BROUILLON':
+        return 'DRAFT';
+      case 'EN_ATTENTE':
+      case 'EN ATTENTE':
+        return 'PENDING';
+      case 'PAYEE':
+      case 'PAYÃ‰':
+      case 'PAYÃ‰E':
+        return 'PAID';
+      case 'ANNULEE':
+      case 'ANNULÃ‰':
+      case 'ANNULÃ‰E':
+        return 'CANCELLED';
+      default:
+        return 'PENDING';
+    }
+  }
+  
+  // GÃ©nÃ©rer des donnÃ©es factices pour le tableau de bord
+  generateMockFactures(): Facture[] {
+    console.log('GÃ©nÃ©ration de factures factices pour le tableau de bord');
+    
     const factures: Facture[] = [];
+    const statuses: ('DRAFT' | 'PENDING' | 'PAID' | 'CANCELLED')[] = ['DRAFT', 'PENDING', 'PAID', 'CANCELLED'];
+    const currentDate = new Date();
     
-    for (let i = 1; i <= facturesCount; i++) {
-      const itemsIndex = i <= 2 ? i - 1 : Math.floor(Math.random() * 2); // Utiliser les exemples pour les 2 premières factures
-      const items = factureItems[itemsIndex].map(item => ({
-        ...item,
-        factureId: `fact_${i}`,
-        id: `item_${Math.floor(Math.random() * 1000)}`
-      }));
+    // GÃ©nÃ©rer 10 factures factices
+    for (let i = 1; i <= 10; i++) {
+      const status = statuses[Math.floor(Math.random() * statuses.length)];
+      const date = new Date(currentDate);
+      date.setDate(date.getDate() - Math.floor(Math.random() * 30)); // Date dans les 30 derniers jours
       
-      // Calculer le total
-      const total = items.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
-      // Remise aléatoire (0-10%)
-      const discount = Math.random() > 0.7 ? Math.floor(Math.random() * 10) + 1 : 0;
+      const dueDate = new Date(date);
+      dueDate.setDate(dueDate.getDate() + 30); // Ã‰chÃ©ance Ã  30 jours
       
-      // Date aléatoire dans les 6 derniers mois
-      const date = new Date();
-      date.setMonth(date.getMonth() - Math.floor(Math.random() * 6));
-      date.setDate(Math.floor(Math.random() * 28) + 1); // Jour entre 1 et 28
-      let status: 'DRAFT' | 'PENDING' | 'PAID' | 'CANCELLED';
-      const statusRandom = Math.random();
-      if (statusRandom < 0.6) {
-        status = 'PAID';
-      } else if (statusRandom < 0.9) {
-        status = 'PENDING';
-      } else {
-        status = 'CANCELLED';
+      const items: FactureItem[] = [];
+      const itemCount = Math.floor(Math.random() * 5) + 1; // 1 Ã  5 articles
+      
+      let total = 0;
+      
+      // GÃ©nÃ©rer des articles pour la facture
+      for (let j = 1; j <= itemCount; j++) {
+        const quantity = Math.floor(Math.random() * 5) + 1; // 1 Ã  5 unitÃ©s
+        const unitPrice = Math.floor(Math.random() * 100) + 10; // 10 Ã  110 euros
+        const itemTotal = quantity * unitPrice;
+        total += itemTotal;
+        
+        items.push({
+          id: `item-${i}-${j}`,
+          factureId: `facture-${i}`,
+          productId: `product-${j}`,
+          productName: `Produit ${j}`,
+          description: `Description du produit ${j}`,
+          quantity,
+          unitPrice,
+          total: itemTotal
+        });
       }
       
-      // Date d'échéance (15 jours après la date de facture)
-      const dueDate = new Date(date);
-      dueDate.setDate(date.getDate() + 15);
+      // Appliquer une remise alÃ©atoire (0 Ã  10%)
+      const discount = Math.random() < 0.3 ? Math.floor(total * (Math.random() * 0.1)) : 0;
+      total -= discount;
       
       factures.push({
-        id: `fact_${i}`,
-        number: `F-${new Date().getFullYear()}-${i.toString().padStart(4, '0')}`,
-        vendorId,
-        vendorName,
-        vendorEmail,
+        id: `facture-${i}`,
+        number: `FACT-${2025}${i.toString().padStart(3, '0')}`,
+        vendorId: '1',
+        vendorName: 'Vendeur Test',
+        vendorEmail: 'vendeur@example.com',
+        clientId: `client-${i}`,
         clientName: `Client ${i}`,
         clientEmail: `client${i}@example.com`,
         date,
         dueDate,
-        items,
-        discount,
-        total,
         status,
-        notes: Math.random() > 0.7 ? 'Notes sur la facture...' : undefined,
+        total,
+        discount,
+        notes: `Notes pour la facture ${i}`,
+        items,
         createdAt: date,
         updatedAt: date
       });
@@ -191,72 +258,75 @@ export class FactureService {
     
     return factures;
   }
-
-  // Récupérer une facture par son ID
-  getFactureById(id: string): Observable<Facture> {
-    return this.http.get<Facture>(`${this.apiUrl}/${id}`, { headers: this.getAuthHeaders() }).pipe(
-      map(facture => {
-        console.log(`Facture ${id} récupérée depuis l'API:`, facture);
-        return facture;
-      }),
-      catchError(error => {
-        console.error(`Erreur lors de la récupération de la facture ${id}:`, error);
-        // En cas d'erreur, essayer de récupérer depuis les données locales
-        return this.getFactures().pipe(
-          map((factures: Facture[]) => {
-            const facture = factures.find((f: Facture) => f.id === id);
-            if (facture) {
-              return facture;
-            } else {
-              throw new Error(`Facture avec ID ${id} non trouvée`);
-            }
-          })
-        );
-      })
-    );
+  
+  // CrÃ©er une facture fictive pour Ã©viter les erreurs d'affichage
+  createMockFacture(id: string): Facture {
+    const date = new Date();
+    const dueDate = new Date();
+    dueDate.setDate(date.getDate() + 30);
+    
+    return {
+      id,
+      number: `FACT-${id}`,
+      vendorId: '1',
+      vendorName: 'Vendeur Test',
+      vendorEmail: 'vendeur@example.com',
+      clientId: '1',
+      clientName: 'Client Test',
+      clientEmail: 'client@example.com',
+      date,
+      dueDate,
+      status: 'DRAFT',
+      total: 0,
+      discount: 0,
+      notes: '',
+      items: [],
+      createdAt: date,
+      updatedAt: date
+    };
   }
-
-  // Créer une nouvelle facture
+  
+  // CrÃ©er une nouvelle facture
   createFacture(facture: Facture): Observable<Facture> {
-    // Ajouter automatiquement l'ID du vendeur connecté
-    const currentUser = this.authService.getCurrentUser();
-    if (currentUser) {
-      facture.vendorId = currentUser.id;
-      facture.vendorName = currentUser.username;
-      facture.vendorEmail = currentUser.email || '';
-    }
+    console.log('CrÃ©ation d\'une nouvelle facture:', facture);
     
-    // Les champs createdAt et updatedAt seront gérés par le backend
-    
-    return this.http.post<Facture>(this.apiUrl, facture, { headers: this.getAuthHeaders() }).pipe(
+    return this.http.post<any>(this.apiUrl, facture, { headers: this.getAuthHeaders() }).pipe(
       map(response => {
-        console.log('Facture créée avec succès:', response);
-        return response;
+        console.log('RÃ©ponse du backend Spring Boot pour la crÃ©ation de facture:', response);
+        return this.mapSpringResponseToFacture(response);
       }),
       catchError(error => {
-        console.error('Erreur lors de la création de la facture:', error);
-        // En cas d'erreur, simuler une création réussie avec les données envoyées
-        facture.id = `fact_${Math.floor(Math.random() * 1000)}`;
-        facture.number = `F-${new Date().getFullYear()}-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`;
-        facture.createdAt = new Date();
-        facture.updatedAt = new Date();
-        return of(facture);
+        console.error('Erreur lors de la crÃ©ation de la facture:', error);
+        
+        // Simuler une crÃ©ation rÃ©ussie
+        const mockFacture = { ...facture };
+        mockFacture.id = `mock-${Date.now()}`;
+        mockFacture.createdAt = new Date();
+        mockFacture.updatedAt = new Date();
+        
+        return of(mockFacture);
       })
     );
   }
-
-  // Mettre à jour le statut d'une facture
+  
+  // Mettre Ã  jour le statut d'une facture
   updateFactureStatus(id: string, status: 'DRAFT' | 'PENDING' | 'PAID' | 'CANCELLED'): Observable<Facture> {
-    return this.http.patch<Facture>(`${this.apiUrl}/${id}/status`, { status }, { headers: this.getAuthHeaders() }).pipe(
+    console.log(`Mise Ã  jour du statut de la facture ${id} vers ${status}`);
+    
+    const url = `${this.apiUrl}/${id}/statut`;
+    const body = { statut: this.mapStatusToSpring(status) };
+    
+    return this.http.patch<any>(url, body, { headers: this.getAuthHeaders() }).pipe(
       map(response => {
-        console.log(`Statut de la facture ${id} mis à jour avec succès:`, response);
-        return response;
+        console.log('RÃ©ponse du backend Spring Boot pour la mise Ã  jour du statut:', response);
+        return this.mapSpringResponseToFacture(response);
       }),
       catchError(error => {
-        console.error(`Erreur lors de la mise à jour du statut de la facture ${id}:`, error);
-        // En cas d'erreur, simuler une mise à jour réussie
+        console.error(`Erreur lors de la mise Ã  jour du statut de la facture ${id}:`, error);
+        
+        // Simuler une mise Ã  jour rÃ©ussie
         return this.getFactureById(id).pipe(
-          map((facture: Facture) => {
+          map(facture => {
             facture.status = status;
             facture.updatedAt = new Date();
             return facture;
@@ -265,137 +335,76 @@ export class FactureService {
       })
     );
   }
-
-  // Générer un PDF pour une facture
+  
+  // Mapper le statut de l'application au format attendu par le backend Spring Boot
+  private mapStatusToSpring(status: 'DRAFT' | 'PENDING' | 'PAID' | 'CANCELLED'): string {
+    switch (status) {
+      case 'DRAFT':
+        return 'BROUILLON';
+      case 'PENDING':
+        return 'EN_ATTENTE';
+      case 'PAID':
+        return 'PAYEE';
+      case 'CANCELLED':
+        return 'ANNULEE';
+      default:
+        return 'BROUILLON';
+    }
+  }
+  
+  // GÃ©nÃ©rer un PDF pour une facture
   generatePdf(id: string): Observable<Blob> {
-    // Récupérer d'abord les données de la facture
-    return this.getFactureById(id).pipe(
-      delay(800), // Simuler un délai réseau
-      map((facture: Facture) => {
-        // Créer le contenu du PDF
-        const pdfContent = this.createPdfContent(facture);
+    console.log(`GÃ©nÃ©ration du PDF pour la facture ${id}`);
+    
+    const url = `${this.apiUrl}/${id}/pdf`;
+    
+    return this.http.get(url, {
+      headers: this.getAuthHeaders(),
+      responseType: 'blob'
+    }).pipe(
+      catchError(error => {
+        console.error(`Erreur lors de la gÃ©nÃ©ration du PDF pour la facture ${id}:`, error);
         
-        // Créer un blob avec le contenu du PDF
-        return new Blob([pdfContent], { type: 'application/pdf' });
+        // Simuler un PDF
+        return this.getFactureById(id).pipe(
+          map(facture => {
+            const content = `Facture ${facture.number} pour ${facture.clientName}`;
+            return new Blob([content], { type: 'application/pdf' });
+          })
+        );
       })
     );
   }
   
-  // Créer le contenu du PDF pour une facture
-  private createPdfContent(facture: Facture): string {
-    // Créer un PDF simple au format texte (pour la simulation)
-    // Dans un environnement de production, on utiliserait une bibliothèque comme pdfmake ou jspdf
-    
-    const content = `
-%PDF-1.4
-1 0 obj
-<< /Type /Catalog /Pages 2 0 R >>
-endobj
-2 0 obj
-<< /Type /Pages /Kids [3 0 R] /Count 1 >>
-endobj
-3 0 obj
-<< /Type /Page /Parent 2 0 R /Resources 4 0 R /MediaBox [0 0 612 792] /Contents 6 0 R >>
-endobj
-4 0 obj
-<< /Font << /F1 5 0 R >> >>
-endobj
-5 0 obj
-<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
-endobj
-6 0 obj
-<< /Length 1000 >>
-stream
-BT
-/F1 24 Tf
-50 700 Td
-(FACTURE) Tj
-/F1 16 Tf
-0 -30 Td
-(Numéro: ${facture.number}) Tj
-0 -20 Td
-(Date: ${new Date(facture.date).toLocaleDateString()}) Tj
-0 -20 Td
-(Date d'échéance: ${new Date(facture.dueDate).toLocaleDateString()}) Tj
-0 -30 Td
-(Client: ${facture.clientName}) Tj
-0 -20 Td
-(Email: ${facture.clientEmail}) Tj
-0 -40 Td
-(Vendeur: ${facture.vendorName}) Tj
-0 -20 Td
-(Email: ${facture.vendorEmail}) Tj
-0 -40 Td
-(Statut: ${facture.status}) Tj
-0 -40 Td
-(Articles:) Tj
-/F1 12 Tf
-${this.createItemsContent(facture.items)}
-0 -30 Td
-/F1 14 Tf
-(Total: ${facture.total.toFixed(2)} EUR) Tj
-0 -20 Td
-${facture.discount ? `(Remise: ${facture.discount.toFixed(2)} EUR)` : ''} Tj
-0 -40 Td
-/F1 10 Tf
-(Document généré le ${new Date().toLocaleString()}) Tj
-ET
-endstream
-endobj
-xref
-0 7
-0000000000 65535 f
-0000000009 00000 n
-0000000058 00000 n
-0000000115 00000 n
-0000000210 00000 n
-0000000251 00000 n
-0000000320 00000 n
-trailer
-<< /Size 7 /Root 1 0 R >>
-startxref
-1371
-%%EOF
-`;
-    
-    return content;
-  }
-  
-  // Créer le contenu des articles pour le PDF
-  private createItemsContent(items: FactureItem[]): string {
-    let content = '';
-    let yOffset = 0;
-    
-    items.forEach((item, index) => {
-      yOffset += 20;
-      content += `0 -${yOffset} Td
-(${index + 1}. ${item.productName} - ${item.quantity} x ${item.unitPrice.toFixed(2)} EUR = ${(item.quantity * item.unitPrice).toFixed(2)} EUR) Tj
-`;
-    });
-    
-    return content;
-  }
-
   // Envoyer une facture par email
   sendFactureByEmail(id: string, email: string, subject?: string, message?: string): Observable<any> {
-    // Solution temporaire : simuler l'envoi d'un email
-    console.log(`Simulation d'envoi d'email pour la facture ${id} à ${email}`);
-    console.log(`Sujet: ${subject || 'Votre facture'}`); 
-    console.log(`Message: ${message || 'Veuillez trouver ci-joint votre facture.'}`); 
+    console.log(`Envoi de la facture ${id} par email Ã  ${email}`);
     
-    return of({ success: true, message: 'Email envoyé avec succès' }).pipe(delay(1500)); // Simuler un délai réseau plus long pour l'envoi d'email
+    const url = `${this.apiUrl}/${id}/envoyer`;
+    const body = {
+      email,
+      subject: subject || 'Votre facture',
+      message: message || 'Veuillez trouver ci-joint votre facture.'
+    };
+    
+    return this.http.post<any>(url, body, { headers: this.getAuthHeaders() }).pipe(
+      catchError(error => {
+        console.error(`Erreur lors de l'envoi de la facture ${id} par email:`, error);
+        return of({ success: true, message: 'Email envoyÃ© avec succÃ¨s (simulÃ©)' });
+      })
+    );
   }
-
+  
   // Calculer le sous-total d'une facture
   calculateSubtotal(items: FactureItem[]): number {
     return items.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
   }
-
+  
   // Calculer le montant de la TVA
   calculateTaxAmount(subtotal: number, taxRate: number): number {
     return subtotal * (taxRate / 100);
   }
-
+  
   // Calculer le total d'une facture
   calculateTotal(subtotal: number, taxAmount: number, discount: number = 0): number {
     return subtotal + taxAmount - discount;

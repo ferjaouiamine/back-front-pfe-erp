@@ -1,0 +1,55 @@
+.table-container {
+  overflow-x: auto;
+  width: 100%;
+}
+
+.mat-table {
+  width: 100%;
+}
+
+.facture-row:hover {
+  background-color: rgba(0, 0, 0, 0.04);
+  cursor: pointer;
+}
+
+.mat-column-actions {
+  width: 120px;
+  text-align: center;
+}
+
+.badge {
+  padding: 0.5em 0.75em;
+  border-radius: 0.25rem;
+  font-weight: 500;
+  font-size: 0.85em;
+}
+
+.bg-warning {
+  background-color: #ffc107;
+  color: #212529;
+}
+
+.bg-info {
+  background-color: #17a2b8;
+  color: #fff;
+}
+
+.bg-success {
+  background-color: #28a745;
+  color: #fff;
+}
+
+.bg-danger {
+  background-color: #dc3545;
+  color: #fff;
+}
+
+.bg-secondary {
+  background-color: #6c757d;
+  color: #fff;
+}
+
+.mat-spinner {
+  display: inline-block;
+  margin: 0 auto;
+}

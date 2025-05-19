@@ -1,0 +1,108 @@
+.card {
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  margin-bottom: 20px;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.card-header {
+  background-color: #f8f9fa;
+  padding: 15px 20px;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.card-title {
+  margin-bottom: 0;
+  font-weight: 600;
+  color: #495057;
+}
+
+.card-body {
+  padding: 20px;
+}
+
+.filter-form {
+  padding: 15px;
+  background-color: #f8f9fa;
+  border-radius: 5px;
+  margin-bottom: 20px;
+}
+
+.loading-shade {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  right: 0;
+  background: rgba(0, 0, 0, 0.15);
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.no-data-message {
+  text-align: center;
+  padding: 20px;
+  font-size: 16px;
+  color: #6c757d;
+}
+
+.statut-valide {
+  background-color: #28a745;
+  color: white;
+  padding: 5px 10px;
+  border-radius: 4px;
+}
+
+.statut-attente {
+  background-color: #ffc107;
+  color: black;
+  padding: 5px 10px;
+  border-radius: 4px;
+}
+
+.statut-refuse {
+  background-color: #dc3545;
+  color: white;
+  padding: 5px 10px;
+  border-radius: 4px;
+}
+
+.statut-autre {
+  background-color: #6c757d;
+  color: white;
+  padding: 5px 10px;
+  border-radius: 4px;
+}
+
+.facture-link {
+  color: #007bff;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.facture-link:hover {
+  color: #0056b3;
+}
+
+table {
+  width: 100%;
+}
+
+.mat-row:hover {
+  background-color: #f8f9fa;
+}
+
+.mr-2 {
+  margin-right: 8px;
+}
+
+.w-100 {
+  width: 100%;
+}
+
+.table-responsive {
+  position: relative;
+  min-height: 200px;
+}

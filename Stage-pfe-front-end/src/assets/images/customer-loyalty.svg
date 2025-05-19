@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500" width="800" height="500">
+  <!-- Background -->
+  <rect width="800" height="500" fill="#f8f9fa" />
+  
+  <!-- Loyalty Card -->
+  <rect x="100" y="100" width="300" height="200" rx="15" fill="#3f51b5" />
+  <rect x="120" y="120" width="260" height="30" rx="5" fill="#fff" opacity="0.2" />
+  <rect x="120" y="170" width="100" height="20" rx="5" fill="#fff" opacity="0.2" />
+  <rect x="120" y="200" width="150" height="20" rx="5" fill="#fff" opacity="0.2" />
+  <rect x="120" y="230" width="80" height="20" rx="5" fill="#fff" opacity="0.2" />
+  <circle cx="330" cy="210" r="40" fill="#ff4081" />
+  <text x="330" y="220" font-family="Arial" font-size="24" font-weight="bold" fill="white" text-anchor="middle">10%</text>
+  
+  <!-- Gift Card -->
+  <rect x="450" y="100" width="250" height="150" rx="10" fill="#4caf50" />
+  <rect x="470" y="120" width="210" height="20" rx="5" fill="#fff" opacity="0.2" />
+  <rect x="470" y="150" width="80" height="15" rx="5" fill="#fff" opacity="0.2" />
+  <rect x="470" y="175" width="120" height="15" rx="5" fill="#fff" opacity="0.2" />
+  <rect x="470" y="200" width="60" height="15" rx="5" fill="#fff" opacity="0.2" />
+  <text x="575" y="190" font-family="Arial" font-size="20" font-weight="bold" fill="white" text-anchor="middle">GIFT CARD</text>
+  
+  <!-- Coupon -->
+  <rect x="450" y="280" width="250" height="120" rx="10" fill="#ff9800" />
+  <path d="M450,310 L700,310" stroke="#fff" stroke-width="2" stroke-dasharray="5,5" />
+  <path d="M450,370 L700,370" stroke="#fff" stroke-width="2" stroke-dasharray="5,5" />
+  <text x="575" y="340" font-family="Arial" font-size="20" font-weight="bold" fill="white" text-anchor="middle">COUPON</text>
+  <text x="575" y="340" font-family="Arial" font-size="20" font-weight="bold" fill="white" text-anchor="middle">COUPON</text>
+  <text x="575" y="360" font-family="Arial" font-size="16" fill="white" text-anchor="middle">20% DE RÉDUCTION</text>
+  
+  <!-- Points -->
+  <circle cx="150" y="350" r="50" fill="#9c27b0" />
+  <text x="150" y="360" font-family="Arial" font-size="24" font-weight="bold" fill="white" text-anchor="middle">250</text>
+  <text x="150" y="380" font-family="Arial" font-size="12" fill="white" text-anchor="middle">POINTS</text>
+  
+  <!-- Stars -->
+  <g transform="translate(250, 350)">
+    <polygon points="0,-20 5,-5 20,-5 10,5 15,20 0,10 -15,20 -10,5 -20,-5 -5,-5" fill="#ffc107" />
+  </g>
+  <g transform="translate(290, 350)">
+    <polygon points="0,-20 5,-5 20,-5 10,5 15,20 0,10 -15,20 -10,5 -20,-5 -5,-5" fill="#ffc107" />
+  </g>
+  <g transform="translate(330, 350)">
+    <polygon points="0,-20 5,-5 20,-5 10,5 15,20 0,10 -15,20 -10,5 -20,-5 -5,-5" fill="#ffc107" />
+  </g>
+  <g transform="translate(370, 350)">
+    <polygon points="0,-20 5,-5 20,-5 10,5 15,20 0,10 -15,20 -10,5 -20,-5 -5,-5" fill="#ffc107" />
+  </g>
+  <g transform="translate(410, 350)">
+    <polygon points="0,-20 5,-5 20,-5 10,5 15,20 0,10 -15,20 -10,5 -20,-5 -5,-5" fill="#ffc107" opacity="0.3" />
+  </g>
+  <text x="330" y="390" font-family="Arial" font-size="14" fill="#333" text-anchor="middle">PROGRAMME DE FIDÉLITÉ</text>
+</svg>

@@ -172,6 +172,8 @@ export class LoginComponent implements OnInit {
     const hasAdminRole = this.authService.hasRole('ADMIN');
     const hasVendeurRole = this.authService.hasRole('VENDEUR');
     const hasClientRole = this.authService.hasRole('CLIENT');
+    const hasFournisseurRole = this.authService.hasRole('FOURNISSEUR');
+    const hasAchatRole = this.authService.hasRole('ACHAT');
     
     // Afficher les rôles pour le débogage
     console.log('Décision de redirection basée sur les rôles:', {
@@ -180,7 +182,9 @@ export class LoginComponent implements OnInit {
       rolesNormalises: this.authService.getUserRoles(true),
       estAdmin: hasAdminRole,
       estVendeur: hasVendeurRole,
-      estClient: hasClientRole
+      estClient: hasClientRole,
+      estFournisseur: hasFournisseurRole,
+      estAchat: hasAchatRole
     });
     
     // Prioriser le rôle ADMIN sur les autres rôles
@@ -190,6 +194,12 @@ export class LoginComponent implements OnInit {
     } else if (hasVendeurRole) {
       console.log('Redirection vers dashboard VENDEUR');
       return '/facturation/dashboard';
+    } else if (hasFournisseurRole) {
+      console.log('Redirection vers interface FOURNISSEUR');
+      return '/fournisseur/commandes';
+    } else if (hasAchatRole) {
+      console.log('Redirection vers module ACHAT');
+      return '/achat/commandes';
     } else if (hasClientRole) {
       console.log('Redirection vers CAISSE (rôle CLIENT)');
       return '/caisse';

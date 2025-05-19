@@ -1,0 +1,106 @@
+<h2 mat-dialog-title>
+  <i class="fas fa-money-bill-wave mr-2"></i>
+  Ajouter un paiement
+</h2>
+
+<mat-dialog-content>
+  <div *ngIf="isLoading" class="loading-container">
+    <mat-spinner diameter="40"></mat-spinner>
+  </div>
+
+  <div *ngIf="!isLoading">
+    <div class="facture-info" *ngIf="factureDetails">
+      <div class="row">
+        <div class="col-md-6">
+          <p><strong>Facture:</strong> {{ factureDetails.numero }}</p>
+          <p><strong>Date:</strong> {{ factureDetails.dateFacture | date:'dd/MM/yyyy' }}</p>
+        </div>
+        <div class="col-md-6">
+          <p><strong>Montant total:</strong> {{ factureDetails.montantTTC | currency:'EUR' }}</p>
+          <p><strong>Statut:</strong> <span class="badge" [ngClass]="{'badge-success': factureDetails.statutPaiement === 'VALIDE', 'badge-warning': factureDetails.statutPaiement === 'EN_ATTENTE', 'badge-danger': factureDetails.statutPaiement === 'REFUSE', 'badge-secondary': factureDetails.statutPaiement === 'AUTRE'}">{{ factureDetails.statutPaiement }}</span></p>
+        </div>
+      </div>
+      <mat-divider class="my-3"></mat-divider>
+    </div>
+
+    <form [formGroup]="paiementForm" (ngSubmit)="onSubmit()">
+      <div class="row">
+        <div class="col-md-6">
+          <mat-form-field appearance="outline" class="w-100">
+            <mat-label>Montant</mat-label>
+            <input matInput type="number" step="0.01" formControlName="montant" required>
+            <span matPrefix>€&nbsp;</span>
+            <mat-error *ngIf="paiementForm.get('montant')?.hasError('required')">
+              Le montant est requis
+            </mat-error>
+            <mat-error *ngIf="paiementForm.get('montant')?.hasError('min')">
+              Le montant doit être supérieur à 0
+            </mat-error>
+          </mat-form-field>
+        </div>
+        <div class="col-md-6">
+          <mat-form-field appearance="outline" class="w-100">
+            <mat-label>Date de paiement</mat-label>
+            <input matInput [matDatepicker]="picker" formControlName="datePaiement" required>
+            <mat-datepicker-toggle matSuffix [for]="picker"></mat-datepicker-toggle>
+            <mat-datepicker #picker></mat-datepicker>
+            <mat-error *ngIf="paiementForm.get('datePaiement')?.hasError('required')">
+              La date de paiement est requise
+            </mat-error>
+          </mat-form-field>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col-md-6">
+          <mat-form-field appearance="outline" class="w-100">
+            <mat-label>Mode de paiement</mat-label>
+            <mat-select formControlName="modePaiement" required>
+              <mat-option *ngFor="let mode of modesPaiement" [value]="mode">
+                {{ mode }}
+              </mat-option>
+            </mat-select>
+            <mat-error *ngIf="paiementForm.get('modePaiement')?.hasError('required')">
+              Le mode de paiement est requis
+            </mat-error>
+          </mat-form-field>
+        </div>
+        <div class="col-md-6">
+          <mat-form-field appearance="outline" class="w-100">
+            <mat-label>Référence</mat-label>
+            <input matInput formControlName="reference" placeholder="N° de chèque, transaction, etc.">
+          </mat-form-field>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col-md-6">
+          <mat-form-field appearance="outline" class="w-100">
+            <mat-label>Statut</mat-label>
+            <mat-select formControlName="statut" required>
+              <mat-option *ngFor="let statut of statutOptions" [value]="statut">
+                {{ statut }}
+              </mat-option>
+            </mat-select>
+            <mat-error *ngIf="paiementForm.get('statut')?.hasError('required')">
+              Le statut est requis
+            </mat-error>
+          </mat-form-field>
+        </div>
+      </div>
+
+      <mat-form-field appearance="outline" class="w-100">
+        <mat-label>Commentaires</mat-label>
+        <textarea matInput formControlName="commentaires" rows="3"></textarea>
+      </mat-form-field>
+    </form>
+  </div>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button (click)="onCancel()" [disabled]="isLoading">Annuler</button>
+  <button mat-raised-button color="primary" (click)="onSubmit()" [disabled]="paiementForm.invalid || isLoading">
+    <mat-spinner *ngIf="isLoading" diameter="20" class="spinner-button"></mat-spinner>
+    <span *ngIf="!isLoading">Enregistrer</span>
+  </button>
+</mat-dialog-actions>

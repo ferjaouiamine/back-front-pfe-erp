@@ -1,0 +1,118 @@
+<div class="container mt-4">
+  <div class="card">
+    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+      <h2 class="mb-0">{{ isNewAvis ? 'Créer un avis d\'expédition' : 'Modifier l\'avis d\'expédition' }}</h2>
+      <button mat-icon-button (click)="onCancel()">
+        <mat-icon>close</mat-icon>
+      </button>
+    </div>
+    
+    <div class="card-body">
+      <div *ngIf="loading" class="text-center py-5">
+        <mat-spinner diameter="50" class="mx-auto"></mat-spinner>
+        <p class="mt-3">Chargement des données...</p>
+      </div>
+      
+      <div *ngIf="!loading">
+        <div class="row mb-4">
+          <div class="col-md-6">
+            <div class="card">
+              <div class="card-header bg-light">
+                <h5 class="mb-0">Détails de la commande</h5>
+              </div>
+              <div class="card-body">
+                <p><strong>Numéro:</strong> {{ commande?.numero }}</p>
+                <p><strong>Date:</strong> {{ commande?.date | date:'dd/MM/yyyy' }}</p>
+                <p><strong>Statut:</strong> <span class="badge" [ngClass]="{
+                  'bg-warning': commande?.statut === 'EN_ATTENTE',
+                  'bg-info': commande?.statut === 'CONFIRMEE',
+                  'bg-primary': commande?.statut === 'EN_COURS',
+                  'bg-success': commande?.statut === 'LIVREE',
+                  'bg-danger': commande?.statut === 'ANNULEE'
+                }">{{ commande?.statut }}</span></p>
+                <p><strong>Montant total:</strong> {{ commande?.montantTotal | currency:'EUR' }}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <form [formGroup]="avisForm" (ngSubmit)="onSubmit()">
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <mat-form-field appearance="outline" class="w-100">
+                <mat-label>Date d'expédition</mat-label>
+                <input matInput [matDatepicker]="pickerExp" formControlName="dateExpedition" required>
+                <mat-datepicker-toggle matSuffix [for]="pickerExp"></mat-datepicker-toggle>
+                <mat-datepicker #pickerExp></mat-datepicker>
+                <mat-error *ngIf="avisForm.get('dateExpedition')?.hasError('required')">
+                  La date d'expédition est requise
+                </mat-error>
+              </mat-form-field>
+            </div>
+            
+            <div class="col-md-6 mb-3">
+              <mat-form-field appearance="outline" class="w-100">
+                <mat-label>Date de livraison estimée</mat-label>
+                <input matInput [matDatepicker]="pickerLiv" formControlName="dateLivraisonEstimee" required>
+                <mat-datepicker-toggle matSuffix [for]="pickerLiv"></mat-datepicker-toggle>
+                <mat-datepicker #pickerLiv></mat-datepicker>
+                <mat-error *ngIf="avisForm.get('dateLivraisonEstimee')?.hasError('required')">
+                  La date de livraison estimée est requise
+                </mat-error>
+              </mat-form-field>
+            </div>
+          </div>
+          
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <mat-form-field appearance="outline" class="w-100">
+                <mat-label>Transporteur</mat-label>
+                <input matInput formControlName="transporteur" placeholder="Nom du transporteur" required>
+                <mat-error *ngIf="avisForm.get('transporteur')?.hasError('required')">
+                  Le transporteur est requis
+                </mat-error>
+              </mat-form-field>
+            </div>
+            
+            <div class="col-md-6 mb-3">
+              <mat-form-field appearance="outline" class="w-100">
+                <mat-label>Numéro de suivi</mat-label>
+                <input matInput formControlName="numeroSuivi" placeholder="Numéro de suivi" required>
+                <mat-error *ngIf="avisForm.get('numeroSuivi')?.hasError('required')">
+                  Le numéro de suivi est requis
+                </mat-error>
+              </mat-form-field>
+            </div>
+          </div>
+          
+          <div class="row">
+            <div class="col-12 mb-3">
+              <mat-form-field appearance="outline" class="w-100">
+                <mat-label>Commentaires</mat-label>
+                <textarea matInput formControlName="commentaires" rows="4" placeholder="Commentaires ou instructions spéciales"></textarea>
+              </mat-form-field>
+            </div>
+          </div>
+          
+          <div class="row mb-4">
+            <div class="col-12">
+              <mat-checkbox formControlName="expeditionPartielle">
+                Expédition partielle (certains articles seront livrés ultérieurement)
+              </mat-checkbox>
+            </div>
+          </div>
+          
+          <div class="d-flex justify-content-end">
+            <button type="button" mat-button (click)="onCancel()" [disabled]="submitting">
+              Annuler
+            </button>
+            <button type="submit" mat-raised-button color="primary" [disabled]="avisForm.invalid || submitting" class="ms-2">
+              <mat-spinner diameter="20" *ngIf="submitting" class="me-2"></mat-spinner>
+              {{ isNewAvis ? 'Créer l\'avis d\'expédition' : 'Mettre à jour l\'avis d\'expédition' }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>

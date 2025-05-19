@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Observable, of } from 'rxjs';
-import { map, delay, catchError } from 'rxjs/operators';
+import { map, catchError, delay } from 'rxjs/operators';
 import { AuthService } from '../../auth/services/auth.service';
 
 export interface Product {
@@ -20,7 +20,10 @@ export interface Product {
   providedIn: 'root'
 })
 export class ProductService {
+  // URL de l'API pour les produits - point d'accès à votre backend Spring Boot
   private apiUrl = 'http://localhost:8082/api/products';
+  // URL de secours pour les produits
+  private backupApiUrl = 'http://localhost:8082/api/produits';
 
   constructor(
     private http: HttpClient,
@@ -36,26 +39,118 @@ export class ProductService {
     });
   }
 
-  // Récupérer tous les produits
+  // Récupérer tous les produits depuis le backend Spring Boot
   getProducts(): Observable<Product[]> {
-    // Utiliser l'API réelle
-    console.log('Tentative de récupération des produits depuis:', this.apiUrl);
-    return this.http.get<Product[]>(this.apiUrl, { headers: this.getAuthHeaders() }).pipe(
-      map(products => {
-        console.log('Produits récupérés depuis l\'API:', products);
+    console.log('Récupération des produits depuis le backend Spring Boot:', this.apiUrl);
+    
+    return this.http.get<any>(this.apiUrl, { headers: this.getAuthHeaders() }).pipe(
+      map(response => {
+        console.log('Réponse du backend Spring Boot pour les produits:', response);
+        
+        let products: Product[] = [];
+        
+        if (Array.isArray(response)) {
+          // Mapper les données du backend aux propriétés du modèle Product
+          products = response.map((item: any) => ({
+            id: item.id?.toString() || '',
+            name: item.name || '',
+            description: item.description || '',
+            price: parseFloat(item.price) || 0,
+            quantity: parseInt(item.quantity) || 0,
+            category: item.category?.name || '',
+            imageUrl: item.imageUrl || undefined,
+            createdAt: new Date(item.createdAt || Date.now()),
+            updatedAt: new Date(item.updatedAt || Date.now())
+          }));
+        } else if (response && response.content && Array.isArray(response.content)) {
+          // Format de réponse paginée
+          products = response.content.map((item: any) => ({
+            id: item.id?.toString() || '',
+            name: item.name || '',
+            description: item.description || '',
+            price: parseFloat(item.price) || 0,
+            quantity: parseInt(item.quantity) || 0,
+            category: item.category?.name || '',
+            imageUrl: item.imageUrl || undefined,
+            createdAt: new Date(item.createdAt || Date.now()),
+            updatedAt: new Date(item.updatedAt || Date.now())
+          }));
+        }
+        
+        console.log('Produits récupérés:', products.length, 'produits trouvés');
         return products;
       }),
       catchError(error => {
-        console.error('ERREUR API: Impossible de récupérer les produits:', error);
-        if (error.status === 500) {
-          console.error('Détails de l\'erreur 500:', error.error);
-          console.error('Message:', error.message);
-          console.error('URL:', error.url);
-        }
-        // Temporairement, utilisons les données fictives pour permettre le développement
-        return of(this.generateMockProducts());
+        console.error('Erreur lors de la récupération des produits:', error);
+        // Propager l'erreur au composant au lieu d'utiliser des données fictives
+        throw error;
       })
     );
+  }
+  
+  // Récupérer des produits depuis une URL spécifique
+  getProductsFromUrl(url: string): Observable<Product[]> {
+    console.log(`Tentative de récupération des produits depuis l'URL spécifique: ${url}`);
+    
+    // Assurez-vous que les headers d'authentification sont corrects
+    const headers = this.getAuthHeaders();
+    
+    return this.http.get<any>(url, { headers }).pipe(
+      map(response => {
+        console.log(`Réponse de l'URL spécifique:`, response);
+        
+        let products: Product[] = [];
+        
+        if (Array.isArray(response)) {
+          products = response;
+        } else if (response && response.data && Array.isArray(response.data)) {
+          products = response.data;
+        } else if (response && typeof response === 'object') {
+          // Essayer de convertir un objet en tableau
+          const filteredItems = Object.values(response).filter(item => typeof item === 'object' && item !== null);
+          products = filteredItems as Product[];
+        }
+        
+        if (products.length > 0) {
+          return products;
+        } else {
+          throw new Error(`Aucun produit trouvé dans la réponse de l'URL spécifique`);
+        }
+      }),
+      catchError(error => {
+        console.error(`Erreur lors de la récupération des produits depuis l'URL spécifique:`, error);
+        return of([]);
+      })
+    );
+  }
+  
+  // Générer des données fictives basées sur la structure MySQL
+  private generateMockProductsFromMySQLStructure(): Product[] {
+    // Créer des produits fictifs basés sur la structure de votre table MySQL
+    return [
+      {
+        id: '1',
+        name: 'MacBook Air M2',
+        description: 'Ordinateur portable Apple avec puce M2',
+        price: 1299.99,
+        quantity: 10,
+        category: 'NULL',
+        imageUrl: undefined,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      {
+        id: '2',
+        name: 'MacBook Air M2',
+        description: 'Ordinateur portable Apple avec puce M2',
+        price: 1299.99,
+        quantity: 10,
+        category: '1',
+        imageUrl: undefined,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }
+    ];
   }
   
   // Générer des données factices pour les produits
@@ -232,22 +327,18 @@ export class ProductService {
     return products;
   }
 
-  // Récupérer un produit par son ID
+  // Récupérer un produit par son ID depuis le backend Spring Boot
   getProductById(id: string): Observable<Product> {
+    console.log(`Récupération du produit ${id} depuis le backend Spring Boot:`, `${this.apiUrl}/${id}`);
     return this.http.get<Product>(`${this.apiUrl}/${id}`, { headers: this.getAuthHeaders() }).pipe(
+      map(product => {
+        console.log(`Produit ${id} récupéré avec succès:`, product);
+        return product;
+      }),
       catchError(error => {
         console.error(`Erreur lors de la récupération du produit ${id}:`, error);
-        // En cas d'erreur, essayer de récupérer depuis les données locales
-        return this.getProducts().pipe(
-          map(products => {
-            const product = products.find(p => p.id === id);
-            if (product) {
-              return product;
-            } else {
-              throw new Error(`Produit avec ID ${id} non trouvé`);
-            }
-          })
-        );
+        // Propager l'erreur au composant
+        throw error;
       })
     );
   }
@@ -276,24 +367,62 @@ export class ProductService {
 
   // Filtrer les produits par catégorie
   getProductsByCategory(category: string): Observable<Product[]> {
-    // Solution temporaire : filtrer les données factices par catégorie
-    return this.getProducts().pipe(
-      delay(400), // Simuler un délai réseau
-      map(products => {
-        if (category.toLowerCase() === 'toutes les catégories') {
-          return products;
+    if (category.toLowerCase() === 'toutes les catégories') {
+      return this.getProducts();
+    }
+    return this.http.get<any>(`${this.apiUrl}/category/name/${encodeURIComponent(category)}`, { headers: this.getAuthHeaders() }).pipe(
+      map(response => {
+        let products: Product[] = [];
+        
+        if (Array.isArray(response)) {
+          products = response.map((item: any) => ({
+            id: item.id?.toString() || '',
+            name: item.name || '',
+            description: item.description || '',
+            price: parseFloat(item.price) || 0,
+            quantity: parseInt(item.quantity) || 0,
+            category: item.category?.name || '',
+            imageUrl: item.imageUrl || undefined,
+            createdAt: new Date(item.createdAt || Date.now()),
+            updatedAt: new Date(item.updatedAt || Date.now())
+          }));
         }
-        return products.filter(product => 
-          product.category.toLowerCase() === category.toLowerCase()
-        );
+        
+        return products;
+      }),
+      catchError(error => {
+        console.error('Erreur lors de la récupération des produits par catégorie:', error);
+        throw error;
       })
     );
   }
 
   // Récupérer les produits avec un stock faible
   getLowStockProducts(threshold: number = 10): Observable<Product[]> {
-    return this.getProducts().pipe(
-      map(products => products.filter(product => product.quantity <= threshold))
+    return this.http.get<any>(`${this.apiUrl}/low-stock`, { headers: this.getAuthHeaders() }).pipe(
+      map(response => {
+        let products: Product[] = [];
+        
+        if (Array.isArray(response)) {
+          products = response.map((item: any) => ({
+            id: item.id?.toString() || '',
+            name: item.name || '',
+            description: item.description || '',
+            price: parseFloat(item.price) || 0,
+            quantity: parseInt(item.quantity) || 0,
+            category: item.category?.name || '',
+            imageUrl: item.imageUrl || undefined,
+            createdAt: new Date(item.createdAt || Date.now()),
+            updatedAt: new Date(item.updatedAt || Date.now())
+          }));
+        }
+        
+        return products;
+      }),
+      catchError(error => {
+        console.error('Erreur lors de la récupération des produits à stock faible:', error);
+        throw error;
+      })
     );
   }
 }

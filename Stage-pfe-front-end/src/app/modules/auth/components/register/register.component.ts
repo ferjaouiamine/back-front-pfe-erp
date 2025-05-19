@@ -32,7 +32,8 @@ export class RegisterComponent implements OnInit {
   availableRoles: {id: string, name: string}[] = [
     { id: 'ADMIN', name: 'Administrateur' },
     { id: 'VENDEUR', name: 'Vendeur' },
-    { id: 'CLIENT', name: 'Client' }
+    { id: 'CLIENT', name: 'Client' },
+    { id: 'FOURNISSEUR', name: 'Fournisseur' }
   ];
 
   constructor(
@@ -155,6 +156,8 @@ export class RegisterComponent implements OnInit {
             this.router.navigate(['/admin/dashboard']);
           } else if (role === 'VENDEUR') {
             this.router.navigate(['/facturation/dashboard']);
+          } else if (role === 'FOURNISSEUR') {
+            this.router.navigate(['/fournisseur/commandes']);
           } else {
             this.router.navigate(['/facturation']);
           }

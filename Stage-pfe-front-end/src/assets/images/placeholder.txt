@@ -1,0 +1,6 @@
+Pour que la landing page fonctionne correctement, vous aurez besoin de deux images :
+
+1. erp-dashboard.png - Une capture d'écran de votre tableau de bord ERP
+2. microservices.png - Un diagramme d'architecture de vos microservices
+
+Vous pouvez créer ces images ou utiliser des images de stock appropriées.
