@@ -78,12 +78,49 @@
           <tbody>
             <tr *ngFor="let item of facture.items">
               <td>
-                <div>{{ item.productName }}</div>
-                <small class="text-muted">{{ item.description }}</small>
+                <div class="d-flex align-items-start">
+                  <div *ngIf="item.imageUrl" class="me-2" style="width: 50px;">
+                    <img [src]="item.imageUrl" class="img-fluid rounded" alt="{{ item.productName }}">
+                  </div>
+                  <div>
+                    <div class="fw-bold">{{ item.productName }}</div>
+                    <div *ngIf="item.description" class="text-muted small">{{ item.description }}</div>
+                    <div *ngIf="item.category?.name" class="text-muted small">Catégorie: {{ item.category?.name }}</div>
+                    <div *ngIf="item.sku" class="text-muted small">Réf: {{ item.sku }}</div>
+                    <div *ngIf="item.barcode" class="text-muted small">Code-barres: {{ item.barcode }}</div>
+                    
+                    <!-- Afficher les dimensions si disponibles -->
+                    <div *ngIf="item.dimensions?.length || item.dimensions?.width || item.dimensions?.height" class="text-muted small">
+                      Dimensions: 
+                      <span *ngIf="item.dimensions?.length">L: {{ item.dimensions?.length }}cm</span>
+                      <span *ngIf="item.dimensions?.width">, l: {{ item.dimensions?.width }}cm</span>
+                      <span *ngIf="item.dimensions?.height">, H: {{ item.dimensions?.height }}cm</span>
+                    </div>
+                    
+                    <!-- Afficher le poids si disponible -->
+                    <div *ngIf="item.weight" class="text-muted small">Poids: {{ item.weight }}kg</div>
+                    
+                    <!-- Bouton pour afficher/masquer plus de détails -->
+                    <button *ngIf="item.metadata" class="btn btn-link btn-sm p-0 text-muted" 
+                            (click)="toggleItemDetails(item)">
+                      {{ isItemExpanded(item) ? 'Masquer les détails' : 'Afficher plus de détails' }}
+                    </button>
+                    
+                    <!-- Détails supplémentaires -->
+                    <div *ngIf="isItemExpanded(item) && item.metadata" class="mt-1 small">
+                      <div *ngFor="let key of getMetadataKeys(item.metadata || {})" class="text-muted">
+                        {{ key }}: {{ item.metadata && item.metadata[key] }}
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </td>
-              <td class="text-center">{{ item.quantity }}</td>
-              <td class="text-end">{{ item.unitPrice | currency:'EUR' }}</td>
-              <td class="text-end">{{ item.quantity * item.unitPrice | currency:'EUR' }}</td>
+              <td class="text-center align-middle">{{ item.quantity }}</td>
+              <td class="text-end align-middle">
+                {{ item.unitPrice | currency:'EUR' }}
+                <div *ngIf="item.discount" class="text-success small">-{{ item.discount }}%</div>
+              </td>
+              <td class="text-end align-middle">{{ item.quantity * item.unitPrice | currency:'EUR' }}</td>
             </tr>
           </tbody>
         </table>

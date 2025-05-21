@@ -1,0 +1,887 @@
+import { Component, OnInit } from '@angular/core';
+import { Router } from '@angular/router';
+import { Facture, FactureService } from '../../services/facture.service';
+import { AuthService } from '../../../auth/services/auth.service';
+import { ProductService } from '../../../stock/services/product.service';
+import { Product } from '../../../stock/services/product.service';
+
+interface SalesData {
+  labels: string[];
+  datasets: {
+    label: string;
+    data: number[];
+    backgroundColor: string;
+    borderColor: string;
+    borderWidth: number;
+  }[];
+}
+
+interface SalesByCategory {
+  category: string;
+  amount: number;
+  percentage: number;
+}
+
+interface TopProduct {
+  productName: string;
+  quantity: number;
+  amount: number;
+}
+
+@Component({
+  selector: 'app-vendor-dashboard',
+  templateUrl: './vendor-dashboard.component.html',
+  styleUrls: ['./vendor-dashboard.component.scss']
+})
+export class VendorDashboardComponent implements OnInit {
+  // Exposer Math pour l'utiliser dans le template
+  public Math = Math;
+  factures: Facture[] = [];
+  products: Product[] = [];
+  isLoading: boolean = true;
+  errorMessage: string | null = null;
+  
+  // Statistiques
+  totalSales: number = 0;
+  totalFactures: number = 0;
+  paidFactures: number = 0;
+  pendingFactures: number = 0;
+  averageSale: number = 0;
+  
+  // Données pour les graphiques
+  monthlySalesData: SalesData = {
+    labels: [],
+    datasets: [
+      {
+        label: 'Ventes mensuelles',
+        data: [],
+        backgroundColor: 'rgba(63, 81, 181, 0.2)',
+        borderColor: 'rgba(63, 81, 181, 1)',
+        borderWidth: 1
+      }
+    ]
+  };
+  
+  salesByCategory: SalesByCategory[] = [];
+  
+  // Factures récentes
+  recentFactures: Facture[] = [];
+  
+  // Produits les plus vendus
+  topProducts: TopProduct[] = [];
+  
+  constructor(
+    private factureService: FactureService,
+    private productService: ProductService,
+    public authService: AuthService,
+    private router: Router
+  ) { }
+
+  ngOnInit(): void {
+    this.loadData();
+    this.loadProducts();
+  }
+  
+  loadData(): void {
+    this.isLoading = true;
+    this.errorMessage = null;
+    
+    console.log('Chargement des données depuis le backend Spring Boot...');
+    
+    // Utiliser la méthode getAllFactures qui renvoie un mélange de données réelles et fictives
+    this.factureService.getAllFactures().subscribe({
+      next: (factures) => {
+        console.log('Factures chargées avec succès:', factures.length, 'factures');
+        
+        if (factures.length > 0) {
+          console.log('Première facture:', factures[0]);
+          
+          // Vérifier si les dates sont des objets Date
+          factures.forEach(facture => {
+            if (!(facture.date instanceof Date)) {
+              facture.date = new Date(facture.date);
+            }
+            if (!(facture.dueDate instanceof Date)) {
+              facture.dueDate = new Date(facture.dueDate);
+            }
+            if (facture.createdAt && !(facture.createdAt instanceof Date)) {
+              facture.createdAt = new Date(facture.createdAt);
+            }
+            if (facture.updatedAt && !(facture.updatedAt instanceof Date)) {
+              facture.updatedAt = new Date(facture.updatedAt);
+            }
+          });
+        } else {
+          console.warn('Aucune facture reçue, utilisation de données fictives');
+          factures = this.factureService.generateMockFactures();
+        }
+        
+        this.factures = factures;
+        console.log('Nombre total de factures après traitement:', this.factures.length);
+        
+        // Traiter les données pour le dashboard
+        this.calculateStatistics();
+        this.prepareMonthlySalesData();
+        this.getRecentFactures();
+        
+        // Charger les produits avant de calculer les ventes par catégorie
+        this.loadProducts();
+        
+        this.isLoading = false;
+      },
+      error: (error) => {
+        console.error('Erreur lors du chargement des données:', error);
+        this.errorMessage = 'Impossible de charger les données. Utilisation de données fictives.';
+        
+        // En cas d'erreur, utiliser des données fictives
+        this.factures = this.factureService.generateMockFactures();
+        console.log('Données fictives générées:', this.factures.length, 'factures');
+        
+        // Traiter les données fictives
+        this.calculateStatistics();
+        this.prepareMonthlySalesData();
+        this.getRecentFactures();
+        
+        // Charger les produits
+        this.loadProducts();
+        
+        this.isLoading = false;
+      }
+    });
+  }
+  
+  loadProducts(): void {
+    console.log('Chargement des produits...');
+    
+    this.productService.getProducts().subscribe({
+      next: (products) => {
+        console.log('Produits chargés avec succès:', products.length, 'produits');
+        
+        if (products.length === 0) {
+          console.warn('Aucun produit reçu, génération de produits fictifs');
+          this.products = this.generateMockProducts();
+        } else {
+          console.log('Produits réels reçus du backend');
+          this.products = products;
+          
+          // Sauvegarder les produits dans le localStorage pour une utilisation hors ligne
+          try {
+            localStorage.setItem('cachedProducts', JSON.stringify(products));
+            console.log('Produits sauvegardés dans le cache local');
+          } catch (e) {
+            console.warn('Impossible de sauvegarder les produits dans le cache local:', e);
+          }
+        }
+        
+        console.log('Nombre total de produits après traitement:', this.products.length);
+        
+        // Calculer les statistiques de ventes par catégorie
+        this.calculateSalesByCategory();
+        
+        // Recalculer les produits les plus vendus maintenant que nous avons les produits
+        this.calculateTopProducts();
+      },
+      error: (error) => {
+        console.error('Erreur lors du chargement des produits:', error);
+        // Générer des produits factices
+        console.log('Génération de produits simulés pour le dashboard');
+        this.products = this.generateMockProducts();
+        console.log('Produits fictifs générés:', this.products.length, 'produits');
+        
+        // Calculer les statistiques avec les produits fictifs
+        this.calculateSalesByCategory();
+        this.calculateTopProducts();
+      }
+    });
+  }
+  
+  // Récupérer des produits simulés pour le dashboard
+  private getSimulatedProducts(): any[] {
+    console.log('Récupération des produits simulés pour le dashboard');
+    
+    // Essayer d'abord de récupérer les produits cachés
+    try {
+      const cachedProducts = localStorage.getItem('cachedProducts');
+      if (cachedProducts) {
+        const products = JSON.parse(cachedProducts);
+        console.log('Utilisation des produits cachés:', products.length);
+        return products;
+      }
+    } catch (e) {
+      console.warn('Erreur lors de la récupération des produits cachés:', e);
+    }
+    
+    // Si pas de cache, générer de nouveaux produits simulés
+    console.log('Génération de nouveaux produits simulés');
+    return this.generateMockProducts();
+  }
+  
+  // Générer des produits factices pour le dashboard
+  generateMockProducts(): any[] {
+    console.log('Génération de produits réalistes pour le dashboard');
+    
+    // Liste de produits prédéfinis avec des catégories réalistes et des données complètes
+    const products = [
+      { 
+        id: 'prod-1', 
+        name: 'Ordinateur portable Dell XPS 15', 
+        description: 'Ordinateur portable haut de gamme avec écran 15.6", processeur Intel Core i7, 16 Go RAM, 512 Go SSD', 
+        category: 'Informatique', 
+        price: 1599, 
+        quantity: Math.floor(Math.random() * 15) + 5,
+        costPrice: 1299,
+        supplier: 'Dell Technologies',
+        sku: 'DELL-XPS15-2023',
+        barcode: '8901234567890',
+        weight: 1.8,
+        dimensions: '35.4 x 23.5 x 1.8 cm',
+        reorderPoint: 3,
+        dateAdded: new Date(new Date().setMonth(new Date().getMonth() - Math.floor(Math.random() * 12))),
+        lastUpdated: new Date(),
+        status: 'active',
+        salesCount: Math.floor(Math.random() * 50) + 30,
+        rating: 4.8,
+        imageUrl: 'assets/images/products/laptop.jpg'
+      },
+      { 
+        id: 'prod-2', 
+        name: 'MacBook Pro M1', 
+        description: 'Ordinateur portable Apple avec puce M1, 13.3", 8 Go RAM, 256 Go SSD', 
+        category: 'Informatique', 
+        price: 1999, 
+        quantity: Math.floor(Math.random() * 12) + 3,
+        costPrice: 1599,
+        supplier: 'Apple Inc.',
+        sku: 'APPLE-MBP-M1-2023',
+        barcode: '8901234567891',
+        weight: 1.4,
+        dimensions: '30.4 x 21.2 x 1.6 cm',
+        reorderPoint: 2,
+        dateAdded: new Date(new Date().setMonth(new Date().getMonth() - Math.floor(Math.random() * 8))),
+        lastUpdated: new Date(),
+        status: 'active',
+        salesCount: Math.floor(Math.random() * 60) + 40,
+        rating: 4.9,
+        imageUrl: 'assets/images/products/macbook.jpg'
+      },
+      { 
+        id: 'prod-3', 
+        name: 'iPhone 14 Pro', 
+        description: 'Smartphone Apple avec écran 6.1", puce A16 Bionic, 128 Go de stockage', 
+        category: 'Téléphonie', 
+        price: 1099, 
+        quantity: Math.floor(Math.random() * 20) + 10,
+        costPrice: 899,
+        supplier: 'Apple Inc.',
+        sku: 'APPLE-IP14P-2023',
+        barcode: '8901234567892',
+        weight: 0.2,
+        dimensions: '14.7 x 7.1 x 0.8 cm',
+        reorderPoint: 5,
+        dateAdded: new Date(new Date().setMonth(new Date().getMonth() - Math.floor(Math.random() * 6))),
+        lastUpdated: new Date(),
+        status: 'active',
+        salesCount: Math.floor(Math.random() * 80) + 50,
+        rating: 4.7,
+        imageUrl: 'assets/images/products/iphone.jpg'
+      },
+      { 
+        id: 'prod-4', 
+        name: 'Samsung Galaxy S23', 
+        description: 'Smartphone Samsung avec écran 6.1", processeur Snapdragon 8 Gen 2, 128 Go de stockage', 
+        category: 'Téléphonie', 
+        price: 899, 
+        quantity: Math.floor(Math.random() * 18) + 8,
+        costPrice: 699,
+        supplier: 'Samsung Electronics',
+        sku: 'SAMSUNG-S23-2023',
+        barcode: '8901234567893',
+        weight: 0.17,
+        dimensions: '14.6 x 7.0 x 0.8 cm',
+        reorderPoint: 4,
+        dateAdded: new Date(new Date().setMonth(new Date().getMonth() - Math.floor(Math.random() * 5))),
+        lastUpdated: new Date(),
+        status: 'active',
+        salesCount: Math.floor(Math.random() * 70) + 40,
+        rating: 4.6,
+        imageUrl: 'assets/images/products/galaxy.jpg'
+      },
+      { 
+        id: 'prod-5', 
+        name: 'iPad Air', 
+        description: 'Tablette Apple avec écran 10.9", puce M1, 64 Go de stockage', 
+        category: 'Informatique', 
+        price: 699, 
+        quantity: Math.floor(Math.random() * 15) + 5,
+        costPrice: 549,
+        supplier: 'Apple Inc.',
+        sku: 'APPLE-IPAD-AIR-2023',
+        barcode: '8901234567894',
+        weight: 0.46,
+        dimensions: '24.7 x 17.9 x 0.6 cm',
+        reorderPoint: 3,
+        dateAdded: new Date(new Date().setMonth(new Date().getMonth() - Math.floor(Math.random() * 9))),
+        lastUpdated: new Date(),
+        status: 'active',
+        salesCount: Math.floor(Math.random() * 45) + 25,
+        rating: 4.8,
+        imageUrl: 'assets/images/products/ipad.jpg'
+      },
+      { 
+        id: 'prod-6', 
+        name: 'Casque Sony WH-1000XM5', 
+        description: 'Casque à réduction de bruit avec autonomie de 30 heures, Bluetooth 5.2', 
+        category: 'Audio', 
+        price: 349, 
+        quantity: Math.floor(Math.random() * 25) + 10,
+        costPrice: 249,
+        supplier: 'Sony Corporation',
+        sku: 'SONY-WH1000XM5-2023',
+        barcode: '8901234567895',
+        weight: 0.25,
+        dimensions: '19.5 x 16.8 x 8.5 cm',
+        reorderPoint: 5,
+        dateAdded: new Date(new Date().setMonth(new Date().getMonth() - Math.floor(Math.random() * 7))),
+        lastUpdated: new Date(),
+        status: 'active',
+        salesCount: Math.floor(Math.random() * 55) + 30,
+        rating: 4.7,
+        imageUrl: 'assets/images/products/headphones.jpg'
+      },
+      { 
+        id: 'prod-7', 
+        name: 'Imprimante HP LaserJet', 
+        description: 'Imprimante laser monochrome, 30 ppm, connectivité WiFi', 
+        category: 'Informatique', 
+        price: 299, 
+        quantity: Math.floor(Math.random() * 10) + 3,
+        costPrice: 199,
+        supplier: 'HP Inc.',
+        sku: 'HP-LASERJET-2023',
+        barcode: '8901234567896',
+        weight: 6.3,
+        dimensions: '36.5 x 26.4 x 24.1 cm',
+        reorderPoint: 2,
+        dateAdded: new Date(new Date().setMonth(new Date().getMonth() - Math.floor(Math.random() * 11))),
+        lastUpdated: new Date(),
+        status: 'active',
+        salesCount: Math.floor(Math.random() * 25) + 15,
+        rating: 4.3,
+        imageUrl: 'assets/images/products/printer.jpg'
+      },
+      { 
+        id: 'prod-8', 
+        name: 'Télévision Samsung QLED 55"', 
+        description: 'Télévision QLED 4K, 55 pouces, Smart TV, HDR', 
+        category: 'Électroménager', 
+        price: 899, 
+        quantity: Math.floor(Math.random() * 8) + 2,
+        costPrice: 699,
+        supplier: 'Samsung Electronics',
+        sku: 'SAMSUNG-QLED55-2023',
+        barcode: '8901234567897',
+        weight: 17.9,
+        dimensions: '123.0 x 71.2 x 5.7 cm',
+        reorderPoint: 1,
+        dateAdded: new Date(new Date().setMonth(new Date().getMonth() - Math.floor(Math.random() * 10))),
+        lastUpdated: new Date(),
+        status: 'active',
+        salesCount: Math.floor(Math.random() * 20) + 10,
+        rating: 4.6,
+        imageUrl: 'assets/images/products/tv.jpg'
+      },
+      { 
+        id: 'prod-9', 
+        name: 'Enceinte Sonos One', 
+        description: 'Enceinte connectée avec assistant vocal, son stéréo, WiFi', 
+        category: 'Audio', 
+        price: 199, 
+        quantity: Math.floor(Math.random() * 20) + 5,
+        costPrice: 149,
+        supplier: 'Sonos Inc.',
+        sku: 'SONOS-ONE-2023',
+        barcode: '8901234567898',
+        weight: 1.85,
+        dimensions: '16.1 x 11.9 x 11.9 cm',
+        reorderPoint: 3,
+        dateAdded: new Date(new Date().setMonth(new Date().getMonth() - Math.floor(Math.random() * 8))),
+        lastUpdated: new Date(),
+        status: 'active',
+        salesCount: Math.floor(Math.random() * 40) + 20,
+        rating: 4.5,
+        imageUrl: 'assets/images/products/speaker.jpg'
+      },
+      { 
+        id: 'prod-10', 
+        name: 'Apple Watch Series 8', 
+        description: 'Montre connectée avec capteur de température, ECG, GPS', 
+        category: 'Accessoires', 
+        price: 429, 
+        quantity: Math.floor(Math.random() * 15) + 8,
+        costPrice: 329,
+        supplier: 'Apple Inc.',
+        sku: 'APPLE-WATCH-S8-2023',
+        barcode: '8901234567899',
+        weight: 0.05,
+        dimensions: '4.5 x 3.8 x 1.1 cm',
+        reorderPoint: 4,
+        dateAdded: new Date(new Date().setMonth(new Date().getMonth() - Math.floor(Math.random() * 6))),
+        lastUpdated: new Date(),
+        status: 'active',
+        salesCount: Math.floor(Math.random() * 50) + 30,
+        rating: 4.7,
+        imageUrl: 'assets/images/products/watch.jpg'
+      },
+      { 
+        id: 'prod-11', 
+        name: 'Clavier Logitech MX Keys', 
+        description: 'Clavier sans fil avec rétroéclairage, multi-dispositifs', 
+        category: 'Accessoires', 
+        price: 119, 
+        quantity: Math.floor(Math.random() * 30) + 10,
+        costPrice: 89,
+        supplier: 'Logitech',
+        sku: 'LOGITECH-MXKEYS-2023',
+        barcode: '8901234567900',
+        weight: 0.81,
+        dimensions: '43.2 x 13.2 x 2.0 cm',
+        reorderPoint: 5,
+        dateAdded: new Date(new Date().setMonth(new Date().getMonth() - Math.floor(Math.random() * 9))),
+        lastUpdated: new Date(),
+        status: 'active',
+        salesCount: Math.floor(Math.random() * 35) + 15,
+        rating: 4.6,
+        imageUrl: 'assets/images/products/keyboard.jpg'
+      },
+      { 
+        id: 'prod-12', 
+        name: 'Souris Logitech MX Master 3', 
+        description: 'Souris sans fil ergonomique, capteur 4000 DPI, multi-dispositifs', 
+        category: 'Accessoires', 
+        price: 99, 
+        quantity: Math.floor(Math.random() * 35) + 15,
+        costPrice: 69,
+        supplier: 'Logitech',
+        sku: 'LOGITECH-MXMASTER3-2023',
+        barcode: '8901234567901',
+        weight: 0.14,
+        dimensions: '12.5 x 8.4 x 5.1 cm',
+        reorderPoint: 7,
+        dateAdded: new Date(new Date().setMonth(new Date().getMonth() - Math.floor(Math.random() * 7))),
+        lastUpdated: new Date(),
+        status: 'active',
+        salesCount: Math.floor(Math.random() * 45) + 25,
+        rating: 4.8,
+        imageUrl: 'assets/images/products/mouse.jpg'
+      },
+      { 
+        id: 'prod-13', 
+        name: 'Moniteur Dell Ultrasharp 27"', 
+        description: 'Moniteur QHD 27 pouces, 99% sRGB, USB-C', 
+        category: 'Informatique', 
+        price: 499, 
+        quantity: Math.floor(Math.random() * 12) + 3,
+        costPrice: 399,
+        supplier: 'Dell Technologies',
+        sku: 'DELL-U2720Q-2023',
+        barcode: '8901234567902',
+        weight: 4.3,
+        dimensions: '61.1 x 39.4 x 18.5 cm',
+        reorderPoint: 2,
+        dateAdded: new Date(new Date().setMonth(new Date().getMonth() - Math.floor(Math.random() * 10))),
+        lastUpdated: new Date(),
+        status: 'active',
+        salesCount: Math.floor(Math.random() * 30) + 10,
+        rating: 4.5,
+        imageUrl: 'assets/images/products/monitor.jpg'
+      },
+      { 
+        id: 'prod-14', 
+        name: 'Disque SSD Samsung 1To', 
+        description: 'Disque SSD interne 1To, vitesse de lecture 560 Mo/s', 
+        category: 'Informatique', 
+        price: 149, 
+        quantity: Math.floor(Math.random() * 40) + 20,
+        costPrice: 99,
+        supplier: 'Samsung Electronics',
+        sku: 'SAMSUNG-SSD-1TB-2023',
+        barcode: '8901234567903',
+        weight: 0.05,
+        dimensions: '10.0 x 7.0 x 0.7 cm',
+        reorderPoint: 10,
+        dateAdded: new Date(new Date().setMonth(new Date().getMonth() - Math.floor(Math.random() * 8))),
+        lastUpdated: new Date(),
+        status: 'active',
+        salesCount: Math.floor(Math.random() * 60) + 40,
+        rating: 4.9,
+        imageUrl: 'assets/images/products/ssd.jpg'
+      },
+      { 
+        id: 'prod-15', 
+        name: 'Routeur WiFi 6 Netgear', 
+        description: 'Routeur WiFi 6 avec vitesse jusqu\'à 3000 Mbps, 4 ports Ethernet', 
+        category: 'Réseau', 
+        price: 199, 
+        quantity: Math.floor(Math.random() * 15) + 5,
+        costPrice: 149,
+        supplier: 'Netgear Inc.',
+        sku: 'NETGEAR-WIFI6-2023',
+        barcode: '8901234567904',
+        weight: 0.65,
+        dimensions: '24.0 x 19.2 x 6.4 cm',
+        reorderPoint: 3,
+        dateAdded: new Date(new Date().setMonth(new Date().getMonth() - Math.floor(Math.random() * 11))),
+        lastUpdated: new Date(),
+        status: 'active',
+        salesCount: Math.floor(Math.random() * 25) + 15,
+        rating: 4.4,
+        imageUrl: 'assets/images/products/router.jpg'
+      }
+    ];
+    
+    // Ajouter quelques produits en rupture de stock ou à faible stock pour plus de réalisme
+    const lowStockProducts = [
+      { 
+        id: 'prod-16', 
+        name: 'Carte graphique NVIDIA RTX 4080', 
+        description: 'Carte graphique haut de gamme pour gaming et création de contenu', 
+        category: 'Informatique', 
+        price: 1299, 
+        quantity: 0, // Rupture de stock
+        costPrice: 999,
+        supplier: 'NVIDIA Corporation',
+        sku: 'NVIDIA-RTX4080-2023',
+        barcode: '8901234567905',
+        weight: 1.2,
+        dimensions: '30.5 x 12.7 x 5.4 cm',
+        reorderPoint: 2,
+        dateAdded: new Date(new Date().setMonth(new Date().getMonth() - 3)),
+        lastUpdated: new Date(),
+        status: 'out_of_stock',
+        salesCount: Math.floor(Math.random() * 15) + 10,
+        rating: 4.9,
+        imageUrl: 'assets/images/products/gpu.jpg'
+      },
+      { 
+        id: 'prod-17', 
+        name: 'Console PlayStation 5', 
+        description: 'Console de jeu nouvelle génération avec SSD ultra-rapide', 
+        category: 'Gaming', 
+        price: 499, 
+        quantity: 1, // Stock très faible
+        costPrice: 399,
+        supplier: 'Sony Interactive Entertainment',
+        sku: 'SONY-PS5-2023',
+        barcode: '8901234567906',
+        weight: 4.5,
+        dimensions: '39.0 x 26.0 x 10.4 cm',
+        reorderPoint: 3,
+        dateAdded: new Date(new Date().setMonth(new Date().getMonth() - 5)),
+        lastUpdated: new Date(),
+        status: 'low_stock',
+        salesCount: Math.floor(Math.random() * 20) + 15,
+        rating: 4.8,
+        imageUrl: 'assets/images/products/ps5.jpg'
+      },
+      { 
+        id: 'prod-18', 
+        name: 'Drone DJI Mini 3 Pro', 
+        description: 'Drone compact avec caméra 4K, autonomie de 34 minutes', 
+        category: 'Photo/Vidéo', 
+        price: 759, 
+        quantity: 2, // Stock faible
+        costPrice: 599,
+        supplier: 'DJI Technology',
+        sku: 'DJI-MINI3PRO-2023',
+        barcode: '8901234567907',
+        weight: 0.25,
+        dimensions: '14.5 x 9.0 x 6.2 cm',
+        reorderPoint: 2,
+        dateAdded: new Date(new Date().setMonth(new Date().getMonth() - 4)),
+        lastUpdated: new Date(),
+        status: 'low_stock',
+        salesCount: Math.floor(Math.random() * 18) + 12,
+        rating: 4.7,
+        imageUrl: 'assets/images/products/drone.jpg'
+      }
+    ];
+    
+    // Ajouter quelques nouveaux produits récemment ajoutés
+    const newProducts = [
+      { 
+        id: 'prod-19', 
+        name: 'Écouteurs sans fil AirPods Pro 2', 
+        description: 'Écouteurs avec réduction de bruit active, résistants à l\'eau', 
+        category: 'Audio', 
+        price: 249, 
+        quantity: Math.floor(Math.random() * 25) + 15,
+        costPrice: 179,
+        supplier: 'Apple Inc.',
+        sku: 'APPLE-AIRPODS-PRO2-2023',
+        barcode: '8901234567908',
+        weight: 0.05,
+        dimensions: '4.5 x 6.0 x 2.1 cm',
+        reorderPoint: 5,
+        dateAdded: new Date(new Date().setDate(new Date().getDate() - 15)), // Ajouté il y a 15 jours
+        lastUpdated: new Date(),
+        status: 'new',
+        salesCount: Math.floor(Math.random() * 30) + 10,
+        rating: 4.8,
+        imageUrl: 'assets/images/products/airpods.jpg'
+      },
+      { 
+        id: 'prod-20', 
+        name: 'Appareil photo Sony Alpha A7 IV', 
+        description: 'Appareil photo hybride plein format 33MP, 4K60p', 
+        category: 'Photo/Vidéo', 
+        price: 2499, 
+        quantity: Math.floor(Math.random() * 8) + 3,
+        costPrice: 1999,
+        supplier: 'Sony Corporation',
+        sku: 'SONY-A7IV-2023',
+        barcode: '8901234567909',
+        weight: 0.67,
+        dimensions: '13.1 x 9.6 x 8.0 cm',
+        reorderPoint: 1,
+        dateAdded: new Date(new Date().setDate(new Date().getDate() - 7)), // Ajouté il y a 7 jours
+        lastUpdated: new Date(),
+        status: 'new',
+        salesCount: Math.floor(Math.random() * 10) + 5,
+        rating: 4.9,
+        imageUrl: 'assets/images/products/camera.jpg'
+      }
+    ];
+    
+    // Combiner tous les produits
+    return [...products, ...lowStockProducts, ...newProducts];
+  }
+  
+  // Calculer le total des ventes
+  const paidFactures = this.factures.filter((f: Facture) => f.status === 'PAID');
+  this.totalSales = paidFactures.reduce((sum: number, facture: Facture) => sum + facture.total, 0);
+  
+  // Calculer la moyenne des ventes
+  this.averageSale = paidFactures.length > 0 ? this.totalSales / paidFactures.length : 0;
+}
+
+prepareMonthlySalesData(): void {
+  console.log('Préparation des données de ventes mensuelles...');
+  
+  // Réinitialiser les données
+  this.monthlySalesData.labels = [];
+  this.monthlySalesData.datasets[0].data = [];
+  
+  // Créer un objet pour stocker les ventes par mois
+  const salesByMonth: { [key: string]: number } = {};
+  
+  // Initialiser les 12 derniers mois à 0
+  const currentDate = new Date();
+  for (let i = 0; i < 12; i++) {
+    const monthDate = new Date(currentDate);
+    monthDate.setMonth(currentDate.getMonth() - i);
+    const monthKey = `${monthDate.getFullYear()}-${monthDate.getMonth() + 1}`;
+    const monthLabel = monthDate.toLocaleDateString('fr-FR', { month: 'short', year: '2-digit' });
+    
+    salesByMonth[monthKey] = 0;
+    this.monthlySalesData.labels.unshift(monthLabel);
+  }
+  
+  console.log('Factures disponibles pour le calcul:', this.factures.length);
+  
+  // Calculer les ventes pour chaque mois
+  this.factures
+    .filter((f: Facture) => f.status === 'PAID')
+    .forEach((facture: Facture) => {
+      try {
+        const factureDate = facture.date instanceof Date ? facture.date : new Date(facture.date);
+        const monthKey = `${factureDate.getFullYear()}-${factureDate.getMonth() + 1}`;
+    
+    // Créer un objet pour stocker les ventes par mois
+    const salesByMonth: { [key: string]: number } = {};
+    
+    // Initialiser les 12 derniers mois à 0
+    const currentDate = new Date();
+    for (let i = 0; i < 12; i++) {
+      const monthDate = new Date(currentDate);
+      monthDate.setMonth(currentDate.getMonth() - i);
+      const monthKey = `${monthDate.getFullYear()}-${monthDate.getMonth() + 1}`;
+      const monthLabel = monthDate.toLocaleDateString('fr-FR', { month: 'short', year: '2-digit' });
+      
+      salesByMonth[monthKey] = 0;
+      this.monthlySalesData.labels.unshift(monthLabel);
+    }
+    
+    console.log('Factures disponibles pour le calcul:', this.factures.length);
+    
+    // Calculer les ventes pour chaque mois
+    this.factures
+      .filter((f: Facture) => f.status === 'PAID')
+      .forEach((facture: Facture) => {
+        try {
+          const factureDate = facture.date instanceof Date ? facture.date : new Date(facture.date);
+          const monthKey = `${factureDate.getFullYear()}-${factureDate.getMonth() + 1}`;
+          
+          if (salesByMonth[monthKey] !== undefined) {
+            salesByMonth[monthKey] += facture.total;
+    
+    console.log('Calcul des ventes par catégorie avec données réelles...');
+    
+    // Créer un objet pour stocker les ventes par catégorie
+    const salesByCategory: { [key: string]: number } = {};
+    let totalCategorySales = 0;
+    
+    // Créer un dictionnaire des produits pour une recherche rapide
+    const productsDict: { [key: string]: string } = {};
+    this.products.forEach(product => {
+      if (product.id !== undefined) {
+        const productIdStr = product.id.toString();
+        let categoryName = 'Autre';
+        
+        // Gérer les différents formats de catégorie
+        if (product.category) {
+          if (typeof product.category === 'object' && product.category.name) {
+            categoryName = product.category.name;
+          } else if (typeof product.category === 'string') {
+            categoryName = product.category;
+          }
+        }
+        
+        productsDict[productIdStr] = categoryName;
+      }
+    });
+    
+    // Calculer les ventes pour chaque catégorie en utilisant les données réelles
+    this.factures
+      .filter(f => f.status === 'PAID')
+      .forEach(facture => {
+        if (facture.items && facture.items.length > 0) {
+          facture.items.forEach(item => {
+            // Obtenir la catégorie réelle du produit à partir du dictionnaire
+            let category = productsDict[item.productId] || 'Autre';
+            
+            // Si la catégorie est vide ou null, utiliser 'Autre'
+            if (!category || category === 'null' || category === 'undefined') {
+              category = 'Autre';
+            }
+            
+            // Initialiser la catégorie si elle n'existe pas encore
+            if (!salesByCategory[category]) {
+              salesByCategory[category] = 0;
+            }
+            
+            // Calculer le montant total pour cette catégorie
+            const itemTotal = item.quantity * item.unitPrice;
+            salesByCategory[category] += itemTotal;
+            totalCategorySales += itemTotal;
+          });
+        }
+      });
+    
+    // Convertir l'objet en tableau pour l'affichage
+    this.salesByCategory = Object.entries(salesByCategory)
+      .map(([category, amount]) => ({
+        category,
+        amount,
+        percentage: totalCategorySales > 0 ? (amount / totalCategorySales) * 100 : 0
+      }))
+      .sort((a, b) => b.amount - a.amount);
+    
+    console.log('Catégories de ventes calculées:', this.salesByCategory);
+  }
+  
+  getRecentFactures(): void {
+    // Obtenir les 5 factures les plus récentes
+    this.recentFactures = [...this.factures]
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      .slice(0, 5);
+    
+    console.log('Factures récentes:', this.recentFactures.length);
+  }
+  
+  calculateTopProducts(): void {
+    if (!this.factures || this.factures.length === 0) {
+      console.log('Pas assez de données pour calculer les produits les plus vendus');
+      return;
+    }
+    
+    // Créer un objet pour stocker les quantités et montants par produit
+    const productStats: { [key: string]: { quantity: number; amount: number } } = {};
+    
+    // Calculer les quantités et montants pour chaque produit
+    this.factures
+      .filter(f => f.status === 'PAID')
+      .forEach(facture => {
+        if (facture.items && facture.items.length > 0) {
+          facture.items.forEach(item => {
+            if (!productStats[item.productName]) {
+              productStats[item.productName] = { quantity: 0, amount: 0 };
+            }
+            
+            productStats[item.productName].quantity += item.quantity;
+            productStats[item.productName].amount += item.quantity * item.unitPrice;
+          });
+        }
+      });
+    
+    // Convertir l'objet en tableau pour l'affichage
+    this.topProducts = Object.entries(productStats)
+      .map(([productName, stats]) => ({
+        productName,
+        quantity: stats.quantity,
+        amount: stats.amount
+      }))
+      .sort((a, b) => b.quantity - a.quantity)
+      .slice(0, 5);
+    
+    console.log('Produits les plus vendus:', this.topProducts.length);
+  }
+  
+  viewAllFactures(): void {
+    this.router.navigate(['/facturation']);
+  }
+  
+  createNewFacture(): void {
+    this.router.navigate(['/caisse/dashboard']);
+  }
+  
+  viewFacture(id: string): void {
+    this.router.navigate(['/facturation', id]);
+  }
+  
+  logout(): void {
+    this.authService.logout();
+    this.router.navigate(['/auth/login']);
+  }
+  
+  getStatusLabel(status: string): string {
+    switch (status) {
+      case 'PAID':
+        return 'Payée';
+      case 'PENDING':
+        return 'En attente';
+      case 'CANCELLED':
+        return 'Annulée';
+      default:
+        return status;
+    }
+  }
+  
+  getStatusClass(status: string): string {
+    switch (status) {
+      case 'PAID':
+        return 'status-paid';
+      case 'PENDING':
+        return 'status-pending';
+      case 'CANCELLED':
+        return 'status-cancelled';
+      default:
+        return '';
+    }
+  }
+  
+  // Helper pour obtenir la valeur maximale d'un tableau (remplace Math.max(...array))
+  getMaxValue(array: number[]): number {
+    if (!array || array.length === 0) return 0;
+    return Math.max.apply(null, array);
+  }
+}

@@ -75,7 +75,7 @@
                 Stock: {{ product.quantity }}
               </span>
               <span class="product-category" *ngIf="product.category">
-                {{ product.category }}
+                {{ (product.category.name) ? product.category.name : product.category }}
               </span>
             </div>
           </div>

@@ -9,48 +9,41 @@ import { AuthService } from '../../../auth/services/auth.service';
   styleUrls: ['./vendor-facture-detail.component.scss']
 })
 export class VendorFactureDetailComponent implements OnInit {
-  // Exposer Math pour l'utiliser dans le template
   public Math = Math;
 
-  // Helper pour vérifier si une facture a une remise
   hasDiscount(): boolean {
     return this.facture !== null && this.facture !== undefined && 
            this.facture.discount !== null && this.facture.discount !== undefined && 
            this.facture.discount > 0;
   }
-  
-  // Helper pour obtenir le montant de la remise
+
   getDiscount(): number {
     return this.facture?.discount || 0;
   }
-  
-  // Helper pour obtenir le taux de TVA
+
   getTaxRate(): number {
-    return 20; // TVA fixe à 20%
+    return 20;
   }
-  
-  // Helper pour calculer le sous-total (somme des articles)
+
   calculateSubtotal(): number {
     if (!this.facture) return 0;
     return this.facture.items.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
   }
 
-  // Helper pour obtenir le montant de la TVA
   getTaxAmount(): number {
     if (!this.facture) return 0;
-    return this.calculateSubtotal() * 0.2; // 20% de TVA
+    return this.calculateSubtotal() * 0.2;
   }
-  
+
   facture: Facture | null = null;
   isLoading: boolean = false;
   errorMessage: string | null = null;
   successMessage: string | null = null;
-  
-  // Pour l'envoi par email
+
   emailRecipient: string = '';
   emailSubject: string = '';
   emailMessage: string = '';
-  
+
   constructor(
     private route: ActivatedRoute,
     private router: Router,
@@ -61,27 +54,24 @@ export class VendorFactureDetailComponent implements OnInit {
   ngOnInit(): void {
     this.loadFacture();
   }
-  
+
   loadFacture(): void {
     this.isLoading = true;
     this.errorMessage = null;
-    
+
     const id = this.route.snapshot.paramMap.get('id');
     if (!id) {
       this.errorMessage = 'ID de facture manquant';
       this.isLoading = false;
       return;
     }
-    
+
     this.factureService.getFactureById(id).subscribe({
       next: (facture) => {
         this.facture = facture;
-        
-        // Préremplir les champs d'email
         this.emailRecipient = facture.clientEmail || '';
         this.emailSubject = `Facture ${facture.number || id}`;
-        this.emailMessage = `Cher ${facture.clientName},\n\nVeuillez trouver ci-joint votre facture ${facture.number || id} d'un montant de ${facture.total.toFixed(2)} €.\n\nCordialement,\n${this.authService.getCurrentUser()?.username || 'L\'équipe commerciale'}`;
-        
+        this.emailMessage = `Cher ${facture.clientName},\n\nVeuillez trouver ci-joint votre facture ${facture.number || id} d'un montant de ${facture.total.toFixed(2)} €.\n\nCordialement,\n${this.authService.getCurrentUser()?.username || 'L\'\u00e9quipe commerciale'}`;
         this.isLoading = false;
       },
       error: (error) => {
@@ -91,10 +81,10 @@ export class VendorFactureDetailComponent implements OnInit {
       }
     });
   }
-  
+
   generatePdf(): void {
     if (!this.facture || !this.facture.id) return;
-    
+
     this.factureService.generatePdf(this.facture.id).subscribe({
       next: (blob) => {
         const url = window.URL.createObjectURL(blob);
@@ -112,22 +102,22 @@ export class VendorFactureDetailComponent implements OnInit {
       }
     });
   }
-  
+
   printFacture(): void {
     window.print();
   }
-  
+
   sendEmail(): void {
     if (!this.facture || !this.facture.id) return;
-    
+
     if (!this.emailRecipient) {
       this.errorMessage = 'Veuillez saisir une adresse email';
       return;
     }
-    
+
     this.isLoading = true;
     this.errorMessage = null;
-    
+
     this.factureService.sendFactureByEmail(
       this.facture.id, 
       this.emailRecipient,
@@ -145,13 +135,13 @@ export class VendorFactureDetailComponent implements OnInit {
       }
     });
   }
-  
+
   updateFactureStatus(status: 'DRAFT' | 'PENDING' | 'PAID' | 'CANCELLED'): void {
     if (!this.facture || !this.facture.id) return;
-    
+
     this.isLoading = true;
     this.errorMessage = null;
-    
+
     this.factureService.updateFactureStatus(this.facture.id, status).subscribe({
       next: (updatedFacture) => {
         this.facture = updatedFacture;
@@ -165,11 +155,11 @@ export class VendorFactureDetailComponent implements OnInit {
       }
     });
   }
-  
+
   goBack(): void {
     this.router.navigate(['/facturation']);
   }
-  
+
   getStatusClass(status: string): string {
     switch (status) {
       case 'PAID':
@@ -182,7 +172,7 @@ export class VendorFactureDetailComponent implements OnInit {
         return '';
     }
   }
-  
+
   getStatusLabel(status: string): string {
     switch (status) {
       case 'PAID':

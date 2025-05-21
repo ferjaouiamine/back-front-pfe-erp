@@ -1,1 +1,173 @@
-<p>facture-create works!</p>
+<div class="facture-create-container">
+  <div class="header">
+    <h1>Créer une nouvelle facture</h1>
+    <div class="actions">
+      <button class="btn btn-secondary" (click)="toggleProductSource()">
+        {{ useMockData ? 'Utiliser les produits réels' : 'Utiliser les produits fictifs' }}
+      </button>
+      <span class="product-source-badge" [ngClass]="{'real': !useMockData, 'mock': useMockData}">
+        {{ useMockData ? 'Produits fictifs' : 'Produits réels' }}
+      </span>
+    </div>
+  </div>
+
+  <div class="alert alert-info" *ngIf="isLoading">
+    <i class="fas fa-spinner fa-spin"></i> Chargement des produits...
+  </div>
+
+  <div class="alert alert-danger" *ngIf="errorMessage">
+    <i class="fas fa-exclamation-circle"></i> {{ errorMessage }}
+  </div>
+
+  <div class="alert alert-success" *ngIf="successMessage">
+    <i class="fas fa-check-circle"></i> {{ successMessage }}
+  </div>
+
+  <div class="facture-form" [formGroup]="factureForm" *ngIf="!isLoading">
+    <div class="row">
+      <div class="col-md-6">
+        <div class="card">
+          <div class="card-header">
+            <h3>Informations client</h3>
+          </div>
+          <div class="card-body">
+            <div class="form-group">
+              <label for="clientName">Nom du client *</label>
+              <input type="text" id="clientName" formControlName="clientName" class="form-control" 
+                [ngClass]="{'is-invalid': factureForm.get('clientName')?.invalid && factureForm.get('clientName')?.touched}">
+              <div class="invalid-feedback" *ngIf="factureForm.get('clientName')?.invalid && factureForm.get('clientName')?.touched">
+                Le nom du client est requis
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="clientEmail">Email du client *</label>
+              <input type="email" id="clientEmail" formControlName="clientEmail" class="form-control"
+                [ngClass]="{'is-invalid': factureForm.get('clientEmail')?.invalid && factureForm.get('clientEmail')?.touched}">
+              <div class="invalid-feedback" *ngIf="factureForm.get('clientEmail')?.invalid && factureForm.get('clientEmail')?.touched">
+                Un email valide est requis
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="clientAddress">Adresse du client</label>
+              <textarea id="clientAddress" formControlName="clientAddress" class="form-control" rows="2"></textarea>
+            </div>
+
+            <div class="form-group">
+              <label for="clientPhone">Téléphone du client</label>
+              <input type="text" id="clientPhone" formControlName="clientPhone" class="form-control">
+            </div>
+          </div>
+        </div>
+
+        <div class="card mt-3">
+          <div class="card-header">
+            <h3>Notes</h3>
+          </div>
+          <div class="card-body">
+            <div class="form-group">
+              <textarea id="notes" formControlName="notes" class="form-control" rows="3" 
+                placeholder="Ajoutez des notes ou instructions spéciales pour cette facture"></textarea>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-md-6">
+        <div class="card">
+          <div class="card-header">
+            <h3>Ajouter des produits</h3>
+            <span class="product-count">{{ displayedProducts.length }} produits disponibles</span>
+          </div>
+          <div class="card-body">
+            <div class="form-group">
+              <label for="productId">Produit</label>
+              <select id="productId" formControlName="productId" class="form-control">
+                <option value="">-- Sélectionnez un produit --</option>
+                <option *ngFor="let product of displayedProducts" [value]="product.id">
+                  {{ product.name }} - {{ product.price | currency:'EUR' }}
+                </option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="quantity">Quantité</label>
+              <input type="number" id="quantity" formControlName="quantity" class="form-control" min="1">
+            </div>
+
+            <button type="button" class="btn btn-primary btn-block" (click)="addProductToFacture()" 
+              [disabled]="!factureForm.get('productId')?.value || factureForm.get('quantity')?.invalid">
+              <i class="fas fa-plus"></i> Ajouter à la facture
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card mt-3">
+      <div class="card-header">
+        <h3>Produits sélectionnés</h3>
+      </div>
+      <div class="card-body">
+        <table class="table table-striped" *ngIf="selectedItems.length > 0">
+          <thead>
+            <tr>
+              <th>Produit</th>
+              <th>Description</th>
+              <th>Prix unitaire</th>
+              <th>Quantité</th>
+              <th>Total</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let item of selectedItems; let i = index">
+              <td>{{ item.productName }}</td>
+              <td>{{ item.description }}</td>
+              <td>{{ item.unitPrice | currency:'EUR' }}</td>
+              <td>{{ item.quantity }}</td>
+              <td>{{ item.total | currency:'EUR' }}</td>
+              <td>
+                <button type="button" class="btn btn-sm btn-danger" (click)="removeProductFromFacture(i)">
+                  <i class="fas fa-trash"></i>
+                </button>
+              </td>
+            </tr>
+          </tbody>
+          <tfoot>
+            <tr>
+              <td colspan="4" class="text-right"><strong>Sous-total:</strong></td>
+              <td>{{ facture.subtotal | currency:'EUR' }}</td>
+              <td></td>
+            </tr>
+            <tr>
+              <td colspan="4" class="text-right"><strong>TVA (20%):</strong></td>
+              <td>{{ facture.tax | currency:'EUR' }}</td>
+              <td></td>
+            </tr>
+            <tr>
+              <td colspan="4" class="text-right"><strong>Total:</strong></td>
+              <td><strong>{{ facture.total | currency:'EUR' }}</strong></td>
+              <td></td>
+            </tr>
+          </tfoot>
+        </table>
+
+        <div class="alert alert-info" *ngIf="selectedItems.length === 0">
+          Aucun produit sélectionné. Veuillez ajouter des produits à la facture.
+        </div>
+      </div>
+    </div>
+
+    <div class="form-actions mt-3">
+      <button type="button" class="btn btn-primary" (click)="submitFacture()" 
+        [disabled]="isSubmitting || selectedItems.length === 0 || factureForm.invalid">
+        <i class="fas fa-save"></i> Créer la facture
+      </button>
+      <button type="button" class="btn btn-secondary ml-2" (click)="cancelFacture()">
+        <i class="fas fa-times"></i> Annuler
+      </button>
+    </div>
+  </div>
+</div>

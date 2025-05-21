@@ -157,15 +157,31 @@ export class VendorDashboardComponent implements OnInit {
         
         if (products.length > 0) {
           // Traiter les données réelles pour s'assurer qu'elles sont correctement formatées
-          const processedProducts = products.map(product => ({
-            ...product,
-            // S'assurer que le prix est un nombre
-            price: typeof product.price === 'string' ? parseFloat(product.price) : product.price,
-            // S'assurer que la quantité est un nombre
-            quantity: typeof product.quantity === 'string' ? parseInt(product.quantity, 10) : product.quantity,
-            // S'assurer que la catégorie est une chaîne
-            category: product.category?.toString() || ''
-          }));
+          const processedProducts = products.map(product => {
+            // Convertir la catégorie en format compatible
+            let categoryObj;
+            if (typeof product.category === 'string') {
+              categoryObj = {
+                name: product.category
+              };
+            } else if (product.category && typeof product.category === 'object') {
+              categoryObj = product.category;
+            } else {
+              categoryObj = {
+                name: ''
+              };
+            }
+            
+            return {
+              ...product,
+              // S'assurer que le prix est un nombre
+              price: typeof product.price === 'string' ? parseFloat(product.price) : product.price,
+              // S'assurer que la quantité est un nombre
+              quantity: typeof product.quantity === 'string' ? parseInt(product.quantity, 10) : product.quantity,
+              // Assigner la catégorie formatée correctement
+              category: categoryObj
+            };
+          });
           
           this.products = processedProducts;
           this.filteredProducts = [...processedProducts];
@@ -227,7 +243,14 @@ export class VendorDashboardComponent implements OnInit {
     const categoriesSet = new Set<string>();
     this.products.forEach(product => {
       if (product.category) {
-        categoriesSet.add(product.category);
+        // Si category est un objet avec une propriété name
+        if (typeof product.category === 'object' && product.category.name) {
+          categoriesSet.add(product.category.name);
+        }
+        // Si category est directement une chaîne de caractères
+        else if (typeof product.category === 'string') {
+          categoriesSet.add(product.category);
+        }
       }
     });
     this.categories = Array.from(categoriesSet);
@@ -276,14 +299,28 @@ export class VendorDashboardComponent implements OnInit {
       return;
     }
     
+    const searchTermLower = this.searchTerm.toLowerCase();
+    
     this.filteredProducts = this.products.filter(product => {
+      // Vérification pour le terme de recherche
       const matchesSearch = !this.searchTerm || 
-        product.name.toLowerCase().includes(this.searchTerm.toLowerCase()) ||
-        product.description.toLowerCase().includes(this.searchTerm.toLowerCase());
-        
-      const matchesCategory = !this.selectedCategory || 
-        product.category === this.selectedCategory;
-        
+        product.name.toLowerCase().includes(searchTermLower) ||
+        (product.description && product.description.toLowerCase().includes(searchTermLower));
+      
+      // Vérification pour la catégorie
+      let matchesCategory = !this.selectedCategory;
+      
+      if (this.selectedCategory && product.category) {
+        // Si category est un objet avec une propriété name
+        if (typeof product.category === 'object' && product.category.name) {
+          matchesCategory = product.category.name === this.selectedCategory;
+        }
+        // Si category est directement une chaîne de caractères
+        else if (typeof product.category === 'string') {
+          matchesCategory = product.category === this.selectedCategory;
+        }
+      }
+      
       return matchesSearch && matchesCategory;
     });
   }
@@ -295,7 +332,8 @@ export class VendorDashboardComponent implements OnInit {
   
   addToCart(product: Product): void {
     // Vérifier si le produit est déjà dans le panier
-    const existingItem = this.cartItems.find(item => item.productId === product.id);
+    const productIdStr = product.id ? product.id.toString() : '';
+    const existingItem = this.cartItems.find(item => item.productId === productIdStr);
     
     if (existingItem) {
       // Incrémenter la quantité
@@ -306,12 +344,12 @@ export class VendorDashboardComponent implements OnInit {
       const newItem: FactureItem = {
         id: `item_${Date.now()}`,
         factureId: '',
-        productId: product.id,
-        productName: product.name,
-        description: product.description,
+        productId: productIdStr,
+        productName: product.name || '',
+        description: product.description || '',
         quantity: 1,
-        unitPrice: product.price,
-        total: product.price // Calculer le total comme prix unitaire * quantité
+        unitPrice: product.price || 0,
+        total: product.price || 0 // Calculer le total comme prix unitaire * quantité
       };
       this.cartItems.push(newItem);
     }

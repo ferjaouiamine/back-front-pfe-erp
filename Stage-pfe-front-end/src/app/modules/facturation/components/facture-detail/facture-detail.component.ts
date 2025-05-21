@@ -3,6 +3,11 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { FactureService, Facture, FactureItem } from '../../services/facture.service';
 import { finalize } from 'rxjs/operators';
 
+// Étendre l'interface FactureItem pour inclure la propriété showDetails
+interface ExtendedFactureItem extends FactureItem {
+  showDetails?: boolean;
+}
+
 @Component({
   selector: 'app-facture-detail',
   templateUrl: './facture-detail.component.html',
@@ -14,11 +19,14 @@ export class FactureDetailComponent implements OnInit {
   isLoading = false;
   errorMessage: string | null = null;
 
+  // Propriété pour suivre les éléments dont les détails sont affichés
+  expandedItems: Set<string> = new Set<string>();
+
   constructor(
     private route: ActivatedRoute,
     private router: Router,
     private factureService: FactureService
-  ) { }
+  ) {}
 
   ngOnInit(): void {
     this.route.paramMap.subscribe(params => {
@@ -38,6 +46,13 @@ export class FactureDetailComponent implements OnInit {
       .subscribe({
         next: (facture) => {
           this.facture = facture;
+
+          // Initialiser la propriété showDetails pour chaque élément
+          if (this.facture && this.facture.items) {
+            this.facture.items.forEach((item: any) => {
+              item.showDetails = false;
+            });
+          }
         },
         error: (error) => {
           console.error('Erreur lors du chargement de la facture:', error);
@@ -52,15 +67,13 @@ export class FactureDetailComponent implements OnInit {
 
   generatePdf(): void {
     if (!this.factureId) return;
-    
+
     this.isLoading = true;
     this.factureService.generatePdf(this.factureId)
       .pipe(finalize(() => this.isLoading = false))
       .subscribe({
         next: (blob) => {
-          // Créer un URL pour le blob
           const url = window.URL.createObjectURL(blob);
-          // Ouvrir le PDF dans un nouvel onglet
           window.open(url);
         },
         error: (error) => {
@@ -72,9 +85,14 @@ export class FactureDetailComponent implements OnInit {
 
   sendFactureByEmail(): void {
     if (!this.factureId) return;
-    
+
     this.isLoading = true;
-    this.factureService.sendFactureByEmail(this.factureId, 'client@example.com')
+    this.factureService.sendFactureByEmail(
+      this.factureId, 
+      'client@example.com',
+      'Votre facture',
+      'Bonjour, veuillez trouver votre facture en pièce jointe.'
+    )
       .pipe(finalize(() => this.isLoading = false))
       .subscribe({
         next: () => {
@@ -89,7 +107,7 @@ export class FactureDetailComponent implements OnInit {
 
   updateFactureStatus(status: 'DRAFT' | 'PENDING' | 'PAID' | 'CANCELLED'): void {
     if (!this.factureId) return;
-    
+
     this.isLoading = true;
     this.factureService.updateFactureStatus(this.factureId, status)
       .pipe(finalize(() => this.isLoading = false))
@@ -105,14 +123,13 @@ export class FactureDetailComponent implements OnInit {
       });
   }
 
-  // Méthodes utilitaires pour les calculs
   getSubtotal(): number {
     if (!this.facture || !this.facture.items) return 0;
     return this.facture.items.reduce((sum, item) => sum + (item.unitPrice * item.quantity), 0);
   }
 
   getTaxAmount(): number {
-    return this.getSubtotal() * 0.2; // TVA à 20%
+    return this.getSubtotal() * 0.2;
   }
 
   getTotal(): number {
@@ -126,5 +143,23 @@ export class FactureDetailComponent implements OnInit {
 
   getFinalTotal(): number {
     return this.getTotal() - this.getDiscountAmount();
+  }
+
+  toggleItemDetails(item: FactureItem): void {
+    const itemId = item.id;
+    if (this.expandedItems.has(itemId)) {
+      this.expandedItems.delete(itemId);
+    } else {
+      this.expandedItems.add(itemId);
+    }
+  }
+
+  isItemExpanded(item: FactureItem): boolean {
+    return this.expandedItems.has(item.id);
+  }
+
+  getMetadataKeys(metadata: Record<string, any>): string[] {
+    if (!metadata) return [];
+    return Object.keys(metadata);
   }
 }

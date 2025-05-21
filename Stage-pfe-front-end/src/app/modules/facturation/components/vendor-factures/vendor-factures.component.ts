@@ -213,7 +213,12 @@ export class VendorFacturesComponent implements OnInit {
       return;
     }
     
-    this.factureService.sendFactureByEmail(id, email).subscribe({
+    this.factureService.sendFactureByEmail(
+      id, 
+      email,
+      'Facture à consulter',
+      'Veuillez trouver ci-joint la facture demandée.'
+    ).subscribe({
       next: () => {
         alert('Facture envoyée avec succès à ' + email);
       },

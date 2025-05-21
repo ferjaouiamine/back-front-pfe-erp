@@ -1,0 +1,554 @@
+import { Component, OnInit } from '@angular/core';
+import { Router } from '@angular/router';
+import { Facture, FactureService } from '../../services/facture.service';
+import { AuthService } from '../../../auth/services/auth.service';
+import { Product, ProductService } from '../../../stock/services/product.service';
+
+interface TopProduct {
+  productName: string;
+  quantity: number;
+  amount: number;
+}
+
+interface CategorySales {
+  category: string;
+  amount: number;
+  percentage: number;
+}
+
+@Component({
+  selector: 'app-vendor-dashboard',
+  templateUrl: './vendor-dashboard.component.html',
+  styleUrls: ['./vendor-dashboard.component.scss']
+})
+export class VendorDashboardComponent implements OnInit {
+  // Données
+  factures: Facture[] = [];
+  products: Product[] = [];
+  recentFactures: Facture[] = [];
+  topProducts: TopProduct[] = [];
+  salesByCategory: CategorySales[] = [];
+
+  // Statistiques
+  totalSales: number = 0;
+  averageSale: number = 0;
+  paidInvoicesCount: number = 0;
+  pendingInvoicesCount: number = 0;
+
+  // Données pour les graphiques
+  monthlySalesData: any = {
+    labels: [],
+    datasets: [
+      {
+        label: 'Ventes mensuelles',
+        data: [],
+        backgroundColor: 'rgba(54, 162, 235, 0.2)',
+        borderColor: 'rgba(54, 162, 235, 1)',
+        borderWidth: 1,
+        fill: true
+      }
+    ]
+  };
+
+  categoryData: any = {
+    labels: [],
+    datasets: [
+      {
+        data: [],
+        backgroundColor: [
+          '#FF6384',
+          '#36A2EB',
+          '#FFCE56',
+          '#4BC0C0',
+          '#9966FF',
+          '#FF9F40'
+        ]
+      }
+    ]
+  };
+
+  // État
+  isLoading: boolean = true;
+  errorMessage: string | null = null;
+
+  // Options des graphiques
+  chartOptions: any = {
+    responsive: true,
+    maintainAspectRatio: false,
+    scales: {
+      y: {
+        beginAtZero: true
+      }
+    }
+  };
+
+  pieChartOptions: any = {
+    responsive: true,
+    maintainAspectRatio: false
+  };
+
+  constructor(
+    private factureService: FactureService,
+    private productService: ProductService,
+    public authService: AuthService,
+    private router: Router
+  ) { }
+
+  ngOnInit(): void {
+    this.loadData();
+  }
+
+  /**
+   * Charge les données des factures depuis le backend Spring Boot
+   */
+  loadData(): void {
+    this.isLoading = true;
+    this.errorMessage = null;
+    
+    console.log('Chargement des données depuis le backend Spring Boot...');
+    
+    this.factureService.getAllFactures().subscribe({
+      next: (factures) => {
+        console.log('Factures chargées avec succès:', factures.length, 'factures');
+        
+        if (factures.length > 0) {
+          console.log('Première facture:', factures[0]);
+          
+          // Vérifier si les dates sont des objets Date
+          factures.forEach(facture => {
+            if (!(facture.date instanceof Date)) {
+              facture.date = new Date(facture.date);
+            }
+            if (!(facture.dueDate instanceof Date)) {
+              facture.dueDate = new Date(facture.dueDate);
+            }
+          });
+        } else {
+          console.warn('Aucune facture reçue, utilisation de données fictives');
+          factures = this.factureService.generateMockFactures();
+        }
+        
+        this.factures = factures;
+        console.log('Nombre total de factures après traitement:', this.factures.length);
+        
+        // Traiter les données pour le dashboard
+        this.calculateStatistics();
+        this.prepareMonthlySalesData();
+        this.getRecentFactures();
+        
+        // Charger les produits avant de calculer les ventes par catégorie
+        this.loadProducts();
+        
+        this.isLoading = false;
+      },
+      error: (error) => {
+        console.error('Erreur lors du chargement des données:', error);
+        this.errorMessage = 'Impossible de charger les données. Utilisation de données fictives.';
+        
+        // En cas d'erreur, utiliser des données fictives
+        this.factures = this.factureService.generateMockFactures();
+        console.log('Données fictives générées:', this.factures.length, 'factures');
+        
+        // Traiter les données fictives
+        this.calculateStatistics();
+        this.prepareMonthlySalesData();
+        this.getRecentFactures();
+        
+        // Charger les produits avant de calculer les ventes par catégorie
+        this.loadProducts();
+        
+        this.isLoading = false;
+      }
+    });
+  }
+
+  /**
+   * Charge les produits depuis le backend Spring Boot
+   */
+  loadProducts(): void {
+    console.log('Chargement des produits...');
+    
+    this.productService.getProducts().subscribe({
+      next: (products) => {
+        console.log('Produits chargés avec succès:', products.length, 'produits');
+        
+        if (products && products.length > 0) {
+          this.products = products;
+          
+          // Stocker les produits dans le localStorage pour une utilisation future
+          localStorage.setItem('dashboard_products', JSON.stringify(products));
+          
+          // Calculer les statistiques qui dépendent des produits
+          this.calculateSalesByCategory();
+          this.calculateTopProducts();
+        } else {
+          console.warn('Aucun produit reçu, utilisation de données fictives');
+          
+          // Essayer de récupérer les produits du localStorage
+          const cachedProducts = localStorage.getItem('dashboard_products');
+          if (cachedProducts) {
+            this.products = JSON.parse(cachedProducts);
+          } else {
+            // Si pas de cache, générer des produits fictifs
+            this.products = this.generateMockProducts();
+          }
+          
+          // Calculer les statistiques avec les produits fictifs
+          this.calculateSalesByCategory();
+          this.calculateTopProducts();
+        }
+      },
+      error: (error) => {
+        console.error('Erreur lors du chargement des produits:', error);
+        
+        // Essayer de récupérer les produits du localStorage
+        const cachedProducts = localStorage.getItem('dashboard_products');
+        if (cachedProducts) {
+          this.products = JSON.parse(cachedProducts);
+        } else {
+          // Si pas de cache, générer des produits fictifs
+          this.products = this.generateMockProducts();
+        }
+        
+        // Calculer les statistiques avec les produits fictifs
+        this.calculateSalesByCategory();
+        this.calculateTopProducts();
+      }
+    });
+  }
+
+  /**
+   * Calcule les statistiques générales à partir des factures
+   */
+  calculateStatistics(): void {
+    if (!this.factures || this.factures.length === 0) {
+      console.log('Pas assez de données pour calculer les statistiques');
+      this.totalSales = 0;
+      this.averageSale = 0;
+      this.paidInvoicesCount = 0;
+      this.pendingInvoicesCount = 0;
+      return;
+    }
+    
+    // Calculer le montant total des ventes
+    this.totalSales = this.factures.reduce((total, facture) => {
+      return total + (facture.total || 0);
+    }, 0);
+    
+    // Calculer le montant moyen des ventes
+    this.averageSale = this.factures.length > 0 ? this.totalSales / this.factures.length : 0;
+    
+    // Compter les factures payées et en attente
+    this.paidInvoicesCount = this.factures.filter(f => f.status === 'PAID').length;
+    this.pendingInvoicesCount = this.factures.filter(f => f.status === 'PENDING').length;
+    
+    console.log('Statistiques calculées:', {
+      totalSales: this.totalSales,
+      averageSale: this.averageSale,
+      paidInvoicesCount: this.paidInvoicesCount,
+      pendingInvoicesCount: this.pendingInvoicesCount
+    });
+  }
+
+  /**
+   * Prépare les données pour le graphique des ventes mensuelles
+   */
+  prepareMonthlySalesData(): void {
+    if (!this.factures || this.factures.length === 0) {
+      console.log('Pas assez de données pour préparer les ventes mensuelles');
+      return;
+    }
+    
+    // Obtenir l'année et le mois actuels
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth();
+    
+    // Initialiser les données pour les 12 derniers mois
+    const months = [];
+    const monthlySales = [];
+    
+    for (let i = 11; i >= 0; i--) {
+      const month = (currentMonth - i + 12) % 12;
+      const year = currentYear - Math.floor((i - currentMonth) / 12);
+      
+      // Obtenir le nom du mois
+      const monthName = new Date(year, month, 1).toLocaleDateString('fr-FR', { month: 'short' });
+      months.push(`${monthName} ${year}`);
+      
+      // Initialiser les ventes pour ce mois à 0
+      monthlySales.push(0);
+    }
+    
+    // Calculer les ventes pour chaque mois
+    this.factures.forEach(facture => {
+      const factureDate = new Date(facture.date);
+      const factureYear = factureDate.getFullYear();
+      const factureMonth = factureDate.getMonth();
+      
+      // Vérifier si cette facture est dans les 12 derniers mois
+      for (let i = 0; i < 12; i++) {
+        const month = (currentMonth - (11 - i) + 12) % 12;
+        const year = currentYear - Math.floor(((11 - i) - currentMonth) / 12);
+        
+        if (factureYear === year && factureMonth === month) {
+          monthlySales[i] += facture.total || 0;
+          break;
+        }
+      }
+    });
+    
+    // Mettre à jour les données du graphique
+    this.monthlySalesData = {
+      labels: months,
+      datasets: [
+        {
+          label: 'Ventes mensuelles',
+          data: monthlySales,
+          backgroundColor: 'rgba(54, 162, 235, 0.2)',
+          borderColor: 'rgba(54, 162, 235, 1)',
+          borderWidth: 1,
+          fill: true
+        }
+      ]
+    };
+    
+    // Mettre à jour les options du graphique pour s'adapter aux données
+    const maxSale = this.getMaxValue(monthlySales);
+    this.chartOptions = {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        y: {
+          beginAtZero: true,
+          max: Math.ceil(maxSale * 1.1) // Ajouter 10% de marge
+        }
+      }
+    };
+    
+    console.log('Données des ventes mensuelles préparées:', {
+      labels: months,
+      data: monthlySales
+    });
+  }
+
+  /**
+   * Récupère les factures les plus récentes
+   */
+  getRecentFactures(): void {
+    // Obtenir les 5 factures les plus récentes
+    this.recentFactures = [...this.factures]
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      .slice(0, 5);
+    
+    console.log('Factures récentes:', this.recentFactures.length);
+  }
+
+  /**
+   * Calcule les ventes par catégorie de produit
+   */
+  calculateSalesByCategory(): void {
+    if (!this.factures || this.factures.length === 0 || !this.products || this.products.length === 0) {
+      console.log('Pas assez de données pour calculer les ventes par catégorie');
+      return;
+    }
+    
+    // Créer un dictionnaire des produits pour un accès rapide
+    const productsDict: { [key: number]: string } = {};
+    this.products.forEach(product => {
+      if (product.id !== undefined) {
+        productsDict[product.id] = product.category || 'Autre';
+      }
+    });
+    
+    // Initialiser les variables pour stocker les ventes par catégorie
+    const salesByCategory: { [key: string]: number } = {};
+    let totalCategorySales = 0;
+    
+    // Calculer les ventes pour chaque catégorie
+    this.factures
+      .filter(f => f.status === 'PAID')
+      .forEach(facture => {
+        if (facture.items && facture.items.length > 0) {
+          facture.items.forEach(item => {
+            // Obtenir la catégorie réelle du produit à partir du dictionnaire
+            let category = productsDict[item.productId] || 'Autre';
+            
+            // Si la catégorie est vide ou null, utiliser 'Autre'
+            if (!category || category === 'null' || category === 'undefined') {
+              category = 'Autre';
+            }
+            
+            // Initialiser la catégorie si elle n'existe pas encore
+            if (!salesByCategory[category]) {
+              salesByCategory[category] = 0;
+            }
+            
+            // Calculer le montant total pour cette catégorie
+            const itemTotal = item.quantity * item.unitPrice;
+            salesByCategory[category] += itemTotal;
+            totalCategorySales += itemTotal;
+          });
+        }
+      });
+    
+    // Convertir l'objet en tableau pour l'affichage
+    this.salesByCategory = Object.entries(salesByCategory)
+      .map(([category, amount]) => ({
+        category,
+        amount,
+        percentage: totalCategorySales > 0 ? (amount / totalCategorySales) * 100 : 0
+      }))
+      .sort((a, b) => b.amount - a.amount);
+    
+    // Mettre à jour les données du graphique en camembert
+    this.categoryData = {
+      labels: this.salesByCategory.map(item => item.category),
+      datasets: [
+        {
+          data: this.salesByCategory.map(item => item.amount),
+          backgroundColor: [
+            '#FF6384',
+            '#36A2EB',
+            '#FFCE56',
+            '#4BC0C0',
+            '#9966FF',
+            '#FF9F40'
+          ]
+        }
+      ]
+    };
+    
+    console.log('Catégories de ventes calculées:', this.salesByCategory);
+  }
+
+  /**
+   * Calcule les produits les plus vendus
+   */
+  calculateTopProducts(): void {
+    if (!this.factures || this.factures.length === 0) {
+      console.log('Pas assez de données pour calculer les produits les plus vendus');
+      return;
+    }
+    
+    // Créer un objet pour stocker les quantités et montants par produit
+    const productStats: { [key: string]: { quantity: number; amount: number } } = {};
+    
+    // Calculer les quantités et montants pour chaque produit
+    this.factures
+      .filter(f => f.status === 'PAID')
+      .forEach(facture => {
+        if (facture.items && facture.items.length > 0) {
+          facture.items.forEach(item => {
+            if (!productStats[item.productName]) {
+              productStats[item.productName] = { quantity: 0, amount: 0 };
+            }
+            
+            productStats[item.productName].quantity += item.quantity;
+            productStats[item.productName].amount += item.quantity * item.unitPrice;
+          });
+        }
+      });
+    
+    // Convertir l'objet en tableau pour l'affichage
+    this.topProducts = Object.entries(productStats)
+      .map(([productName, stats]) => ({
+        productName,
+        quantity: stats.quantity,
+        amount: stats.amount
+      }))
+      .sort((a, b) => b.quantity - a.quantity)
+      .slice(0, 5);
+    
+    console.log('Produits les plus vendus:', this.topProducts.length);
+  }
+
+  /**
+   * Génère des produits fictifs pour les tests
+   */
+  generateMockProducts(): Product[] {
+    const categories = ['Électronique', 'Vêtements', 'Alimentation', 'Maison', 'Beauté', 'Jouets'];
+    const mockProducts: Product[] = [];
+    
+    for (let i = 1; i <= 20; i++) {
+      mockProducts.push({
+        id: i,
+        name: `Produit ${i}`,
+        description: `Description du produit ${i}`,
+        price: Math.floor(Math.random() * 100) + 10,
+        category: categories[Math.floor(Math.random() * categories.length)]
+      });
+    }
+    
+    return mockProducts;
+  }
+
+  /**
+   * Navigation vers la liste des factures
+   */
+  viewAllFactures(): void {
+    this.router.navigate(['/facturation']);
+  }
+
+  /**
+   * Navigation vers la création d'une nouvelle facture
+   */
+  createNewFacture(): void {
+    this.router.navigate(['/caisse/dashboard']);
+  }
+
+  /**
+   * Navigation vers une facture spécifique
+   */
+  viewFacture(id: string): void {
+    this.router.navigate(['/facturation', id]);
+  }
+
+  /**
+   * Déconnexion de l'utilisateur
+   */
+  logout(): void {
+    this.authService.logout();
+    this.router.navigate(['/auth/login']);
+  }
+
+  /**
+   * Retourne le libellé du statut
+   */
+  getStatusLabel(status: string): string {
+    switch (status) {
+      case 'PAID':
+        return 'Payée';
+      case 'PENDING':
+        return 'En attente';
+      case 'CANCELLED':
+        return 'Annulée';
+      default:
+        return status;
+    }
+  }
+
+  /**
+   * Retourne la classe CSS du statut
+   */
+  getStatusClass(status: string): string {
+    switch (status) {
+      case 'PAID':
+        return 'status-paid';
+      case 'PENDING':
+        return 'status-pending';
+      case 'CANCELLED':
+        return 'status-cancelled';
+      default:
+        return '';
+    }
+  }
+
+  /**
+   * Helper pour obtenir la valeur maximale d'un tableau (remplace Math.max(...array))
+   */
+  getMaxValue(array: number[]): number {
+    if (!array || array.length === 0) return 0;
+    return Math.max.apply(null, array);
+  }
+}

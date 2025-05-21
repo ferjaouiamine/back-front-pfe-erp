@@ -91,7 +91,14 @@ export class ProductManagementComponent implements OnInit {
     const categoriesSet = new Set<string>();
     this.products.forEach(product => {
       if (product.category) {
-        categoriesSet.add(product.category);
+        // Si category est un objet avec une propriété name
+        if (typeof product.category === 'object' && product.category.name) {
+          categoriesSet.add(product.category.name);
+        }
+        // Si category est directement une chaîne de caractères
+        else if (typeof product.category === 'string') {
+          categoriesSet.add(product.category);
+        }
       }
     });
     this.categories = Array.from(categoriesSet);
@@ -107,14 +114,28 @@ export class ProductManagementComponent implements OnInit {
       return;
     }
     
+    const searchTermLower = this.searchTerm.toLowerCase();
+    
     this.filteredProducts = this.products.filter(product => {
+      // Vérification pour le terme de recherche
       const matchesSearch = !this.searchTerm || 
-        product.name.toLowerCase().includes(this.searchTerm.toLowerCase()) ||
-        product.description.toLowerCase().includes(this.searchTerm.toLowerCase());
-        
-      const matchesCategory = !this.selectedCategory || 
-        product.category === this.selectedCategory;
-        
+        product.name.toLowerCase().includes(searchTermLower) ||
+        (product.description && product.description.toLowerCase().includes(searchTermLower));
+      
+      // Vérification pour la catégorie
+      let matchesCategory = !this.selectedCategory;
+      
+      if (this.selectedCategory && product.category) {
+        // Si category est un objet avec une propriété name
+        if (typeof product.category === 'object' && product.category.name) {
+          matchesCategory = product.category.name === this.selectedCategory;
+        }
+        // Si category est directement une chaîne de caractères
+        else if (typeof product.category === 'string') {
+          matchesCategory = product.category === this.selectedCategory;
+        }
+      }
+      
       return matchesSearch && matchesCategory;
     });
   }
@@ -132,15 +153,15 @@ export class ProductManagementComponent implements OnInit {
     
     this.productForm.setValue({
       name: product.name,
-      description: product.description,
+      description: product.description || '',
       price: product.price,
       quantity: product.quantity,
-      category: product.category,
-      imageUrl: product.imageUrl || ''
+      category: product.category && product.category.name ? product.category.name : '',
+      imageUrl: ''
     });
     
     // Charger les mouvements de stock pour ce produit
-    this.loadProductStockMovements(product.id);
+    this.loadProductStockMovements(product.id ? product.id.toString() : '');
   }
   
   loadProductStockMovements(productId: string): void {
@@ -286,7 +307,7 @@ export class ProductManagementComponent implements OnInit {
   
   showStockMovements(product: Product): void {
     this.selectedProduct = product;
-    this.loadProductStockMovements(product.id);
+    this.loadProductStockMovements(product.id ? product.id.toString() : '');
     this.showMovementsModal = true;
   }
   
@@ -313,13 +334,13 @@ export class ProductManagementComponent implements OnInit {
     
     const movement: StockMovement = {
       id: `mov_${Date.now()}`,
-      productId: this.selectedProduct.id,
+      productId: this.selectedProduct.id ? this.selectedProduct.id.toString() : '',
       type,
       quantity,
       reason,
       date: new Date(),
       userId: currentUser.id,
-      userName: currentUser.username
+      userName: currentUser.username || currentUser.email || 'Utilisateur'
     };
     
     // Mettre à jour la quantité du produit

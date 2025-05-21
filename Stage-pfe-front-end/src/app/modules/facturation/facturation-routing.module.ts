@@ -3,6 +3,7 @@ import { RouterModule, Routes } from '@angular/router';
 import { VendorFacturesComponent } from './components/vendor-factures/vendor-factures.component';
 import { VendorFactureDetailComponent } from './components/vendor-facture-detail/vendor-facture-detail.component';
 import { VendorDashboardComponent } from './components/vendor-dashboard/vendor-dashboard.component';
+import { FactureCreateComponent } from './components/facture-create/facture-create.component';
 import { RoleGuard } from '../../core/guards/role.guard';
 
 const routes: Routes = [
@@ -20,6 +21,12 @@ const routes: Routes = [
   {
     path: 'list',
     component: VendorFacturesComponent,
+    canActivate: [RoleGuard],
+    data: { roles: ['VENDEUR'] } // Restreindre l'accès uniquement au rôle VENDEUR
+  },
+  {
+    path: 'create',
+    component: FactureCreateComponent,
     canActivate: [RoleGuard],
     data: { roles: ['VENDEUR'] } // Restreindre l'accès uniquement au rôle VENDEUR
   },

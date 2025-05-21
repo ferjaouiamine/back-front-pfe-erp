@@ -6,6 +6,30 @@
     "logLevel": "debug",
     "pathRewrite": {"^/api": "/api"}
   },
+  "/api/products": {
+    "target": "http://localhost:8082",
+    "secure": false,
+    "changeOrigin": true,
+    "logLevel": "debug"
+  },
+  "/api/categories": {
+    "target": "http://localhost:8082",
+    "secure": false,
+    "changeOrigin": true,
+    "logLevel": "debug"
+  },
+  "/api/stock": {
+    "target": "http://localhost:8082",
+    "secure": false,
+    "changeOrigin": true,
+    "logLevel": "debug"
+  },
+  "/api/factures": {
+    "target": "http://localhost:8085",
+    "secure": false,
+    "changeOrigin": true,
+    "logLevel": "debug"
+  },
   "/api/*": {
     "target": "http://localhost:8081",
     "secure": false,

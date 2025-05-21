@@ -21,16 +21,16 @@
                 <h5 class="mb-0">Détails de la commande</h5>
               </div>
               <div class="card-body">
-                <p><strong>Numéro:</strong> {{ commande?.numero }}</p>
-                <p><strong>Date:</strong> {{ commande?.date | date:'dd/MM/yyyy' }}</p>
+                <p><strong>Numéro:</strong> {{ commande.numero }}</p>
+                <p><strong>Date:</strong> {{ commande.date | date:'dd/MM/yyyy' }}</p>
                 <p><strong>Statut:</strong> <span class="badge" [ngClass]="{
-                  'bg-warning': commande?.statut === 'EN_ATTENTE',
-                  'bg-info': commande?.statut === 'CONFIRMEE',
-                  'bg-primary': commande?.statut === 'EN_COURS',
-                  'bg-success': commande?.statut === 'LIVREE',
-                  'bg-danger': commande?.statut === 'ANNULEE'
-                }">{{ commande?.statut }}</span></p>
-                <p><strong>Montant total:</strong> {{ commande?.montantTotal | currency:'EUR' }}</p>
+                  'bg-warning': commande.statut === 'EN_ATTENTE',
+                  'bg-info': commande.statut === 'CONFIRMEE',
+                  'bg-primary': commande.statut === 'EN_COURS',
+                  'bg-success': commande.statut === 'LIVREE',
+                  'bg-danger': commande.statut === 'ANNULEE'
+                }">{{ commande.statut }}</span></p>
+                <p><strong>Montant total:</strong> {{ commande.montantTotal | currency:'EUR' }}</p>
               </div>
             </div>
           </div>
