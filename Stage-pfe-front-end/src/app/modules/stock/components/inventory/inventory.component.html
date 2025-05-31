@@ -1,0 +1,278 @@
+<div class="container-fluid mt-4">
+  <div class="row mb-4">
+    <div class="col-md-8">
+      <h1 class="mb-0 text-primary fw-bold">Gestion des inventaires</h1>
+      <p class="text-muted mt-2">Réalisez des inventaires périodiques et ajustez vos stocks</p>
+    </div>
+    <div class="col-md-4 text-end d-flex justify-content-end align-items-center">
+      <button *ngIf="!inventoryStarted" class="btn btn-primary rounded-pill shadow-sm" (click)="startInventory()" [disabled]="isLoading">
+        <i class="fas fa-clipboard-list me-2"></i> Démarrer un inventaire
+      </button>
+      <button *ngIf="inventoryStarted && !inventoryCompleted" class="btn btn-outline-danger rounded-pill me-2" (click)="cancelInventory()">
+        <i class="fas fa-times me-2"></i> Annuler
+      </button>
+      <button *ngIf="inventoryStarted && !inventoryCompleted" class="btn btn-success rounded-pill shadow-sm" (click)="submitInventory()" [disabled]="isSubmitting">
+        <i class="fas fa-save me-2"></i> Valider l'inventaire
+      </button>
+      <button *ngIf="inventoryCompleted" class="btn btn-primary rounded-pill shadow-sm" (click)="resetInventory()">
+        <i class="fas fa-plus me-2"></i> Nouvel inventaire
+      </button>
+    </div>
+  </div>
+
+  <!-- Messages d'alerte -->
+  <div *ngIf="errorMessage" class="alert alert-danger">
+    <i class="fas fa-exclamation-triangle me-2"></i> {{ errorMessage }}
+  </div>
+  <div *ngIf="successMessage" class="alert alert-success">
+    <i class="fas fa-check-circle me-2"></i> {{ successMessage }}
+  </div>
+
+  <!-- Étape 1: Configuration de l'inventaire -->
+  <div *ngIf="!inventoryStarted" class="card mb-4 shadow-sm border-0 rounded-3">
+    <div class="card-header bg-light py-3">
+      <h5 class="mb-0 text-primary"><i class="fas fa-cog me-2"></i> Configuration de l'inventaire</h5>
+    </div>
+    <div class="card-body p-4">
+      <form [formGroup]="inventoryForm" class="row g-3">
+        <div class="col-md-6">
+          <label for="reference" class="form-label fw-bold">Référence</label>
+          <div class="input-group mb-2">
+            <span class="input-group-text bg-light"><i class="fas fa-hashtag"></i></span>
+            <input type="text" class="form-control" id="reference" formControlName="reference" placeholder="Ex: INV-250527-8596">
+          </div>
+          <div *ngIf="inventoryForm.get('reference')?.invalid && inventoryForm.get('reference')?.touched" class="text-danger small">
+            <i class="fas fa-exclamation-circle me-1"></i> La référence est obligatoire
+          </div>
+        </div>
+        <div class="col-md-6">
+          <label for="date" class="form-label fw-bold">Date</label>
+          <div class="input-group mb-2">
+            <span class="input-group-text bg-light"><i class="fas fa-calendar-alt"></i></span>
+            <input type="date" class="form-control" id="date" formControlName="date">
+          </div>
+          <div *ngIf="inventoryForm.get('date')?.invalid && inventoryForm.get('date')?.touched" class="text-danger small">
+            <i class="fas fa-exclamation-circle me-1"></i> La date est obligatoire
+          </div>
+        </div>
+        <div class="col-12 mt-3">
+          <label for="notes" class="form-label fw-bold">Notes</label>
+          <div class="input-group">
+            <span class="input-group-text bg-light"><i class="fas fa-sticky-note"></i></span>
+            <textarea class="form-control" id="notes" formControlName="notes" rows="3" placeholder="Notes ou commentaires sur cet inventaire"></textarea>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Étape 2: Sélection des produits -->
+  <div *ngIf="inventoryStarted && !inventoryCompleted" class="card mb-4 shadow-sm border-0 rounded-3">
+    <div class="card-header bg-light py-3">
+      <h5 class="mb-0 text-primary"><i class="fas fa-clipboard-list me-2"></i> Inventaire <span class="badge bg-primary rounded-pill">{{ inventoryReference }}</span></h5>
+    </div>
+    <div class="card-body p-4">
+      <div class="row mb-4">
+        <div class="col-md-5">
+          <div class="input-group mb-3 shadow-sm">
+            <span class="input-group-text bg-light border-end-0"><i class="fas fa-search text-primary"></i></span>
+            <input type="text" class="form-control border-start-0" placeholder="Rechercher un produit..." [(ngModel)]="searchTerm" (keyup.enter)="onSearch()">
+            <button class="btn btn-primary" type="button" (click)="onSearch()">
+              <i class="fas fa-search me-1"></i> Rechercher
+            </button>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="input-group shadow-sm">
+            <span class="input-group-text bg-light border-end-0"><i class="fas fa-filter text-primary"></i></span>
+            <select class="form-select border-start-0" [(ngModel)]="categoryFilter" (change)="onCategoryChange()">
+              <option value="">Toutes les catégories</option>
+              <option *ngFor="let category of categories" [value]="category.id">{{ category.name }}</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="row">
+        <!-- Liste des produits disponibles -->
+        <div class="col-md-5">
+          <div class="card shadow-sm border-0 rounded-3">
+            <div class="card-header bg-white py-3 border-bottom">
+              <h6 class="mb-0 fw-bold"><i class="fas fa-boxes me-2 text-primary"></i>Produits disponibles</h6>
+            </div>
+            <div class="card-body p-0" style="max-height: 400px; overflow-y: auto;">
+              <div *ngIf="isLoading" class="text-center py-4">
+                <div class="spinner-border text-primary" role="status">
+                  <span class="visually-hidden">Chargement...</span>
+                </div>
+                <p class="mt-2 text-muted">Chargement des produits...</p>
+              </div>
+              <div *ngIf="!isLoading && filteredProducts.length === 0" class="text-center py-4">
+                <i class="fas fa-search fa-2x text-muted mb-3"></i>
+                <p class="mb-0 text-muted">Aucun produit disponible</p>
+                <small class="text-muted">Essayez de modifier vos critères de recherche</small>
+              </div>
+              <ul *ngIf="!isLoading && filteredProducts.length > 0" class="list-group list-group-flush">
+                <li *ngFor="let product of filteredProducts" class="list-group-item d-flex justify-content-between align-items-center py-3 px-3 border-start-0 border-end-0">
+                  <div>
+                    <span class="fw-bold text-dark">{{ product.name }}</span>
+                    <small class="d-block text-muted mt-1"><i class="fas fa-tag me-1"></i>{{ product.category?.name || 'Non catégorisé' }}</small>
+                  </div>
+                  <div class="d-flex align-items-center">
+                    <span class="badge rounded-pill me-2" [ngClass]="{'bg-success': product.quantity > 20, 'bg-warning': product.quantity <= 20 && product.quantity > 5, 'bg-danger': product.quantity <= 5}">
+                      <i class="fas fa-cubes me-1"></i> {{ product.quantity }}
+                    </span>
+                    <button class="btn btn-sm btn-primary rounded-circle" (click)="addProductToInventory(product)" [disabled]="isProductSelected(product.id || 0)">
+                      <i class="fas fa-plus"></i>
+                    </button>
+                  </div>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <!-- Produits sélectionnés pour l'inventaire -->
+        <div class="col-md-7">
+          <div class="card shadow-sm border-0 rounded-3">
+            <div class="card-header bg-white py-3 border-bottom d-flex justify-content-between align-items-center">
+              <h6 class="mb-0 fw-bold"><i class="fas fa-clipboard-check me-2 text-primary"></i>Produits sélectionnés <span class="badge bg-primary rounded-pill ms-2">{{ selectedProducts.length }}</span></h6>
+            </div>
+            <div class="card-body p-0">
+              <div *ngIf="selectedProducts.length === 0" class="text-center py-5">
+                <i class="fas fa-clipboard fa-3x text-muted mb-3"></i>
+                <p class="mb-0 text-muted">Aucun produit sélectionné pour l'inventaire</p>
+                <small class="text-muted d-block mt-2">Utilisez la liste de gauche pour ajouter des produits</small>
+              </div>
+              <div *ngIf="selectedProducts.length > 0" class="table-responsive">
+                <table class="table table-hover mb-0">
+                  <thead class="table-light">
+                    <tr>
+                      <th>Produit</th>
+                      <th class="text-center">Stock actuel</th>
+                      <th class="text-center">Stock compté</th>
+                      <th class="text-center">Différence</th>
+                      <th>Notes</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr *ngFor="let item of itemsFormArray.controls; let i = index">
+                      <td>
+                        <span class="fw-bold">{{ item.get('productName')?.value }}</span>
+                      </td>
+                      <td class="text-center">
+                        <span class="badge bg-light text-dark rounded-pill px-3 py-2">
+                          <i class="fas fa-database me-1"></i> {{ item.get('currentQuantity')?.value }}
+                        </span>
+                      </td>
+                      <td class="text-center">
+                        <div class="input-group input-group-sm">
+                          <span class="input-group-text bg-light border-end-0"><i class="fas fa-calculator text-primary"></i></span>
+                          <input type="number" class="form-control border-start-0 text-center" [formControlName]="'countedQuantity'" min="0" (change)="updateDifference(i)">
+                        </div>
+                      </td>
+                      <td class="text-center">
+                        <span class="badge rounded-pill px-3 py-2" [ngClass]="{'bg-danger text-white': item.get('difference')?.value < 0, 'bg-success text-white': item.get('difference')?.value > 0, 'bg-light text-dark': item.get('difference')?.value === 0}">
+                          <i class="fas" [ngClass]="{'fa-arrow-down': item.get('difference')?.value < 0, 'fa-arrow-up': item.get('difference')?.value > 0, 'fa-equals': item.get('difference')?.value === 0}"></i>
+                          {{ item.get('difference')?.value > 0 ? '+' : '' }}{{ item.get('difference')?.value }}
+                        </span>
+                      </td>
+                      <td>
+                        <div class="input-group input-group-sm">
+                          <span class="input-group-text bg-light border-end-0"><i class="fas fa-sticky-note text-primary"></i></span>
+                          <input type="text" class="form-control border-start-0" [formControlName]="'notes'" placeholder="Notes...">
+                        </div>
+                      </td>
+                      <td class="text-center">
+                        <button class="btn btn-sm btn-outline-danger rounded-circle" (click)="removeProductFromInventory(i)">
+                          <i class="fas fa-times"></i>
+                        </button>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Étape 3: Récapitulatif -->
+  <div *ngIf="inventoryCompleted" class="card shadow-sm border-0 rounded-3">
+    <div class="card-header bg-success text-white py-3">
+      <h5 class="mb-0 fw-bold"><i class="fas fa-check-circle me-2"></i> Inventaire terminé</h5>
+    </div>
+    <div class="card-body p-4">
+      <div class="alert alert-success shadow-sm">
+        <div class="d-flex align-items-center">
+          <div class="flex-shrink-0">
+            <i class="fas fa-clipboard-check fa-3x me-3"></i>
+          </div>
+          <div class="flex-grow-1 ms-3">
+            <h4 class="alert-heading fw-bold">Inventaire enregistré avec succès!</h4>
+            <p class="mb-1">L'inventaire <span class="badge bg-success">{{ inventoryReference }}</span> a été enregistré le {{ inventoryDate | date:'dd/MM/yyyy' }}.</p>
+            <hr>
+            <p class="mb-0"><i class="fas fa-info-circle me-2"></i> Les ajustements de stock ont été appliqués automatiquement.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="card shadow-sm mt-4 border-0">
+        <div class="card-header bg-light py-3">
+          <h5 class="mb-0 text-primary"><i class="fas fa-list-check me-2"></i> Récapitulatif des ajustements</h5>
+        </div>
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table table-hover mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th>Produit</th>
+                  <th class="text-center">Stock initial</th>
+                  <th class="text-center">Stock compté</th>
+                  <th class="text-center">Différence</th>
+                  <th>Notes</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let item of itemsFormArray.controls">
+                  <td class="fw-bold">{{ item.get('productName')?.value }}</td>
+                  <td class="text-center">
+                    <span class="badge bg-light text-dark rounded-pill px-3 py-2">
+                      <i class="fas fa-database me-1"></i> {{ item.get('currentQuantity')?.value }}
+                    </span>
+                  </td>
+                  <td class="text-center">
+                    <span class="badge bg-light text-dark rounded-pill px-3 py-2">
+                      <i class="fas fa-calculator me-1"></i> {{ item.get('countedQuantity')?.value }}
+                    </span>
+                  </td>
+                  <td class="text-center">
+                    <span class="badge rounded-pill px-3 py-2" [ngClass]="{'bg-danger text-white': item.get('difference')?.value < 0, 'bg-success text-white': item.get('difference')?.value > 0, 'bg-light text-dark': item.get('difference')?.value === 0}">
+                      <i class="fas" [ngClass]="{'fa-arrow-down': item.get('difference')?.value < 0, 'fa-arrow-up': item.get('difference')?.value > 0, 'fa-equals': item.get('difference')?.value === 0}"></i>
+                      {{ item.get('difference')?.value > 0 ? '+' : '' }}{{ item.get('difference')?.value }}
+                    </span>
+                  </td>
+                  <td>
+                    <span *ngIf="item.get('notes')?.value" class="text-muted">
+                      <i class="fas fa-sticky-note me-1"></i> {{ item.get('notes')?.value }}
+                    </span>
+                    <span *ngIf="!item.get('notes')?.value" class="text-muted">-</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      
+      <div class="text-center mt-4">
+        <button class="btn btn-primary rounded-pill px-4 shadow-sm" (click)="resetInventory()">
+          <i class="fas fa-plus me-2"></i> Nouvel inventaire
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

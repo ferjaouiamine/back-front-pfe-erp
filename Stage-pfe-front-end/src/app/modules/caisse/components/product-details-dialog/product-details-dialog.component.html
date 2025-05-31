@@ -1,0 +1,75 @@
+<h2 mat-dialog-title>Détails du produit</h2>
+<mat-dialog-content>
+  <div class="product-details-container">
+    <!-- Image du produit -->
+    <div class="product-image">
+      <img *ngIf="data.product.imageUrl" [src]="data.product.imageUrl" [alt]="data.product.name">
+      <div *ngIf="!data.product.imageUrl" class="no-image">
+        <mat-icon>image_not_supported</mat-icon>
+      </div>
+    </div>
+    
+    <!-- Informations principales -->
+    <div class="product-info">
+      <h3>{{data.product.name}}</h3>
+      <p class="product-price">{{data.product.price | currency:'EUR':'symbol':'1.2-2'}}</p>
+      
+      <div class="info-grid">
+        <div class="info-row" *ngIf="data.product.barcode">
+          <span class="info-label">Code-barres:</span>
+          <span class="info-value">{{data.product.barcode}}</span>
+        </div>
+        <div class="info-row" *ngIf="data.product.category">
+          <span class="info-label">Catégorie:</span>
+          <span class="info-value">{{data.product.category}}</span>
+        </div>
+        <div class="info-row" *ngIf="data.product.stockQuantity !== undefined">
+          <span class="info-label">Stock:</span>
+          <span class="info-value" [ngClass]="{'low-stock': data.product.stockQuantity < 5, 'out-of-stock': data.product.stockQuantity <= 0}">
+            {{data.product.stockQuantity}} unité(s)
+          </span>
+        </div>
+        <div class="info-row" *ngIf="data.product.supplier">
+          <span class="info-label">Fournisseur:</span>
+          <span class="info-value">{{data.product.supplier}}</span>
+        </div>
+        <div class="info-row" *ngIf="data.product.sku">
+          <span class="info-label">SKU:</span>
+          <span class="info-value">{{data.product.sku}}</span>
+        </div>
+        <div class="info-row" *ngIf="data.product.taxRate !== undefined">
+          <span class="info-label">Taux TVA:</span>
+          <span class="info-value">{{data.product.taxRate}}%</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Description du produit -->
+  <div class="product-description" *ngIf="data.product.description">
+    <h4>Description</h4>
+    <p>{{data.product.description}}</p>
+  </div>
+  
+  <!-- Sélection de la quantité -->
+  <div class="quantity-selector">
+    <h4>Quantité</h4>
+    <mat-form-field appearance="outline">
+      <mat-label>Quantité</mat-label>
+      <input matInput type="number" min="1" [formControl]="quantityControl">
+      <mat-error *ngIf="quantityControl.hasError('required')">
+        La quantité est requise
+      </mat-error>
+      <mat-error *ngIf="quantityControl.hasError('min')">
+        La quantité doit être supérieure à 0
+      </mat-error>
+    </mat-form-field>
+  </div>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button (click)="onCancel()">Annuler</button>
+  <button mat-raised-button color="primary" (click)="onAddToCart()" [disabled]="!quantityControl.valid">
+    Ajouter au panier
+  </button>
+</mat-dialog-actions>

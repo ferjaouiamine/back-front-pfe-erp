@@ -47,7 +47,7 @@ const routes: Routes = [
     path: 'access-denied', 
     loadChildren: () => import('./modules/shared/access-denied/access-denied.module').then(m => m.AccessDeniedModule) 
   },
-  { path: '', redirectTo: 'landing', pathMatch: 'full' },
+  { path: '', redirectTo: 'auth', pathMatch: 'full' },
   { path: '**', redirectTo: 'auth' }
 ];
 

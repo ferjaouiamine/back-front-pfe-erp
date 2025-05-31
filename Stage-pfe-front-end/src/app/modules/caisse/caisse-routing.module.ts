@@ -1,19 +1,25 @@
 import { NgModule } from '@angular/core';
 import { RouterModule, Routes } from '@angular/router';
 import { VendorDashboardComponent } from './components/vendor-dashboard/vendor-dashboard.component';
+import { PosComponent } from './components/pos/pos.component';
 import { RoleGuard } from '../../core/guards/role.guard';
 
 const routes: Routes = [
   {
     path: '',
-    redirectTo: 'dashboard',
+    redirectTo: 'pos',
     pathMatch: 'full'
   },
   {
     path: 'dashboard',
-    component: VendorDashboardComponent,
+    redirectTo: 'pos',
+    pathMatch: 'full'
+  },
+  {
+    path: 'pos',
+    component: PosComponent,
     canActivate: [RoleGuard],
-    data: { roles: ['VENDEUR', 'CLIENT'] } // Restreindre l'accès aux rôles VENDEUR et CLIENT
+    data: { roles: ['VENDEUR', 'ADMIN'] } // Restreindre l'accès aux rôles VENDEUR et ADMIN
   }
 ];
 

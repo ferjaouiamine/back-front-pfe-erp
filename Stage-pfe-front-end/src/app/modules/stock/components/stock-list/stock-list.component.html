@@ -1,1 +1,188 @@
-<p>stock-list works!</p>
+<div class="container-fluid mt-4">
+  <div class="row mb-4">
+    <div class="col-md-8">
+      <h1 class="mb-0">Gestion des produits</h1>
+      <p class="text-muted">Consultez, filtrez et gérez votre inventaire</p>
+    </div>
+    <div class="col-md-4 text-end">
+      <button class="btn btn-primary" (click)="createProduct()">
+        <i class="fas fa-plus-circle"></i> Ajouter un produit
+      </button>
+    </div>
+  </div>
+
+  <!-- Messages d'alerte -->
+  <div *ngIf="errorMessage" class="alert alert-danger">
+    <i class="fas fa-exclamation-triangle me-2"></i> {{ errorMessage }}
+  </div>
+  <div *ngIf="successMessage" class="alert alert-success">
+    <i class="fas fa-check-circle me-2"></i> {{ successMessage }}
+  </div>
+
+  <!-- Filtres -->
+  <div class="card mb-4">
+    <div class="card-header bg-light">
+      <h5 class="mb-0"><i class="fas fa-filter me-2"></i> Filtres</h5>
+    </div>
+    <div class="card-body">
+      <form [formGroup]="filterForm" class="row g-3">
+        <!-- Recherche -->
+        <div class="col-md-4">
+          <label for="searchTerm" class="form-label">Recherche</label>
+          <div class="input-group">
+            <span class="input-group-text"><i class="fas fa-search"></i></span>
+            <input type="text" class="form-control" id="searchTerm" formControlName="searchTerm" placeholder="Nom ou référence">
+          </div>
+        </div>
+
+        <!-- Catégorie -->
+        <div class="col-md-3">
+          <label for="categoryId" class="form-label">Catégorie</label>
+          <select class="form-select" id="categoryId" formControlName="categoryId">
+            <option value="">Toutes les catégories</option>
+            <option *ngFor="let category of categories" [value]="category.id">{{ category.name }}</option>
+          </select>
+        </div>
+
+        <!-- Statut de stock -->
+        <div class="col-md-3">
+          <label for="stockStatus" class="form-label">Statut du stock</label>
+          <select class="form-select" id="stockStatus" formControlName="stockStatus">
+            <option value="all">Tous les produits</option>
+            <option value="low">Stock faible</option>
+            <option value="out">Épuisé</option>
+          </select>
+        </div>
+
+        <!-- Statut actif -->
+        <div class="col-md-2 d-flex align-items-end">
+          <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" id="active" formControlName="active">
+            <label class="form-check-label" for="active">Produits actifs uniquement</label>
+          </div>
+        </div>
+
+        <!-- Boutons d'action -->
+        <div class="col-12 text-end">
+          <button type="button" class="btn btn-outline-secondary me-2" (click)="resetFilters()">
+            <i class="fas fa-undo"></i> Réinitialiser
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Tableau des produits -->
+  <div class="card">
+    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+      <h5 class="mb-0"><i class="fas fa-box me-2"></i> Liste des produits</h5>
+      <span class="badge bg-primary">{{ totalItems }} produit(s)</span>
+    </div>
+    <div class="card-body p-0">
+      <!-- Indicateur de chargement -->
+      <div *ngIf="isLoading" class="text-center py-5">
+        <div class="spinner-border text-primary" role="status">
+          <span class="visually-hidden">Chargement...</span>
+        </div>
+        <p class="mt-2">Chargement des produits...</p>
+      </div>
+
+      <!-- Message si aucun produit -->
+      <div *ngIf="!isLoading && filteredProducts.length === 0" class="text-center py-5">
+        <i class="fas fa-box-open fa-3x text-muted mb-3"></i>
+        <p class="mb-0">Aucun produit ne correspond à vos critères de recherche.</p>
+        <button class="btn btn-outline-primary mt-3" (click)="resetFilters()">
+          <i class="fas fa-undo"></i> Réinitialiser les filtres
+        </button>
+      </div>
+
+      <!-- Tableau des produits -->
+      <div *ngIf="!isLoading && filteredProducts.length > 0" class="table-responsive">
+        <table class="table table-hover table-striped mb-0">
+          <thead class="table-light">
+            <tr>
+              <th scope="col" class="cursor-pointer" (click)="onSort('name')">
+                Nom <i class="fas" [ngClass]="getSortIcon('name')"></i>
+              </th>
+              <th scope="col" class="cursor-pointer" (click)="onSort('category')">
+                Catégorie <i class="fas" [ngClass]="getSortIcon('category')"></i>
+              </th>
+              <th scope="col" class="cursor-pointer" (click)="onSort('price')">
+                Prix <i class="fas" [ngClass]="getSortIcon('price')"></i>
+              </th>
+              <th scope="col" class="cursor-pointer" (click)="onSort('quantity')">
+                Stock <i class="fas" [ngClass]="getSortIcon('quantity')"></i>
+              </th>
+              <th scope="col">Statut</th>
+              <th scope="col" class="text-end">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let product of getPaginatedProducts()">
+              <td>
+                <div class="d-flex align-items-center">
+                  <div class="ms-2">
+                    <h6 class="mb-0">{{ product.name }}</h6>
+                    <small class="text-muted">{{ product.reference || 'Sans référence' }}</small>
+                  </div>
+                </div>
+              </td>
+              <td>{{ product.category?.name || 'Non catégorisé' }}</td>
+              <td>{{ product.price | currency:'EUR':'symbol':'1.2-2' }}</td>
+              <td>{{ product.quantity }}</td>
+              <td>
+                <span class="badge" [ngClass]="getStockStatusClass(product)">
+                  {{ getStockStatusText(product) }}
+                </span>
+              </td>
+              <td class="text-end">
+                <div class="btn-group">
+                  <button class="btn btn-sm btn-outline-primary" (click)="viewProduct(product.id)" title="Voir les détails">
+                    <i class="fas fa-eye"></i>
+                  </button>
+                  <button class="btn btn-sm btn-outline-success" routerLink="/stock/movements" title="Gérer le stock">
+                    <i class="fas fa-exchange-alt"></i>
+                  </button>
+                  <button class="btn btn-sm btn-outline-secondary" (click)="editProduct(product.id)" title="Modifier">
+                    <i class="fas fa-edit"></i>
+                  </button>
+                  <button class="btn btn-sm btn-outline-danger" (click)="deleteProduct(product.id)" title="Supprimer">
+                    <i class="fas fa-trash"></i>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Pagination -->
+    <div *ngIf="!isLoading && filteredProducts.length > 0" class="card-footer bg-white">
+      <div class="d-flex justify-content-between align-items-center">
+        <div>
+          <span class="text-muted">Affichage de {{ (currentPage - 1) * pageSize + 1 }} à {{ Math.min(currentPage * pageSize, totalItems) }} sur {{ totalItems }} produits</span>
+        </div>
+        <nav aria-label="Pagination des produits">
+          <ul class="pagination mb-0">
+            <li class="page-item" [class.disabled]="currentPage === 1">
+              <a class="page-link" href="javascript:void(0)" (click)="onPageChange(currentPage - 1)" aria-label="Précédent">
+                <span aria-hidden="true">&laquo;</span>
+              </a>
+            </li>
+            <ng-container *ngFor="let page of [].constructor(Math.ceil(totalItems / pageSize)); let i = index">
+              <li class="page-item" [class.active]="currentPage === i + 1">
+                <a class="page-link" href="javascript:void(0)" (click)="onPageChange(i + 1)">{{ i + 1 }}</a>
+              </li>
+            </ng-container>
+            <li class="page-item" [class.disabled]="currentPage === Math.ceil(totalItems / pageSize)">
+              <a class="page-link" href="javascript:void(0)" (click)="onPageChange(currentPage + 1)" aria-label="Suivant">
+                <span aria-hidden="true">&raquo;</span>
+              </a>
+            </li>
+          </ul>
+        </nav>
+      </div>
+    </div>
+  </div>
+</div>

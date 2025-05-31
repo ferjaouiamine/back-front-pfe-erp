@@ -1,1 +1,184 @@
-<p>stock-detail works!</p>
+<div class="container mt-4">
+  <!-- En-tête avec boutons d'action -->
+  <div class="card mb-4 border-0 shadow-sm">
+    <div class="card-body p-4">
+      <div class="d-flex justify-content-between align-items-center">
+        <div>
+          <button class="btn btn-outline-secondary rounded-pill" (click)="goBack()">
+            <i class="fas fa-arrow-left me-2"></i> Retour à la liste
+          </button>
+        </div>
+        <div class="btn-group">
+          <button class="btn btn-success rounded-pill me-2" (click)="goToStockMovement()">
+            <i class="fas fa-exchange-alt me-2"></i> Gérer le stock
+          </button>
+          <button class="btn btn-primary rounded-pill me-2" (click)="editProduct()">
+            <i class="fas fa-edit me-2"></i> Modifier
+          </button>
+          <button class="btn btn-danger rounded-pill" (click)="deleteProduct()">
+            <i class="fas fa-trash me-2"></i> Supprimer
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Message d'erreur -->
+  <div *ngIf="errorMessage" class="alert alert-danger shadow-sm border-0 rounded-3">
+    <i class="fas fa-exclamation-triangle me-2"></i> {{ errorMessage }}
+  </div>
+
+  <!-- Indicateur de chargement -->
+  <div *ngIf="isLoading" class="text-center py-5">
+    <div class="spinner-border text-primary" style="width: 3rem; height: 3rem;" role="status">
+      <span class="visually-hidden">Chargement...</span>
+    </div>
+    <p class="mt-3 text-primary fw-bold">Chargement des détails du produit...</p>
+  </div>
+
+  <!-- Contenu principal -->
+  <div *ngIf="!isLoading && product" class="row">
+    <!-- Détails du produit -->
+    <div class="col-md-8">
+      <div class="card mb-4 shadow-sm border-0 rounded-3 overflow-hidden">
+        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center py-3">
+          <h2 class="mb-0 fs-4 fw-bold">{{ product.name }}</h2>
+          <span class="badge rounded-pill px-3 py-2" [ngClass]="getStockStatusClass()">
+            <i class="fas" [ngClass]="product.quantity === 0 ? 'fa-exclamation-circle' : (product.quantity <= (product.alertThreshold || 10) ? 'fa-exclamation-triangle' : 'fa-check-circle')"></i>
+            {{ getStockStatusText() }}
+          </span>
+        </div>
+        <div class="card-body p-4">
+          <div class="row g-4">
+            <!-- Informations de base -->
+            <div class="col-md-6">
+              <h4 class="mb-3 text-primary border-bottom pb-2"><i class="fas fa-info-circle me-2"></i>Informations générales</h4>
+              <div class="table-responsive">
+                <table class="table table-borderless">
+                  <tbody>
+                    <tr>
+                      <th scope="row" class="text-muted"><i class="fas fa-barcode me-2"></i>Référence</th>
+                      <td class="fw-bold">{{ product.reference || 'Non spécifiée' }}</td>
+                    </tr>
+                    <tr>
+                      <th scope="row" class="text-muted"><i class="fas fa-tag me-2"></i>Catégorie</th>
+                      <td class="fw-bold">{{ product.category?.name || 'Non catégorisé' }}</td>
+                    </tr>
+                    <tr>
+                      <th scope="row" class="text-muted"><i class="fas fa-euro-sign me-2"></i>Prix</th>
+                      <td class="fw-bold">{{ product.price | currency:'EUR':'symbol':'1.2-2' }}</td>
+                    </tr>
+                    <tr>
+                      <th scope="row" class="text-muted"><i class="fas fa-toggle-on me-2"></i>Statut</th>
+                      <td>
+                        <span class="badge rounded-pill px-3 py-2" [ngClass]="product.active ? 'bg-success' : 'bg-danger'">
+                          <i class="fas" [ngClass]="product.active ? 'fa-check-circle' : 'fa-times-circle'"></i>
+                          {{ product.active ? 'Actif' : 'Inactif' }}
+                        </span>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            
+            <!-- Informations de stock -->
+            <div class="col-md-6">
+              <h4 class="mb-3 text-primary border-bottom pb-2"><i class="fas fa-boxes me-2"></i>Informations de stock</h4>
+              <div class="table-responsive">
+                <table class="table table-borderless">
+                  <tbody>
+                    <tr>
+                      <th scope="row" class="text-muted"><i class="fas fa-cubes me-2"></i>Quantité en stock</th>
+                      <td>
+                        <span [ngClass]="getStockStatusClass()" class="fw-bold fs-5">
+                          {{ product.quantity }} unité(s)
+                        </span>
+                      </td>
+                    </tr>
+                    <tr>
+                      <th scope="row" class="text-muted"><i class="fas fa-exclamation-triangle me-2"></i>Seuil d'alerte</th>
+                      <td class="fw-bold">{{ product.alertThreshold || 10 }} unité(s)</td>
+                    </tr>
+                    <tr>
+                      <th scope="row" class="text-muted"><i class="fas fa-edit me-2"></i>Dernière mise à jour</th>
+                      <td class="fw-bold">{{ product.updatedAt ? (formatDate(product.updatedAt)) : 'Non disponible' }}</td>
+                    </tr>
+                    <tr>
+                      <th scope="row" class="text-muted"><i class="fas fa-calendar-alt me-2"></i>Date de création</th>
+                      <td class="fw-bold">{{ product.createdAt ? (formatDate(product.createdAt)) : 'Non disponible' }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- Description -->
+          <div class="mt-4 p-3 bg-light rounded-3">
+            <h4 class="text-primary border-bottom pb-2"><i class="fas fa-file-alt me-2"></i>Description</h4>
+            <p class="mb-0 p-3 bg-white rounded-3 shadow-sm">{{ product.description || 'Aucune description disponible pour ce produit.' }}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mouvements de stock récents -->
+    <div class="col-md-4">
+      <div class="card shadow-sm border-0 rounded-3 overflow-hidden">
+        <div class="card-header bg-info text-white py-3">
+          <h4 class="mb-0 fs-5 fw-bold"><i class="fas fa-exchange-alt me-2"></i>Mouvements récents</h4>
+        </div>
+        <div class="card-body p-0">
+          <div *ngIf="recentMovements.length === 0" class="text-center p-4">
+            <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+            <p class="mb-0">Aucun mouvement récent</p>
+          </div>
+          <ul *ngIf="recentMovements.length > 0" class="list-group list-group-flush">
+            <li *ngFor="let movement of recentMovements" class="list-group-item p-3 border-start-0 border-end-0" 
+                [ngClass]="{'border-start-success': movement.type === 'ENTRY', 'border-start-danger': movement.type === 'EXIT'}"
+                [style.border-left-width.px]="4"
+                [style.border-left-style]="'solid'">
+              <div class="d-flex justify-content-between align-items-center">
+                <div>
+                  <span [ngClass]="getMovementTypeClass(movement.type)" class="fw-bold">
+                    <i class="fas" [ngClass]="getMovementTypeIcon(movement.type)"></i>
+                    {{ getMovementTypeText(movement.type) }}
+                  </span>
+                  <small class="text-muted d-block mt-1"><i class="fas fa-calendar-day me-1"></i>{{ formatDate(movement.date) }}</small>
+                </div>
+                <div class="text-end">
+                  <span class="fw-bold fs-5">{{ movement.quantity }} unité(s)</span>
+                  <small class="text-muted d-block"><i class="fas fa-info-circle me-1"></i>{{ movement.reason }}</small>
+                </div>
+              </div>
+              <small *ngIf="movement.reference" class="text-muted d-block mt-2"><i class="fas fa-file-invoice me-1"></i>Réf: {{ movement.reference }}</small>
+            </li>
+          </ul>
+          <div class="card-footer bg-white text-center p-3">
+            <button class="btn btn-sm btn-outline-primary rounded-pill px-4" (click)="goToStockMovement()">
+              <i class="fas fa-list me-2"></i> Voir tous les mouvements
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Statistiques rapides -->
+      <div class="card mt-4 shadow-sm border-0 rounded-3 overflow-hidden">
+        <div class="card-header bg-light py-3">
+          <h4 class="mb-0 fs-5 fw-bold text-primary"><i class="fas fa-chart-pie me-2"></i>Statistiques</h4>
+        </div>
+        <div class="card-body p-4">
+          <div class="d-flex justify-content-between align-items-center p-3 bg-light rounded-3 mb-3">
+            <span class="text-muted"><i class="fas fa-money-bill-wave me-2"></i>Valeur en stock</span>
+            <span class="fw-bold fs-5 text-success">{{ product.price * product.quantity | currency:'EUR':'symbol':'1.2-2' }}</span>
+          </div>
+          <!-- Ici vous pourriez ajouter d'autres statistiques comme la rotation du stock, etc. -->
+          <div class="alert alert-info mt-3 mb-0">
+            <i class="fas fa-info-circle me-2"></i> Les statistiques détaillées sont disponibles dans le module de reporting.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

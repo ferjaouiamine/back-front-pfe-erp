@@ -10,6 +10,8 @@ $dark-gray: #757575;
 $white: #ffffff;
 $shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
 $border-radius: 4px;
+$admin-primary: #3f51b5; // Couleur principale pour l'administrateur
+$admin-secondary: #673ab7; // Couleur secondaire pour l'administrateur
 
 // Mixins
 @mixin card {
@@ -37,6 +39,59 @@ $border-radius: 4px;
   padding: 1.5rem;
   background-color: $light-gray;
   min-height: calc(100vh - 64px);
+  
+  // Style spécifique pour le mode administrateur
+  &.admin-view {
+    background: linear-gradient(to right, rgba($admin-primary, 0.03), rgba($admin-secondary, 0.03));
+    
+    .facture-header {
+      border-bottom: 2px solid rgba($admin-primary, 0.2);
+      padding-bottom: 1rem;
+      
+      .header-title h1 {
+        color: $admin-primary;
+        
+        .admin-badge {
+          display: inline-block;
+          margin-left: 10px;
+          font-size: 12px;
+          background-color: rgba($admin-primary, 0.1);
+          color: $admin-primary;
+          padding: 3px 10px;
+          border-radius: 12px;
+          font-weight: 500;
+          vertical-align: middle;
+        }
+      }
+      
+      .btn-outline-primary {
+        color: $admin-primary;
+        border-color: $admin-primary;
+        
+        &:hover {
+          background-color: $admin-primary;
+          color: $white;
+        }
+      }
+    }
+    
+    .facture-info-card, .facture-items-card, .facture-summary-card, .facture-actions-card {
+      border-left: 3px solid rgba($admin-primary, 0.2);
+      
+      .card-header {
+        h3 {
+          color: $admin-primary;
+        }
+      }
+    }
+    
+    .status-badge {
+      &.status-pending {
+        background-color: rgba($admin-primary, 0.1);
+        color: $admin-primary;
+      }
+    }
+  }
   
   .facture-header {
     @include flex-between;

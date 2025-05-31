@@ -86,12 +86,12 @@ export class VendorFacturesComponent implements OnInit {
     }
     
     this.factureService.getVendorFactures().subscribe({
-      next: (factures) => {
+      next: (factures: Facture[]) => {
         this.factures = factures;
         this.applyFilters();
         this.isLoading = false;
       },
-      error: (error) => {
+      error: (error: any) => {
         console.error('Erreur lors du chargement des factures:', error);
         this.errorMessage = 'Erreur lors du chargement des factures. Veuillez réessayer.';
         this.isLoading = false;
@@ -100,6 +100,97 @@ export class VendorFacturesComponent implements OnInit {
   }
   
   applyFilters(): void {
+    this.isLoading = true;
+    this.errorMessage = null;
+    
+    // Préparer les paramètres de recherche pour le backend
+    const searchParams: any = {};
+    
+    // Ajouter le terme de recherche s'il existe
+    if (this.searchTerm && this.searchTerm.trim() !== '') {
+      searchParams.searchTerm = this.searchTerm.trim();
+    }
+    
+    // Ajouter le statut s'il existe
+    if (this.statusFilter && this.statusFilter !== '') {
+      searchParams.status = this.statusFilter;
+    }
+    
+    // Convertir les dates en format approprié si elles existent
+    if (this.dateRange.start) {
+      try {
+        // Si c'est déjà un objet Date, l'utiliser tel quel, sinon convertir la chaîne en Date
+        searchParams.startDate = this.dateRange.start instanceof Date ? 
+                                this.dateRange.start : 
+                                new Date(this.dateRange.start);
+      } catch (error) {
+        console.error('Erreur lors de la conversion de la date de début:', error);
+      }
+    }
+    
+    if (this.dateRange.end) {
+      try {
+        // Si c'est déjà un objet Date, l'utiliser tel quel, sinon convertir la chaîne en Date
+        searchParams.endDate = this.dateRange.end instanceof Date ? 
+                              this.dateRange.end : 
+                              new Date(this.dateRange.end);
+      } catch (error) {
+        console.error('Erreur lors de la conversion de la date de fin:', error);
+      }
+    }
+    
+    console.log('Recherche avec les paramètres:', searchParams);
+    
+    // Appeler le service de recherche côté serveur
+    this.factureService.searchFactures(searchParams).subscribe({
+      next: (factures: Facture[]) => {
+        console.log(`${factures.length} factures trouvées depuis le backend`);
+        
+        // Sauvegarder les résultats non filtrés pour les statistiques
+        this.factures = factures;
+        
+        // Appliquer le tri côté client (car le backend ne gère pas encore le tri)
+        let filtered = [...factures];
+        
+        // Tri
+        filtered.sort((a, b) => {
+          let comparison = 0;
+          
+          if (this.sortField === 'date') {
+            comparison = new Date(a.date).getTime() - new Date(b.date).getTime();
+          } else if (this.sortField === 'total') {
+            comparison = a.total - b.total;
+          } else if (this.sortField === 'clientName') {
+            comparison = (a.clientName || '').localeCompare(b.clientName || '');
+          } else if (this.sortField === 'status') {
+            comparison = (a.status || '').localeCompare(b.status || '');
+          } else if (this.sortField === 'number') {
+            comparison = (a.number || '').localeCompare(b.number || '');
+          }
+          
+          return this.sortDirection === 'asc' ? comparison : -comparison;
+        });
+        
+        // Pagination
+        this.totalItems = filtered.length;
+        const startIndex = (this.currentPage - 1) * this.pageSize;
+        this.filteredFactures = filtered.slice(startIndex, startIndex + this.pageSize);
+        
+        this.isLoading = false;
+      },
+      error: (error: any) => {
+        console.error('Erreur lors de la recherche des factures:', error);
+        this.errorMessage = 'Erreur lors de la recherche des factures. Veuillez réessayer.';
+        this.isLoading = false;
+        
+        // En cas d'erreur, appliquer les filtres côté client comme solution de secours
+        this.applyLocalFilters();
+      }
+    });
+  }
+  
+  // Méthode de secours pour filtrer côté client en cas d'échec de la recherche côté serveur
+  applyLocalFilters(): void {
     let filtered = [...this.factures];
     
     // Filtre par terme de recherche (numéro de facture ou nom du client)

@@ -6,6 +6,48 @@
     <pre>{{ getCurrentUserInfo() | json }}</pre>
   </div>
   
+  <div class="card mb-4">
+    <div class="card-header">
+      <h4>Test de connexion direct</h4>
+    </div>
+    <div class="card-body">
+      <form (ngSubmit)="testLogin()">
+        <div class="mb-3">
+          <label for="username" class="form-label">Nom d'utilisateur ou Email</label>
+          <input type="text" class="form-control" id="username" [(ngModel)]="loginCredentials.usernameOrEmail" name="usernameOrEmail" required>
+        </div>
+        <div class="mb-3">
+          <label for="password" class="form-label">Mot de passe</label>
+          <input type="password" class="form-control" id="password" [(ngModel)]="loginCredentials.password" name="password" required>
+        </div>
+        <button type="submit" class="btn btn-primary" [disabled]="isLoading">
+          <span *ngIf="isLoading" class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+          Tester la connexion
+        </button>
+      </form>
+      
+      <div *ngIf="loginResult" class="mt-3">
+        <h5>Résultat de la connexion :</h5>
+        <div [ngClass]="loginResult.success ? 'alert alert-success' : 'alert alert-danger'">
+          <strong>{{ loginResult.success ? 'Succès' : 'Échec' }}</strong>: {{ loginResult.message }}
+        </div>
+        <div *ngIf="loginResult.token" class="mt-3">
+          <h6>Token JWT :</h6>
+          <div class="input-group">
+            <input type="text" class="form-control" [value]="loginResult.token" readonly>
+            <button class="btn btn-outline-secondary" type="button" (click)="copyToClipboard(loginResult.token)">
+              <i class="fas fa-copy"></i> Copier
+            </button>
+          </div>
+          <div class="mt-3">
+            <h6>Token décodé :</h6>
+            <pre>{{ loginResult.decodedToken | json }}</pre>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
   <div class="row">
     <div class="col-md-6">
       <div class="card mb-4">

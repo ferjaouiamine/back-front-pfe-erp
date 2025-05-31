@@ -1,0 +1,229 @@
+<div class="container-fluid mt-4">
+  <div class="row">
+    <!-- Sidebar / Menu latéral -->
+    <div class="col-md-3">
+      <div class="card shadow-sm border-0 rounded-3 mb-4">
+        <div class="card-body p-0">
+          <div class="user-profile-header p-4 bg-primary text-white text-center rounded-top">
+            <div class="avatar-container mb-3">
+              <div class="avatar-circle">
+                <i class="fas fa-user fa-3x"></i>
+              </div>
+            </div>
+            <h4 class="mb-1">{{ user?.username || 'Utilisateur' }}</h4>
+            <p class="mb-0"><i class="fas fa-warehouse me-2"></i>Magasinier</p>
+          </div>
+          <div class="list-group list-group-flush">
+            <a class="list-group-item list-group-item-action active" (click)="setActiveTab('profile')">
+              <i class="fas fa-user-circle me-2"></i> Informations personnelles
+            </a>
+            <a class="list-group-item list-group-item-action" (click)="setActiveTab('security')">
+              <i class="fas fa-lock me-2"></i> Sécurité
+            </a>
+            <a class="list-group-item list-group-item-action" (click)="setActiveTab('notifications')">
+              <i class="fas fa-bell me-2"></i> Notifications
+              <span class="badge bg-primary rounded-pill float-end">{{ notificationCount }}</span>
+            </a>
+            <a class="list-group-item list-group-item-action" (click)="logout()">
+              <i class="fas fa-sign-out-alt me-2"></i> Déconnexion
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Statistiques rapides -->
+      <div class="card shadow-sm border-0 rounded-3">
+        <div class="card-header bg-light py-3">
+          <h5 class="mb-0 text-primary"><i class="fas fa-chart-pie me-2"></i>Statistiques</h5>
+        </div>
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <span class="text-muted">Mouvements aujourd'hui</span>
+            <span class="badge bg-info rounded-pill px-3 py-2">{{ stats.todayMovements }}</span>
+          </div>
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <span class="text-muted">Produits gérés</span>
+            <span class="badge bg-success rounded-pill px-3 py-2">{{ stats.productsManaged }}</span>
+          </div>
+          <div class="d-flex justify-content-between align-items-center">
+            <span class="text-muted">Inventaires réalisés</span>
+            <span class="badge bg-warning rounded-pill px-3 py-2">{{ stats.inventoriesDone }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Contenu principal -->
+    <div class="col-md-9">
+      <!-- Informations personnelles -->
+      <div class="card shadow-sm border-0 rounded-3" *ngIf="activeTab === 'profile'">
+        <div class="card-header bg-light py-3">
+          <h5 class="mb-0 text-primary"><i class="fas fa-user-circle me-2"></i>Informations personnelles</h5>
+        </div>
+        <div class="card-body p-4">
+          <form [formGroup]="profileForm" (ngSubmit)="updateProfile()">
+            <div class="row mb-3">
+              <div class="col-md-6">
+                <label for="username" class="form-label fw-bold">Nom d'utilisateur</label>
+                <div class="input-group mb-2">
+                  <span class="input-group-text bg-light"><i class="fas fa-user"></i></span>
+                  <input type="text" class="form-control" id="username" formControlName="username" placeholder="Nom d'utilisateur">
+                </div>
+                <div *ngIf="profileForm.get('username')?.invalid && profileForm.get('username')?.touched" class="text-danger small">
+                  <i class="fas fa-exclamation-circle me-1"></i> Le nom d'utilisateur est obligatoire
+                </div>
+              </div>
+              <div class="col-md-6">
+                <label for="email" class="form-label fw-bold">Email</label>
+                <div class="input-group mb-2">
+                  <span class="input-group-text bg-light"><i class="fas fa-envelope"></i></span>
+                  <input type="email" class="form-control" id="email" formControlName="email" placeholder="Email">
+                </div>
+                <div *ngIf="profileForm.get('email')?.invalid && profileForm.get('email')?.touched" class="text-danger small">
+                  <i class="fas fa-exclamation-circle me-1"></i> L'email est obligatoire et doit être valide
+                </div>
+              </div>
+            </div>
+
+            <div class="row mb-3">
+              <div class="col-md-6">
+                <label for="firstName" class="form-label fw-bold">Prénom</label>
+                <div class="input-group mb-2">
+                  <span class="input-group-text bg-light"><i class="fas fa-user-tag"></i></span>
+                  <input type="text" class="form-control" id="firstName" formControlName="firstName" placeholder="Prénom">
+                </div>
+              </div>
+              <div class="col-md-6">
+                <label for="lastName" class="form-label fw-bold">Nom</label>
+                <div class="input-group mb-2">
+                  <span class="input-group-text bg-light"><i class="fas fa-user-tag"></i></span>
+                  <input type="text" class="form-control" id="lastName" formControlName="lastName" placeholder="Nom">
+                </div>
+              </div>
+            </div>
+
+            <div class="mb-3">
+              <label for="address" class="form-label fw-bold">Adresse</label>
+              <div class="input-group mb-2">
+                <span class="input-group-text bg-light"><i class="fas fa-map-marker-alt"></i></span>
+                <textarea class="form-control" id="address" formControlName="address" rows="2" placeholder="Adresse"></textarea>
+              </div>
+            </div>
+
+            <div class="mb-3">
+              <label for="phone" class="form-label fw-bold">Téléphone</label>
+              <div class="input-group mb-2">
+                <span class="input-group-text bg-light"><i class="fas fa-phone"></i></span>
+                <input type="text" class="form-control" id="phone" formControlName="phone" placeholder="Téléphone">
+              </div>
+            </div>
+
+            <div class="d-flex justify-content-end">
+              <button type="submit" class="btn btn-primary rounded-pill px-4" [disabled]="isSubmitting || profileForm.invalid">
+                <i class="fas fa-save me-2"></i> Enregistrer les modifications
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- Sécurité -->
+      <div class="card shadow-sm border-0 rounded-3" *ngIf="activeTab === 'security'">
+        <div class="card-header bg-light py-3">
+          <h5 class="mb-0 text-primary"><i class="fas fa-lock me-2"></i>Sécurité</h5>
+        </div>
+        <div class="card-body p-4">
+          <form [formGroup]="passwordForm" (ngSubmit)="updatePassword()">
+            <div class="mb-3">
+              <label for="currentPassword" class="form-label fw-bold">Mot de passe actuel</label>
+              <div class="input-group mb-2">
+                <span class="input-group-text bg-light"><i class="fas fa-lock"></i></span>
+                <input [type]="showCurrentPassword ? 'text' : 'password'" class="form-control" id="currentPassword" formControlName="currentPassword" placeholder="Mot de passe actuel">
+                <button class="btn btn-outline-secondary" type="button" (click)="togglePasswordVisibility('current')">
+                  <i class="fas" [ngClass]="showCurrentPassword ? 'fa-eye-slash' : 'fa-eye'"></i>
+                </button>
+              </div>
+              <div *ngIf="passwordForm.get('currentPassword')?.invalid && passwordForm.get('currentPassword')?.touched" class="text-danger small">
+                <i class="fas fa-exclamation-circle me-1"></i> Le mot de passe actuel est obligatoire
+              </div>
+            </div>
+
+            <div class="mb-3">
+              <label for="newPassword" class="form-label fw-bold">Nouveau mot de passe</label>
+              <div class="input-group mb-2">
+                <span class="input-group-text bg-light"><i class="fas fa-key"></i></span>
+                <input [type]="showNewPassword ? 'text' : 'password'" class="form-control" id="newPassword" formControlName="newPassword" placeholder="Nouveau mot de passe">
+                <button class="btn btn-outline-secondary" type="button" (click)="togglePasswordVisibility('new')">
+                  <i class="fas" [ngClass]="showNewPassword ? 'fa-eye-slash' : 'fa-eye'"></i>
+                </button>
+              </div>
+              <div *ngIf="passwordForm.get('newPassword')?.invalid && passwordForm.get('newPassword')?.touched" class="text-danger small">
+                <i class="fas fa-exclamation-circle me-1"></i> Le nouveau mot de passe doit contenir au moins 8 caractères
+              </div>
+            </div>
+
+            <div class="mb-3">
+              <label for="confirmPassword" class="form-label fw-bold">Confirmer le mot de passe</label>
+              <div class="input-group mb-2">
+                <span class="input-group-text bg-light"><i class="fas fa-key"></i></span>
+                <input [type]="showConfirmPassword ? 'text' : 'password'" class="form-control" id="confirmPassword" formControlName="confirmPassword" placeholder="Confirmer le mot de passe">
+                <button class="btn btn-outline-secondary" type="button" (click)="togglePasswordVisibility('confirm')">
+                  <i class="fas" [ngClass]="showConfirmPassword ? 'fa-eye-slash' : 'fa-eye'"></i>
+                </button>
+              </div>
+              <div *ngIf="passwordForm.get('confirmPassword')?.invalid && passwordForm.get('confirmPassword')?.touched" class="text-danger small">
+                <i class="fas fa-exclamation-circle me-1"></i> La confirmation du mot de passe est obligatoire
+              </div>
+              <div *ngIf="passwordForm.hasError('passwordMismatch') && passwordForm.get('confirmPassword')?.touched" class="text-danger small">
+                <i class="fas fa-exclamation-circle me-1"></i> Les mots de passe ne correspondent pas
+              </div>
+            </div>
+
+            <div class="d-flex justify-content-end">
+              <button type="submit" class="btn btn-primary rounded-pill px-4" [disabled]="isSubmitting || passwordForm.invalid">
+                <i class="fas fa-save me-2"></i> Mettre à jour le mot de passe
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- Notifications -->
+      <div class="card shadow-sm border-0 rounded-3" *ngIf="activeTab === 'notifications'">
+        <div class="card-header bg-light py-3">
+          <h5 class="mb-0 text-primary"><i class="fas fa-bell me-2"></i>Notifications</h5>
+        </div>
+        <div class="card-body p-4">
+          <div *ngIf="notifications.length === 0" class="text-center py-5">
+            <i class="fas fa-bell-slash fa-3x text-muted mb-3"></i>
+            <p class="mb-0 text-muted">Aucune notification pour le moment</p>
+          </div>
+
+          <ul *ngIf="notifications.length > 0" class="list-group">
+            <li *ngFor="let notification of notifications" class="list-group-item d-flex justify-content-between align-items-center py-3 px-3 border-start-0 border-end-0"
+                [ngClass]="{'border-start-info': notification.type === 'info', 'border-start-warning': notification.type === 'warning', 'border-start-danger': notification.type === 'alert'}"
+                [style.border-left-width.px]="4"
+                [style.border-left-style]="'solid'">
+              <div>
+                <span class="fw-bold text-dark">{{ notification.title }}</span>
+                <small class="d-block text-muted mt-1">{{ notification.message }}</small>
+                <small class="d-block text-muted mt-1"><i class="fas fa-clock me-1"></i>{{ notification.date | date:'dd/MM/yyyy HH:mm' }}</small>
+              </div>
+              <button class="btn btn-sm btn-outline-secondary rounded-circle" (click)="markAsRead(notification.id)">
+                <i class="fas fa-check"></i>
+              </button>
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Messages de succès et d'erreur -->
+      <div *ngIf="successMessage" class="alert alert-success mt-3">
+        <i class="fas fa-check-circle me-2"></i> {{ successMessage }}
+      </div>
+      <div *ngIf="errorMessage" class="alert alert-danger mt-3">
+        <i class="fas fa-exclamation-triangle me-2"></i> {{ errorMessage }}
+      </div>
+    </div>
+  </div>
+</div>

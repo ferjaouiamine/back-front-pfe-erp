@@ -36,11 +36,19 @@ export interface AuthResponse {
   providedIn: 'root'
 })
 export class AuthService {
+  // URL de l'API d'authentification - assurez-vous que ce port correspond à celui du microservice auth-service
   private apiUrl = 'http://localhost:8081/api/auth';
+  // Mode de débogage pour afficher plus d'informations dans la console
+  private debugMode = true;
   private currentUser: User | null = null;
   private simulationMode = false; // Mode simulation désactivé pour utiliser le backend réel
 
-  constructor(private http: HttpClient, private router: Router) {
+  constructor(
+    private http: HttpClient, 
+    private router: Router,
+    // Injection du service de redirection est commentée pour l'instant car le service n'est pas encore créé
+    // private roleRedirectService: RoleRedirectService
+  ) {
     this.loadUserFromToken();
   }
 
@@ -281,6 +289,14 @@ export class AuthService {
    */
   getCurrentUser(): User | null {
     return this.currentUser;
+  }
+  
+  /**
+   * Récupère le nom d'utilisateur de l'utilisateur connecté
+   * @returns Le nom d'utilisateur ou null si non connecté
+   */
+  getUsername(): string | null {
+    return this.currentUser ? this.currentUser.username : null;
   }
   
   /**

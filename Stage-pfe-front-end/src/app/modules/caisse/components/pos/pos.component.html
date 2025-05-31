@@ -1,0 +1,333 @@
+<div class="pos-container">
+  <!-- Alerte mode hors ligne -->
+  <div *ngIf="!backendAvailable" class="offline-alert">
+    <mat-icon>cloud_off</mat-icon>
+    <span>Mode hors ligne - Les données sont simulées</span>
+  </div>
+
+  <!-- État de la caisse -->
+  <div class="register-status" *ngIf="!isRegisterOpen">
+    <mat-card>
+      <mat-card-header>
+        <mat-card-title>Ouverture de caisse</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <p>La caisse est actuellement fermée. Veuillez l'ouvrir pour commencer.</p>
+        <form #openForm="ngForm">
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Montant initial</mat-label>
+            <input matInput type="number" name="startingAmount" ngModel required min="0">
+            <mat-hint>Entrez le montant d'argent dans la caisse au début de la session</mat-hint>
+          </mat-form-field>
+        </form>
+      </mat-card-content>
+      <mat-card-actions align="end">
+        <button mat-raised-button color="primary" [disabled]="openForm.invalid" (click)="openRegister(openForm.value.startingAmount)">
+          <mat-icon>lock_open</mat-icon> Ouvrir la caisse
+        </button>
+      </mat-card-actions>
+    </mat-card>
+  </div>
+
+  <!-- Interface principale de caisse -->
+  <div class="pos-interface" *ngIf="isRegisterOpen">
+    <div class="pos-layout">
+      <!-- Panneau de gauche : Recherche et résultats -->
+      <div class="left-panel">
+        <mat-card class="search-card">
+          <mat-card-header>
+            <mat-card-title>Recherche de produits</mat-card-title>
+          </mat-card-header>
+          <mat-card-content>
+            <form [formGroup]="searchForm">
+              <mat-form-field appearance="outline" class="full-width">
+                <mat-label>Rechercher par nom ou code-barres</mat-label>
+                <input matInput formControlName="query" placeholder="Saisir nom ou scanner code-barres">
+                <mat-icon matSuffix>search</mat-icon>
+              </mat-form-field>
+            </form>
+            
+            <div class="search-results">
+              <mat-progress-bar *ngIf="isSearching" mode="indeterminate"></mat-progress-bar>
+              
+              <div *ngIf="searchResults.length === 0 && searchForm.get('query')?.value && !isSearching" class="no-results">
+                <mat-icon>search_off</mat-icon>
+                <p>Aucun produit trouvé</p>
+              </div>
+              
+              <div class="product-grid" *ngIf="searchResults.length > 0">
+                <mat-card *ngFor="let product of searchResults" class="product-card">
+                  <mat-card-header>
+                    <mat-card-title>{{product.name}}</mat-card-title>
+                    <mat-card-subtitle *ngIf="product.barcode">Code: {{product.barcode}}</mat-card-subtitle>
+                  </mat-card-header>
+                  <img *ngIf="product.imageUrl" mat-card-image [src]="product.imageUrl" alt="{{product.name}}">
+                  <div *ngIf="!product.imageUrl" class="no-image">
+                    <mat-icon>image_not_supported</mat-icon>
+                  </div>
+                  <mat-card-content>
+                    <div class="product-details">
+                      <div class="detail-row">
+                        <span class="detail-label">Prix:</span>
+                        <span class="detail-value price">{{product.price | currency:'EUR':'symbol':'1.2-2'}}</span>
+                      </div>
+                      <div class="detail-row" *ngIf="product.stockQuantity !== undefined">
+                        <span class="detail-label">Stock:</span>
+                        <span class="detail-value stock" [ngClass]="{'low-stock': product.stockQuantity < 5, 'out-of-stock': product.stockQuantity <= 0}">
+                          {{product.stockQuantity}} unité(s)
+                        </span>
+                      </div>
+                      <div class="detail-row" *ngIf="product.category">
+                        <span class="detail-label">Catégorie:</span>
+                        <span class="detail-value">{{product.category}}</span>
+                      </div>
+                      <div class="detail-row" *ngIf="product.description">
+                        <p class="product-description">{{product.description | slice:0:50}}{{product.description.length > 50 ? '...' : ''}}</p>
+                      </div>
+                    </div>
+                  </mat-card-content>
+                  <mat-card-actions align="end">
+                    <button mat-icon-button color="primary" matTooltip="Ajouter au panier" (click)="$event.stopPropagation(); addToCart(product)">
+                      <mat-icon>add_shopping_cart</mat-icon>
+                    </button>
+                    <button mat-icon-button color="accent" matTooltip="Détails du produit" (click)="$event.stopPropagation(); showProductDetails(product)">
+                      <mat-icon>info</mat-icon>
+                    </button>
+                  </mat-card-actions>
+                </mat-card>
+              </div>
+            </div>
+          </mat-card-content>
+        </mat-card>
+        
+        <!-- Informations sur la session -->
+        <mat-card class="session-card">
+          <mat-card-header>
+            <mat-card-title>Session de caisse</mat-card-title>
+          </mat-card-header>
+          <mat-card-content>
+            <p><strong>Caisse:</strong> {{activeSession?.registerNumber}}</p>
+            <p><strong>Ouvert par:</strong> {{activeSession?.openedBy}}</p>
+            <p><strong>Ouvert le:</strong> {{activeSession?.openedAt | date:'dd/MM/yyyy HH:mm'}}</p>
+            <p><strong>Montant initial:</strong> {{activeSession?.startingAmount | currency:'EUR':'symbol':'1.2-2'}}</p>
+          </mat-card-content>
+          <mat-card-actions align="end">
+            <button mat-stroked-button color="warn" (click)="openCloseRegisterDialog(closeRegisterDialog)">
+              <mat-icon>lock</mat-icon> Fermer la caisse
+            </button>
+          </mat-card-actions>
+        </mat-card>
+      </div>
+      
+      <!-- Panneau central : Panier -->
+      <div class="center-panel">
+        <mat-card class="cart-card">
+          <mat-card-header>
+            <mat-card-title>Panier</mat-card-title>
+            <span class="spacer"></span>
+            <button mat-icon-button color="warn" (click)="clearCart()" matTooltip="Vider le panier" *ngIf="cartItems.length > 0">
+              <mat-icon>delete_sweep</mat-icon>
+            </button>
+          </mat-card-header>
+          <mat-card-content class="cart-content">
+            <div *ngIf="cartItems.length === 0" class="empty-cart">
+              <mat-icon>shopping_cart</mat-icon>
+              <p>Le panier est vide</p>
+              <p class="hint">Recherchez et ajoutez des produits</p>
+            </div>
+            
+            <table mat-table [dataSource]="cartItems" *ngIf="cartItems.length > 0" class="cart-table">
+              <!-- Nom du produit -->
+              <ng-container matColumnDef="product">
+                <th mat-header-cell *matHeaderCellDef>Produit</th>
+                <td mat-cell *matCellDef="let item">
+                  <div class="product-cell">
+                    <span class="product-name">{{item.productName}}</span>
+                    <span class="product-code" *ngIf="item.barcode">{{item.barcode}}</span>
+                  </div>
+                </td>
+              </ng-container>
+              
+              <!-- Prix unitaire -->
+              <ng-container matColumnDef="price">
+                <th mat-header-cell *matHeaderCellDef>Prix</th>
+                <td mat-cell *matCellDef="let item">{{item.unitPrice | currency:'EUR':'symbol':'1.2-2'}}</td>
+              </ng-container>
+              
+              <!-- Quantité -->
+              <ng-container matColumnDef="quantity">
+                <th mat-header-cell *matHeaderCellDef>Qté</th>
+                <td mat-cell *matCellDef="let item; let i = index" class="quantity-cell">
+                  <button mat-icon-button color="primary" (click)="updateQuantity(i, item.quantity - 1)">
+                    <mat-icon>remove</mat-icon>
+                  </button>
+                  <span class="quantity">{{item.quantity}}</span>
+                  <button mat-icon-button color="primary" (click)="updateQuantity(i, item.quantity + 1)">
+                    <mat-icon>add</mat-icon>
+                  </button>
+                </td>
+              </ng-container>
+              
+              <!-- Total -->
+              <ng-container matColumnDef="total">
+                <th mat-header-cell *matHeaderCellDef>Total</th>
+                <td mat-cell *matCellDef="let item">{{item.totalPrice | currency:'EUR':'symbol':'1.2-2'}}</td>
+              </ng-container>
+              
+              <!-- Actions -->
+              <ng-container matColumnDef="actions">
+                <th mat-header-cell *matHeaderCellDef></th>
+                <td mat-cell *matCellDef="let item; let i = index">
+                  <button mat-icon-button color="warn" (click)="removeFromCart(i)" matTooltip="Retirer">
+                    <mat-icon>delete</mat-icon>
+                  </button>
+                </td>
+              </ng-container>
+              
+              <tr mat-header-row *matHeaderRowDef="['product', 'price', 'quantity', 'total', 'actions']"></tr>
+              <tr mat-row *matRowDef="let row; columns: ['product', 'price', 'quantity', 'total', 'actions'];"></tr>
+            </table>
+          </mat-card-content>
+          
+          <mat-card-footer *ngIf="cartItems.length > 0" class="cart-footer">
+            <div class="totals">
+              <div class="total-row">
+                <span>Sous-total:</span>
+                <span>{{subtotal | currency:'EUR':'symbol':'1.2-2'}}</span>
+              </div>
+              <div class="total-row">
+                <span>TVA (20%):</span>
+                <span>{{taxTotal | currency:'EUR':'symbol':'1.2-2'}}</span>
+              </div>
+              <div class="total-row grand-total">
+                <span>TOTAL:</span>
+                <span>{{total | currency:'EUR':'symbol':'1.2-2'}}</span>
+              </div>
+            </div>
+          </mat-card-footer>
+        </mat-card>
+      </div>
+      
+      <!-- Panneau de droite : Paiement -->
+      <div class="right-panel">
+        <mat-card class="payment-card" *ngIf="cartItems.length > 0">
+          <mat-card-header>
+            <mat-card-title>Paiement</mat-card-title>
+          </mat-card-header>
+          <mat-card-content>
+            <form [formGroup]="paymentForm">
+              <mat-form-field appearance="outline" class="full-width">
+                <mat-label>Méthode de paiement</mat-label>
+                <mat-select formControlName="paymentMethod">
+                  <mat-option *ngFor="let method of paymentMethods" [value]="method">
+                    {{method | titlecase}}
+                  </mat-option>
+                </mat-select>
+              </mat-form-field>
+              
+              <mat-form-field appearance="outline" class="full-width" *ngIf="paymentForm.get('paymentMethod')?.value === 'CASH'">
+                <mat-label>Montant reçu</mat-label>
+                <input matInput type="number" formControlName="amountTendered">
+                <mat-hint>Doit être supérieur ou égal au total</mat-hint>
+                <mat-error *ngIf="paymentForm.get('amountTendered')?.hasError('min')">
+                  Le montant doit être au moins {{total | currency:'EUR':'symbol':'1.2-2'}}
+                </mat-error>
+              </mat-form-field>
+              
+              <div class="change-amount" *ngIf="paymentForm.get('paymentMethod')?.value === 'CASH' && changeAmount >= 0">
+                <span>Monnaie à rendre:</span>
+                <span class="amount">{{changeAmount | currency:'EUR':'symbol':'1.2-2'}}</span>
+              </div>
+              
+              <mat-expansion-panel class="customer-panel">
+                <mat-expansion-panel-header>
+                  <mat-panel-title>
+                    Informations client (optionnel)
+                  </mat-panel-title>
+                </mat-expansion-panel-header>
+                
+                <div formGroupName="customerInfo">
+                  <mat-form-field appearance="outline" class="full-width">
+                    <mat-label>Nom du client</mat-label>
+                    <input matInput formControlName="name">
+                  </mat-form-field>
+                  
+                  <mat-form-field appearance="outline" class="full-width">
+                    <mat-label>Email</mat-label>
+                    <input matInput formControlName="email" type="email">
+                  </mat-form-field>
+                  
+                  <mat-form-field appearance="outline" class="full-width">
+                    <mat-label>Téléphone</mat-label>
+                    <input matInput formControlName="phone">
+                  </mat-form-field>
+                </div>
+              </mat-expansion-panel>
+              
+              <mat-form-field appearance="outline" class="full-width">
+                <mat-label>Notes</mat-label>
+                <textarea matInput formControlName="notes" rows="2"></textarea>
+              </mat-form-field>
+            </form>
+          </mat-card-content>
+          <mat-card-actions align="end">
+            <button mat-raised-button color="accent" (click)="processPayment()" 
+                    [disabled]="paymentForm.invalid || isProcessingPayment || cartItems.length === 0">
+              <mat-icon>payment</mat-icon> Finaliser la vente
+            </button>
+          </mat-card-actions>
+          <mat-progress-bar *ngIf="isProcessingPayment" mode="indeterminate"></mat-progress-bar>
+        </mat-card>
+        
+        <mat-card class="quick-actions-card">
+          <mat-card-header>
+            <mat-card-title>Actions rapides</mat-card-title>
+          </mat-card-header>
+          <mat-card-content class="quick-actions">
+            <button mat-raised-button color="primary" (click)="printLastReceipt()" matTooltip="Imprimer le dernier ticket">
+              <mat-icon>receipt</mat-icon> Dernier ticket
+            </button>
+            
+            <button mat-raised-button color="primary" (click)="viewTransactions()" matTooltip="Voir l'historique des transactions">
+              <mat-icon>history</mat-icon> Historique
+            </button>
+            
+            <button mat-raised-button color="primary" (click)="openCashDrawer()" matTooltip="Ouvrir le tiroir-caisse">
+              <mat-icon>inbox</mat-icon> Tiroir
+            </button>
+            
+            <button mat-raised-button color="warn" (click)="voidLastTransaction()" matTooltip="Annuler la dernière transaction">
+              <mat-icon>cancel</mat-icon> Annuler
+            </button>
+          </mat-card-content>
+        </mat-card>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Dialog de fermeture de caisse -->
+<ng-template #closeRegisterDialog>
+  <h2 mat-dialog-title>Fermeture de caisse</h2>
+  <mat-dialog-content>
+    <form #closeForm="ngForm">
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>Montant final</mat-label>
+        <input matInput type="number" name="endingAmount" ngModel required min="0">
+        <mat-hint>Entrez le montant d'argent dans la caisse à la fin de la session</mat-hint>
+      </mat-form-field>
+      
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>Notes</mat-label>
+        <textarea matInput name="notes" ngModel rows="3"></textarea>
+      </mat-form-field>
+    </form>
+  </mat-dialog-content>
+  <mat-dialog-actions align="end">
+    <button mat-button mat-dialog-close>Annuler</button>
+    <button mat-raised-button color="warn" [disabled]="closeForm.invalid" 
+            (click)="closeRegister(closeForm.value.endingAmount); closeDialog()">
+      Fermer la caisse
+    </button>
+  </mat-dialog-actions>
+</ng-template>

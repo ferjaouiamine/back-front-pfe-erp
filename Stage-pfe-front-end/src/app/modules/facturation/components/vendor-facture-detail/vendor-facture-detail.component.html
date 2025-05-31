@@ -1,4 +1,4 @@
-<div class="vendor-facture-detail-container">
+<div class="vendor-facture-detail-container" [ngClass]="{'admin-view': isAdminView}">
   <div class="facture-header">
     <div class="header-actions">
       <button class="btn btn-outline-primary" (click)="goBack()">
@@ -6,7 +6,10 @@
       </button>
     </div>
     <div class="header-title">
-      <h1>Détail de la Facture</h1>
+      <h1>
+        Détail de la Facture
+        <span class="admin-badge" *ngIf="isAdminView">Mode Admin</span>
+      </h1>
       <p *ngIf="facture?.number">N° {{ facture?.number }}</p>
     </div>
     <div class="header-actions">
@@ -56,7 +59,7 @@
           </div>
           <div class="info-row">
             <div class="info-label">Vendeur:</div>
-            <div class="info-value">{{ authService.getCurrentUser()?.username || 'N/A' }}</div>
+            <div class="info-value">{{ facture.vendorName || authService.getCurrentUser()?.username || 'Non spécifié' }}</div>
           </div>
         </div>
       </div>
@@ -76,7 +79,7 @@
           </div>
           <div class="info-row">
             <div class="info-label">Téléphone:</div>
-            <div class="info-value">N/A</div>
+            <div class="info-value">{{ facture.clientPhone || 'Non spécifié' }}</div>
           </div>
         </div>
       </div>
@@ -86,6 +89,10 @@
     <div class="facture-items-card">
       <div class="card-header">
         <h3>Articles</h3>
+        <!-- Bouton pour ajouter des articles fictifs si aucun article n'est trouvé -->
+        <button *ngIf="facture.items?.length === 0" class="btn btn-sm btn-outline-primary float-right" (click)="addMockItems()">
+          <i class="fas fa-plus-circle"></i> Ajouter des articles de démonstration
+        </button>
       </div>
       <div class="card-body">
         <table class="items-table">
@@ -150,6 +157,12 @@
             <button class="btn btn-danger" [disabled]="facture.status === 'CANCELLED'" 
                     (click)="updateFactureStatus('CANCELLED')">
               <i class="fas fa-ban"></i> Annuler
+            </button>
+            
+            <!-- Bouton d'enregistrement qui apparaît après un changement de statut -->
+            <button *ngIf="successMessage" class="btn btn-primary ml-3" 
+                    (click)="saveAndRefresh()">
+              <i class="fas fa-save"></i> Enregistrer et rafraîchir
             </button>
           </div>
         </div>

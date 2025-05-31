@@ -1,10 +1,17 @@
 <div class="vendor-dashboard-container">
   <div class="dashboard-header">
-    <div class="header-title">
-      <h1>Tableau de Bord Vendeur</h1>
-      <p *ngIf="authService.getCurrentUser()">
-        Bienvenue, <strong>{{ authService.getCurrentUser()?.username }}</strong>
-      </p>
+    <div class="header-title-section">
+      <div class="header-title">
+        <h1>Tableau de Bord Vendeur</h1>
+        <p *ngIf="authService.getCurrentUser()">
+          Bienvenue, <strong>{{ authService.getCurrentUser()?.username }}</strong>
+        </p>
+      </div>
+      <div class="user-profile-link">
+        <button class="btn btn-outline-primary" routerLink="/facturation/profile">
+          <i class="fas fa-user-circle me-2"></i> Mon profil
+        </button>
+      </div>
     </div>
     
     <div class="header-actions">
@@ -14,60 +21,32 @@
       <button class="btn btn-primary" (click)="createNewFacture()">
         <i class="fas fa-plus-circle"></i> Nouvelle facture
       </button>
-      <button class="btn" [ngClass]="{'btn-warning': !useMockData, 'btn-success': useMockData}" (click)="toggleMockData()">
-        <i class="fas" [ngClass]="{'fa-database': !useMockData, 'fa-random': useMockData}"></i>
-        {{ useMockData ? 'Données fictives' : 'Données réelles' }}
-      </button>
-      <button class="btn btn-info" (click)="runTests()">
-        <i class="fas fa-vial"></i> Tester
-      </button>
       <button class="btn btn-danger" (click)="logout()">
         <i class="fas fa-sign-out-alt"></i> Déconnexion
       </button>
     </div>
   </div>
   
-  <!-- Affichage des messages
+  Affichage des messages d'erreur
   <div class="alert alert-danger" *ngIf="errorMessage">
     <i class="fas fa-exclamation-circle"></i> {{ errorMessage }}
     <button type="button" class="close" (click)="errorMessage = null">&times;</button>
   </div>
-  
-  Indicateur du mode de données et configuration de l'API
-  <div class="alert" [ngClass]="{'alert-warning': useMockData, 'alert-info': !useMockData}" *ngIf="!isLoading && showApiConfig">
-    <div class="d-flex justify-content-between align-items-center">
-      <div>
-        <i class="fas" [ngClass]="{'fa-random': useMockData, 'fa-database': !useMockData}"></i>
-        <strong>{{ useMockData ? 'Mode données fictives activé' : 'Mode données réelles activé' }}</strong>
-        <span *ngIf="useMockData"> - Les données affichées sont générées localement</span>
-        <span *ngIf="!useMockData"> - Les données sont récupérées depuis le backend</span>
-      </div>
-      <div class="api-config">
-        <div class="dropdown d-inline-block mr-2">
-          <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" id="apiConfigDropdown" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-            Configuration API
-          </button>
-          <div class="dropdown-menu dropdown-menu-right" aria-labelledby="apiConfigDropdown">
-            <button class="dropdown-item" (click)="changeApiUrl('springBoot')">Spring Boot (8080)</button>
-            <button class="dropdown-item" (click)="changeApiUrl('mockServer')">Mock Server (3000)</button>
-            <button class="dropdown-item" (click)="changeApiUrl('production')">Production</button>
-            <div class="dropdown-divider"></div>
-            <button class="dropdown-item" (click)="changeApiUrl('custom')">URL personnalisée...</button>
-          </div>
-        </div>
-        <button class="btn btn-sm btn-outline-secondary" (click)="toggleApiConfig(false)" title="Masquer cette ligne">
-          <i class="fas fa-times"></i>
-        </button>
-      </div>
-    </div>
-  </div>
+            <!-- <button class="dropdown-item" (click)="changeApiUrl('mockServer')">Mock Server (3000)</button> -->
+            <!-- <button class="dropdown-item" (click)="changeApiUrl('production')">Production</button> -->
+            <!-- <div class="dropdown-divider"></div> -->
+            <!-- <button class="dropdown-item" (click)="changeApiUrl('custom')">URL personnalisée...</button> -->
+          <!-- </div> -->
+        <!-- </div> -->
+        <!-- <button class="btn btn-sm btn-outline-secondary" (click)="toggleApiConfig(false)" title="Masquer cette ligne"> -->
+          <!-- <i class="fas fa-times"></i> -->
+        <!-- </button> -->
+      <!-- </div> -->
+    <!-- </div> -->
+  <!-- </div> -->
   
   <!-- Bouton pour afficher la configuration API quand elle est masquée -->
-  <div class="text-right mb-2" *ngIf="!showApiConfig">
-    <button class="btn btn-sm btn-outline-secondary" (click)="toggleApiConfig(true)">
-      <i class="fas fa-cog"></i> Configuration API
-    </button>
-  </div> -->
+  <!-- Supprimé car non utilisé dans la version actuelle -->
   
   <!-- Contenu principal -->
   <div class="dashboard-content" *ngIf="!isLoading; else loadingTemplate">
@@ -132,17 +111,17 @@
         </div>
         <div class="card-body">
           <div class="chart-placeholder">
-            <!-- Ici, nous simulons un graphique en barres -->
+            <!-- Graphique en barres des ventes mensuelles -->
             <div class="chart-bars">
-              <div *ngFor="let value of monthlySalesData.datasets[0].data; let i = index" 
-                  class="chart-bar" 
-                  [style.height.%]="value > 0 ? (value / getMaxValue(monthlySalesData.datasets[0].data)) * 100 : 0">
-                <div class="bar-value">{{ value | currency:'EUR':'symbol':'1.0-0' }}</div>
+              <div *ngFor="let item of monthlySalesDataArray" 
+                   class="chart-bar" 
+                   [style.height.px]="getBarHeight(item.amount, item.percentage)">
+                <span *ngIf="item.amount > 0" class="bar-value">{{ item.amount | currency:'EUR' }}</span>
               </div>
             </div>
             <div class="chart-labels">
-              <div *ngFor="let label of monthlySalesData.labels" class="chart-label">
-                {{ label }}
+              <div *ngFor="let item of monthlySalesDataArray" class="chart-label">
+                {{ item.month }}
               </div>
             </div>
           </div>

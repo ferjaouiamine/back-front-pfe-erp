@@ -1,6 +1,23 @@
-<div class="facture-create-container">
+<div class="facture-create-container" [ngClass]="{'admin-mode': isAdminCreating}">
   <div class="header">
-    <h1>Créer une nouvelle facture</h1>
+    <div class="header-content">
+      <h1 *ngIf="!isAdminCreating">Créer une nouvelle facture</h1>
+      <h1 *ngIf="isAdminCreating">Création de facture (Administration)</h1>
+      <p *ngIf="isAdminCreating" class="admin-subtitle">Création d'une facture avec statut initial "En attente"</p>
+    </div>
+    
+    <!-- Message spécifique pour l'administrateur -->
+    <div class="admin-info-panel" *ngIf="isAdminCreating">
+      <div class="admin-info-header">
+        <i class="fas fa-user-shield"></i>
+        <span>Mode administrateur</span>
+      </div>
+      <div class="admin-info-content">
+        <p><i class="fas fa-info-circle"></i> Les informations client sont <span class="required-text">obligatoires</span>.</p>
+        <p><i class="fas fa-check-circle"></i> La facture sera directement en statut <span class="status-badge pending">En attente</span>.</p>
+        <p><i class="fas fa-bell"></i> Le client recevra une notification par email si son adresse est fournie.</p>
+      </div>
+    </div>
     <div class="actions">
       <button class="btn btn-secondary" (click)="toggleProductSource()">
         {{ useMockData ? 'Utiliser les produits réels' : 'Utiliser les produits fictifs' }}
@@ -28,24 +45,35 @@
       <div class="col-md-6">
         <div class="card">
           <div class="card-header">
-            <h3>Informations client</h3>
+            <h3>
+              <i class="fas fa-user-tie"></i> Informations client
+              <span class="admin-badge" *ngIf="isAdminCreating">Obligatoire</span>
+            </h3>
           </div>
           <div class="card-body">
             <div class="form-group">
-              <label for="clientName">Nom du client *</label>
-              <input type="text" id="clientName" formControlName="clientName" class="form-control" 
-                [ngClass]="{'is-invalid': factureForm.get('clientName')?.invalid && factureForm.get('clientName')?.touched}">
-              <div class="invalid-feedback" *ngIf="factureForm.get('clientName')?.invalid && factureForm.get('clientName')?.touched">
-                Le nom du client est requis
+              <label for="clientName">
+                Nom du client <span *ngIf="isAdminCreating" class="text-danger">*</span><span *ngIf="!isAdminCreating">(optionnel)</span>
+              </label>
+              <input type="text" id="clientName" formControlName="clientName" class="form-control"
+                [ngClass]="{'is-invalid': isAdminCreating && !factureForm.get('clientName')?.value && factureForm.get('clientName')?.touched}">
+              <div class="invalid-feedback" *ngIf="isAdminCreating && !factureForm.get('clientName')?.value && factureForm.get('clientName')?.touched">
+                Le nom du client est obligatoire pour une création par l'administrateur
               </div>
             </div>
 
             <div class="form-group">
-              <label for="clientEmail">Email du client *</label>
+              <label for="clientEmail">
+                Email du client <span *ngIf="isAdminCreating" class="text-danger">*</span><span *ngIf="!isAdminCreating">(optionnel)</span>
+              </label>
               <input type="email" id="clientEmail" formControlName="clientEmail" class="form-control"
-                [ngClass]="{'is-invalid': factureForm.get('clientEmail')?.invalid && factureForm.get('clientEmail')?.touched}">
+                [ngClass]="{'is-invalid': (factureForm.get('clientEmail')?.invalid && factureForm.get('clientEmail')?.touched) || 
+                             (isAdminCreating && !factureForm.get('clientEmail')?.value && factureForm.get('clientEmail')?.touched)}">
               <div class="invalid-feedback" *ngIf="factureForm.get('clientEmail')?.invalid && factureForm.get('clientEmail')?.touched">
-                Un email valide est requis
+                L'email doit être valide
+              </div>
+              <div class="invalid-feedback" *ngIf="isAdminCreating && !factureForm.get('clientEmail')?.value && factureForm.get('clientEmail')?.touched">
+                L'email du client est obligatoire pour une création par l'administrateur
               </div>
             </div>
 
@@ -77,7 +105,10 @@
       <div class="col-md-6">
         <div class="card">
           <div class="card-header">
-            <h3>Ajouter des produits</h3>
+            <h3>
+              <i class="fas fa-shopping-cart"></i> Ajouter des produits
+              <span class="admin-badge" *ngIf="isAdminCreating">Sélection produits</span>
+            </h3>
             <span class="product-count">{{ displayedProducts.length }} produits disponibles</span>
           </div>
           <div class="card-body">
@@ -107,7 +138,12 @@
 
     <div class="card mt-3">
       <div class="card-header">
-        <h3>Produits sélectionnés</h3>
+        <h3>
+          <i class="fas fa-list-ul"></i> Produits sélectionnés
+          <span class="admin-badge" *ngIf="isAdminCreating" [ngClass]="{'success': selectedItems.length > 0, 'warning': selectedItems.length === 0}">
+            {{ selectedItems.length > 0 ? selectedItems.length + ' produit(s)' : 'Aucun produit' }}
+          </span>
+        </h3>
       </div>
       <div class="card-body">
         <table class="table table-striped" *ngIf="selectedItems.length > 0">
@@ -160,14 +196,36 @@
       </div>
     </div>
 
-    <div class="form-actions mt-3">
-      <button type="button" class="btn btn-primary" (click)="submitFacture()" 
-        [disabled]="isSubmitting || selectedItems.length === 0 || factureForm.invalid">
-        <i class="fas fa-save"></i> Créer la facture
-      </button>
-      <button type="button" class="btn btn-secondary ml-2" (click)="cancelFacture()">
-        <i class="fas fa-times"></i> Annuler
-      </button>
+    <div class="form-actions mt-3" [ngClass]="{'admin-actions': isAdminCreating}">
+      <div class="action-summary" *ngIf="isAdminCreating">
+        <div class="summary-item">
+          <i class="fas fa-user-tie"></i>
+          <span>Client: <strong>{{ factureForm.get('clientName')?.value || 'Non spécifié' }}</strong></span>
+        </div>
+        <div class="summary-item">
+          <i class="fas fa-shopping-cart"></i>
+          <span>Produits: <strong>{{ selectedItems.length }}</strong></span>
+        </div>
+        <div class="summary-item">
+          <i class="fas fa-euro-sign"></i>
+          <span>Total: <strong>{{ facture.total | currency:'EUR' }}</strong></span>
+        </div>
+      </div>
+      
+      <div class="action-buttons">
+        <button type="button" class="btn btn-primary" (click)="submitFacture()" 
+          [disabled]="isSubmitting || selectedItems.length === 0 || factureForm.invalid || 
+                    (isAdminCreating && (!factureForm.get('clientName')?.value || !factureForm.get('clientEmail')?.value))">
+          <i class="fas fa-save"></i> 
+          <span *ngIf="!isAdminCreating">Créer la facture</span>
+          <span *ngIf="isAdminCreating">Créer la facture pour le client</span>
+        </button>
+        <button type="button" class="btn btn-secondary ml-2" (click)="cancelFacture()">
+          <i class="fas fa-times"></i> 
+          <span *ngIf="!isAdminCreating">Annuler</span>
+          <span *ngIf="isAdminCreating">Retour à la gestion des factures</span>
+        </button>
+      </div>
     </div>
   </div>
 </div>

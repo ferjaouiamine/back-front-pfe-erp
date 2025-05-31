@@ -1,0 +1,243 @@
+<div class="admin-profile-container">
+  <div class="profile-header">
+    <h1>Profil Administrateur</h1>
+    <p *ngIf="authService.getCurrentUser()">
+      Connecté en tant que <strong>{{ authService.getCurrentUser()?.username }}</strong>
+    </p>
+  </div>
+
+  <div class="profile-tabs">
+    <button [class.active]="activeTab === 'profile'" (click)="setActiveTab('profile')">
+      <i class="fas fa-user"></i> Informations personnelles
+    </button>
+    <button [class.active]="activeTab === 'security'" (click)="setActiveTab('security')">
+      <i class="fas fa-shield-alt"></i> Sécurité
+    </button>
+    <button [class.active]="activeTab === 'notifications'" (click)="setActiveTab('notifications')">
+      <i class="fas fa-bell"></i> Notifications
+      <span class="badge" *ngIf="getUnreadCount() > 0">{{ getUnreadCount() }}</span>
+    </button>
+    <button [class.active]="activeTab === 'system'" (click)="setActiveTab('system')">
+      <i class="fas fa-server"></i> Système
+    </button>
+  </div>
+
+  <div class="profile-content">
+    <!-- Informations personnelles -->
+    <div class="tab-content" *ngIf="activeTab === 'profile'">
+      <h2>Informations personnelles</h2>
+      <p class="text-muted">Modifiez vos informations personnelles ci-dessous</p>
+
+      <form [formGroup]="profileForm" (ngSubmit)="updateProfile()">
+        <div class="alert alert-success" *ngIf="updateSuccess">
+          <i class="fas fa-check-circle"></i> Profil mis à jour avec succès
+        </div>
+        <div class="alert alert-danger" *ngIf="updateError">
+          <i class="fas fa-times-circle"></i> Erreur lors de la mise à jour du profil
+        </div>
+
+        <div class="form-group">
+          <label for="username">Nom d'utilisateur</label>
+          <input type="text" id="username" formControlName="username" class="form-control" />
+          <div class="error-message" *ngIf="profileForm.get('username')?.invalid && profileForm.get('username')?.touched">
+            Le nom d'utilisateur est requis
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="email">Email</label>
+          <input type="email" id="email" formControlName="email" class="form-control" />
+          <div class="error-message" *ngIf="profileForm.get('email')?.invalid && profileForm.get('email')?.touched">
+            Email invalide
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group col-md-6">
+            <label for="firstName">Prénom</label>
+            <input type="text" id="firstName" formControlName="firstName" class="form-control" />
+            <div class="error-message" *ngIf="profileForm.get('firstName')?.invalid && profileForm.get('firstName')?.touched">
+              Le prénom est requis
+            </div>
+          </div>
+
+          <div class="form-group col-md-6">
+            <label for="lastName">Nom</label>
+            <input type="text" id="lastName" formControlName="lastName" class="form-control" />
+            <div class="error-message" *ngIf="profileForm.get('lastName')?.invalid && profileForm.get('lastName')?.touched">
+              Le nom est requis
+            </div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="phone">Téléphone</label>
+          <input type="tel" id="phone" formControlName="phone" class="form-control" />
+          <div class="error-message" *ngIf="profileForm.get('phone')?.invalid && profileForm.get('phone')?.touched">
+            Numéro de téléphone invalide
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="address">Adresse</label>
+          <textarea id="address" formControlName="address" class="form-control" rows="3"></textarea>
+        </div>
+
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary" [disabled]="profileForm.invalid">
+            <i class="fas fa-save"></i> Enregistrer les modifications
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Sécurité -->
+    <div class="tab-content" *ngIf="activeTab === 'security'">
+      <h2>Sécurité</h2>
+      <p class="text-muted">Modifiez votre mot de passe ci-dessous</p>
+
+      <form [formGroup]="securityForm" (ngSubmit)="updatePassword()">
+        <div class="alert alert-success" *ngIf="passwordUpdateSuccess">
+          <i class="fas fa-check-circle"></i> Mot de passe mis à jour avec succès
+        </div>
+        <div class="alert alert-danger" *ngIf="passwordUpdateError">
+          <i class="fas fa-times-circle"></i> Erreur lors de la mise à jour du mot de passe
+        </div>
+
+        <div class="form-group">
+          <label for="currentPassword">Mot de passe actuel</label>
+          <input type="password" id="currentPassword" formControlName="currentPassword" class="form-control" />
+          <div class="error-message" *ngIf="securityForm.get('currentPassword')?.invalid && securityForm.get('currentPassword')?.touched">
+            Le mot de passe actuel est requis
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="newPassword">Nouveau mot de passe</label>
+          <input type="password" id="newPassword" formControlName="newPassword" class="form-control" />
+          <div class="error-message" *ngIf="securityForm.get('newPassword')?.invalid && securityForm.get('newPassword')?.touched">
+            Le nouveau mot de passe doit contenir au moins 8 caractères
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="confirmPassword">Confirmer le nouveau mot de passe</label>
+          <input type="password" id="confirmPassword" formControlName="confirmPassword" class="form-control" />
+          <div class="error-message" *ngIf="securityForm.get('confirmPassword')?.invalid && securityForm.get('confirmPassword')?.touched">
+            La confirmation du mot de passe est requise
+          </div>
+          <div class="error-message" *ngIf="securityForm.hasError('mismatch') && securityForm.get('confirmPassword')?.touched">
+            Les mots de passe ne correspondent pas
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary" [disabled]="securityForm.invalid">
+            <i class="fas fa-key"></i> Mettre à jour le mot de passe
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Notifications -->
+    <div class="tab-content" *ngIf="activeTab === 'notifications'">
+      <div class="notifications-header">
+        <h2>Notifications</h2>
+        <button class="btn btn-sm btn-outline-primary" (click)="markAllAsRead()" [disabled]="getUnreadCount() === 0">
+          <i class="fas fa-check-double"></i> Marquer tout comme lu
+        </button>
+      </div>
+
+      <div class="notifications-list">
+        <div *ngFor="let notification of notifications" class="notification-item" [class.unread]="!notification.read">
+          <div class="notification-icon">
+            <i class="fas" [ngClass]="getNotificationIcon(notification.type)"></i>
+          </div>
+          <div class="notification-content">
+            <div class="notification-message">{{ notification.message }}</div>
+            <div class="notification-date">{{ notification.date | date:'dd/MM/yyyy HH:mm' }}</div>
+          </div>
+          <div class="notification-actions">
+            <button class="btn btn-sm btn-link" (click)="markAsRead(notification.id)" *ngIf="!notification.read">
+              <i class="fas fa-check"></i>
+            </button>
+          </div>
+        </div>
+
+        <div *ngIf="notifications.length === 0" class="no-notifications">
+          <i class="fas fa-bell-slash fa-3x"></i>
+          <p>Aucune notification</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Système -->
+    <div class="tab-content" *ngIf="activeTab === 'system'">
+      <h2>Informations système</h2>
+      <p class="text-muted">Statistiques et informations sur le système</p>
+
+      <div class="system-stats">
+        <div class="stat-card">
+          <div class="stat-icon">
+            <i class="fas fa-users"></i>
+          </div>
+          <div class="stat-content">
+            <h3>{{ adminStats.totalUsers }}</h3>
+            <p>Utilisateurs</p>
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-icon">
+            <i class="fas fa-box"></i>
+          </div>
+          <div class="stat-content">
+            <h3>{{ adminStats.totalProducts }}</h3>
+            <p>Produits</p>
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-icon">
+            <i class="fas fa-file-invoice"></i>
+          </div>
+          <div class="stat-content">
+            <h3>{{ adminStats.totalFactures }}</h3>
+            <p>Factures</p>
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-icon warning">
+            <i class="fas fa-clock"></i>
+          </div>
+          <div class="stat-content">
+            <h3>{{ adminStats.pendingFactures }}</h3>
+            <p>Factures en attente</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="system-health">
+        <h3>Santé du système</h3>
+        <div class="progress">
+          <div class="progress-bar" [style.width.%]="adminStats.systemHealth">
+            {{ adminStats.systemHealth }}%
+          </div>
+        </div>
+      </div>
+
+      <div class="system-actions">
+        <button class="btn btn-primary">
+          <i class="fas fa-sync"></i> Rafraîchir les statistiques
+        </button>
+        <button class="btn btn-warning">
+          <i class="fas fa-database"></i> Sauvegarder la base de données
+        </button>
+        <button class="btn btn-danger" (click)="logout()">
+          <i class="fas fa-sign-out-alt"></i> Déconnexion
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

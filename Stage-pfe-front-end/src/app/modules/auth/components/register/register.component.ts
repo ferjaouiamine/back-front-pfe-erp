@@ -33,7 +33,8 @@ export class RegisterComponent implements OnInit {
     { id: 'ADMIN', name: 'Administrateur' },
     { id: 'VENDEUR', name: 'Vendeur' },
     { id: 'CLIENT', name: 'Client' },
-    { id: 'FOURNISSEUR', name: 'Fournisseur' }
+    { id: 'FOURNISSEUR', name: 'Fournisseur' },
+    { id: 'MAGASINIER', name: 'Magasinier' }
   ];
 
   constructor(
@@ -158,6 +159,8 @@ export class RegisterComponent implements OnInit {
             this.router.navigate(['/facturation/dashboard']);
           } else if (role === 'FOURNISSEUR') {
             this.router.navigate(['/fournisseur/commandes']);
+          } else if (role === 'MAGASINIER') {
+            this.router.navigate(['/stock/dashboard']);
           } else {
             this.router.navigate(['/facturation']);
           }

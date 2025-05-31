@@ -134,6 +134,9 @@ export class LoginComponent implements OnInit {
             url: error.url
           });
           
+          // Afficher des informations de débogage dans la console
+          console.log('Détails supplémentaires de l\'erreur:', error);
+          
           // Le service d'authentification renvoie déjà un message d'erreur formaté
           this.errorMessage = error.message;
           
@@ -142,6 +145,15 @@ export class LoginComponent implements OnInit {
             this.errorMessage = 'Votre compte n\'a pas encore été activé par un administrateur. Veuillez patienter ou contacter l\'administrateur.';
           } else if (error.status === 401) {
             this.errorMessage = 'Identifiants incorrects. Vérifiez votre nom d\'utilisateur/email et votre mot de passe.';
+          } else if (error.status === 0) {
+            this.errorMessage = 'Impossible de se connecter au serveur d\'authentification. Vérifiez que le service est démarré et accessible.';
+          } else if (error.status === 404) {
+            this.errorMessage = 'Le service d\'authentification est introuvable. Vérifiez l\'URL du service.';
+          } else if (error.status === 500) {
+            this.errorMessage = 'Erreur interne du serveur. Veuillez réessayer plus tard ou contacter l\'administrateur.';
+          } else if (!this.errorMessage) {
+            // Message par défaut si aucun message spécifique n'est disponible
+            this.errorMessage = 'Une erreur s\'est produite lors de la connexion. Veuillez réessayer.';
           }
         }
       });
@@ -174,6 +186,7 @@ export class LoginComponent implements OnInit {
     const hasClientRole = this.authService.hasRole('CLIENT');
     const hasFournisseurRole = this.authService.hasRole('FOURNISSEUR');
     const hasAchatRole = this.authService.hasRole('ACHAT');
+    const hasMagasinierRole = this.authService.hasRole('MAGASINIER');
     
     // Afficher les rôles pour le débogage
     console.log('Décision de redirection basée sur les rôles:', {
@@ -184,28 +197,75 @@ export class LoginComponent implements OnInit {
       estVendeur: hasVendeurRole,
       estClient: hasClientRole,
       estFournisseur: hasFournisseurRole,
-      estAchat: hasAchatRole
+      estAchat: hasAchatRole,
+      estMagasinier: hasMagasinierRole
     });
+    
+    // Récupérer le rôle principal de l'utilisateur
+    // Nous utilisons le paramètre de l'URL pour déterminer le rôle principal si présent
+    const queryParams = this.route.snapshot.queryParams;
+    const roleParam = queryParams['role'];
+    
+    // Si un rôle est spécifié dans l'URL et que l'utilisateur a ce rôle, l'utiliser
+    if (roleParam) {
+      const normalizedRoleParam = roleParam.toUpperCase();
+      if (this.authService.hasRole(normalizedRoleParam)) {
+        console.log(`Redirection basée sur le paramètre de rôle: ${normalizedRoleParam}`);
+        return this.getUrlForRole(normalizedRoleParam);
+      }
+    }
+    
+    // Vérifier si l'utilisateur a un double rôle (vendeur et magasinier)
+    if (hasVendeurRole && hasMagasinierRole) {
+      // Le vendeur est prioritaire, donc rediriger vers l'espace POS
+      console.log('Utilisateur avec double rôle (vendeur + magasinier), redirection vers POS');
+      return '/caisse/pos';
+    }
     
     // Prioriser le rôle ADMIN sur les autres rôles
     if (hasAdminRole) {
       console.log('Redirection vers dashboard ADMIN');
       return '/admin/dashboard';
     } else if (hasVendeurRole) {
-      console.log('Redirection vers dashboard VENDEUR');
-      return '/facturation/dashboard';
+      console.log('Redirection vers POS (VENDEUR)');
+      return '/caisse/pos';
     } else if (hasFournisseurRole) {
       console.log('Redirection vers interface FOURNISSEUR');
       return '/fournisseur/commandes';
     } else if (hasAchatRole) {
       console.log('Redirection vers module ACHAT');
       return '/achat/commandes';
+    } else if (hasMagasinierRole) {
+      console.log('Redirection vers dashboard MAGASINIER');
+      return '/stock/dashboard';
     } else if (hasClientRole) {
       console.log('Redirection vers CAISSE (rôle CLIENT)');
       return '/caisse';
     } else {
       console.log('Aucun rôle reconnu, redirection vers CAISSE (par défaut)');
       return '/caisse';
+    }
+  }
+  
+  // Obtenir l'URL correspondant à un rôle spécifique
+  private getUrlForRole(role: string): string {
+    const normalizedRole = role.toUpperCase();
+    
+    switch (normalizedRole) {
+      case 'ADMIN':
+        return '/admin/dashboard';
+      case 'VENDEUR':
+        return '/caisse/pos'; // Redirection des vendeurs vers le POS
+      case 'FOURNISSEUR':
+        return '/fournisseur/commandes';
+      case 'ACHAT':
+        return '/achat/commandes';
+      case 'MAGASINIER':
+        return '/stock/dashboard';
+      case 'CLIENT':
+        return '/caisse';
+      default:
+        return '/caisse';
     }
   }
 }

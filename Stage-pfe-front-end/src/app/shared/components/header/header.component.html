@@ -1,1 +1,170 @@
-<p>header works!</p>
+<header class="app-header">
+  <div class="container">
+    <div class="header-content">
+      <!-- Logo et titre -->
+      <div class="logo-container">
+        <a routerLink="/" class="logo">
+          <i class="fas fa-boxes"></i>
+          <span>ERP System</span>
+        </a>
+      </div>
+
+      <!-- Menu de navigation -->
+      <nav class="main-nav">
+        <ul class="nav-list">
+          <!-- Menu Admin -->
+          <li class="nav-item dropdown" *ngIf="hasRole('ADMIN')">
+            <a class="nav-link dropdown-toggle">
+              <i class="fas fa-user-shield"></i>
+              <span>Administration</span>
+            </a>
+            <div class="dropdown-menu">
+              <a routerLink="/admin/dashboard" class="dropdown-item">
+                <i class="fas fa-tachometer-alt"></i> Tableau de bord
+              </a>
+              <a routerLink="/admin/users" class="dropdown-item">
+                <i class="fas fa-users"></i> Gestion des utilisateurs
+              </a>
+              <a routerLink="/admin/roles" class="dropdown-item">
+                <i class="fas fa-user-tag"></i> Gestion des rôles
+              </a>
+              <a routerLink="/admin/settings" class="dropdown-item">
+                <i class="fas fa-cogs"></i> Paramètres
+              </a>
+            </div>
+          </li>
+
+          <!-- Menu Vendeur -->
+          <li class="nav-item dropdown" *ngIf="hasRole('VENDEUR')">
+            <a class="nav-link dropdown-toggle">
+              <i class="fas fa-cash-register"></i>
+              <span>Ventes</span>
+            </a>
+            <div class="dropdown-menu">
+              <a routerLink="/facturation/dashboard" class="dropdown-item">
+                <i class="fas fa-tachometer-alt"></i> Tableau de bord
+              </a>
+              <a routerLink="/facturation/create" class="dropdown-item">
+                <i class="fas fa-file-invoice-dollar"></i> Nouvelle facture
+              </a>
+              <a routerLink="/facturation/list" class="dropdown-item">
+                <i class="fas fa-list"></i> Liste des factures
+              </a>
+              <a routerLink="/caisse/pos" class="dropdown-item">
+                <i class="fas fa-cash-register"></i> Point de vente
+              </a>
+            </div>
+          </li>
+
+          <!-- Menu Magasinier -->
+          <li class="nav-item dropdown" *ngIf="hasRole('MAGASINIER')">
+            <a class="nav-link dropdown-toggle">
+              <i class="fas fa-warehouse"></i>
+              <span>Stock</span>
+            </a>
+            <div class="dropdown-menu">
+              <a routerLink="/stock/dashboard" class="dropdown-item">
+                <i class="fas fa-tachometer-alt"></i> Tableau de bord
+              </a>
+              <a routerLink="/stock/list" class="dropdown-item">
+                <i class="fas fa-boxes"></i> Inventaire
+              </a>
+              <a routerLink="/stock/create" class="dropdown-item">
+                <i class="fas fa-plus-circle"></i> Ajouter un produit
+              </a>
+              <a routerLink="/stock/movements" class="dropdown-item">
+                <i class="fas fa-exchange-alt"></i> Mouvements de stock
+              </a>
+            </div>
+          </li>
+
+          <!-- Menu Fournisseur -->
+          <li class="nav-item dropdown" *ngIf="hasRole('FOURNISSEUR')">
+            <a class="nav-link dropdown-toggle">
+              <i class="fas fa-truck"></i>
+              <span>Fournisseurs</span>
+            </a>
+            <div class="dropdown-menu">
+              <a routerLink="/fournisseur/dashboard" class="dropdown-item">
+                <i class="fas fa-tachometer-alt"></i> Tableau de bord
+              </a>
+              <a routerLink="/fournisseur/commandes" class="dropdown-item">
+                <i class="fas fa-clipboard-list"></i> Commandes
+              </a>
+              <a routerLink="/fournisseur/produits" class="dropdown-item">
+                <i class="fas fa-box"></i> Produits
+              </a>
+            </div>
+          </li>
+
+          <!-- Menu Acheteur -->
+          <li class="nav-item dropdown" *ngIf="hasRole('ACHETEUR')">
+            <a class="nav-link dropdown-toggle">
+              <i class="fas fa-shopping-cart"></i>
+              <span>Achats</span>
+            </a>
+            <div class="dropdown-menu">
+              <a routerLink="/achat/dashboard" class="dropdown-item">
+                <i class="fas fa-tachometer-alt"></i> Tableau de bord
+              </a>
+              <a routerLink="/achat/commandes" class="dropdown-item">
+                <i class="fas fa-file-invoice"></i> Commandes
+              </a>
+              <a routerLink="/achat/fournisseurs" class="dropdown-item">
+                <i class="fas fa-truck"></i> Fournisseurs
+              </a>
+            </div>
+          </li>
+        </ul>
+      </nav>
+
+      <!-- Menu utilisateur -->
+      <div class="user-menu">
+        <!-- Notifications -->
+        <div class="notification-icon">
+          <i class="fas fa-bell"></i>
+          <span class="badge" *ngIf="notificationCount > 0">{{ notificationCount }}</span>
+        </div>
+
+        <!-- Profil utilisateur -->
+        <div class="user-profile dropdown">
+          <a class="user-profile-link dropdown-toggle">
+            <div class="avatar">
+              <i class="fas fa-user"></i>
+            </div>
+            <span class="username">{{ username }}</span>
+          </a>
+          <div class="dropdown-menu">
+            <!-- Lien vers le profil selon le rôle -->
+            <a *ngIf="hasRole('MAGASINIER')" routerLink="/stock/profile" class="dropdown-item">
+              <i class="fas fa-user-circle"></i> Mon profil
+            </a>
+            <a *ngIf="hasRole('VENDEUR') && !hasRole('MAGASINIER')" routerLink="/facturation/profile" class="dropdown-item">
+              <i class="fas fa-user-circle"></i> Mon profil
+            </a>
+            <a *ngIf="hasRole('ADMIN')" routerLink="/admin/profile" class="dropdown-item">
+              <i class="fas fa-user-circle"></i> Mon profil
+            </a>
+            <a *ngIf="hasRole('FOURNISSEUR')" routerLink="/fournisseur/profile" class="dropdown-item">
+              <i class="fas fa-user-circle"></i> Mon profil
+            </a>
+            <a *ngIf="hasRole('ACHAT')" routerLink="/achat/profile" class="dropdown-item">
+              <i class="fas fa-user-circle"></i> Mon profil
+            </a>
+            <a *ngIf="!hasRole('MAGASINIER') && !hasRole('VENDEUR') && !hasRole('ADMIN') && !hasRole('FOURNISSEUR') && !hasRole('ACHAT')" routerLink="/profile" class="dropdown-item">
+              <i class="fas fa-user-circle"></i> Mon profil
+            </a>
+            
+            <a routerLink="/settings" class="dropdown-item">
+              <i class="fas fa-cog"></i> Paramètres
+            </a>
+            <div class="dropdown-divider"></div>
+            <a (click)="logout()" class="dropdown-item">
+              <i class="fas fa-sign-out-alt"></i> Déconnexion
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>

@@ -1,1 +1,101 @@
-<p>stock-create works!</p>
+<div class="container mt-4">
+  <div class="card">
+    <div class="card-header bg-primary text-white">
+      <h2>{{ isEditMode ? 'Modifier le produit' : 'Ajouter un nouveau produit' }}</h2>
+    </div>
+    <div class="card-body">
+      <form [formGroup]="productForm" (ngSubmit)="onSubmit()">
+        <!-- Messages d'alerte -->
+        <div *ngIf="errorMessage" class="alert alert-danger">
+          {{ errorMessage }}
+        </div>
+        <div *ngIf="successMessage" class="alert alert-success">
+          {{ successMessage }}
+        </div>
+
+        <!-- Nom du produit -->
+        <div class="mb-3">
+          <label for="name" class="form-label">Nom du produit *</label>
+          <input type="text" class="form-control" id="name" formControlName="name">
+          <div *ngIf="productForm.get('name')?.invalid && productForm.get('name')?.touched" class="text-danger">
+            Le nom du produit est obligatoire
+          </div>
+        </div>
+
+        <!-- Référence -->
+        <div class="mb-3">
+          <label for="reference" class="form-label">Référence</label>
+          <input type="text" class="form-control" id="reference" formControlName="reference">
+        </div>
+
+        <!-- Description -->
+        <div class="mb-3">
+          <label for="description" class="form-label">Description</label>
+          <textarea class="form-control" id="description" rows="3" formControlName="description"></textarea>
+        </div>
+
+        <div class="row">
+          <!-- Prix -->
+          <div class="col-md-4 mb-3">
+            <label for="price" class="form-label">Prix *</label>
+            <div class="input-group">
+              <input type="number" class="form-control" id="price" formControlName="price" min="0" step="0.01">
+              <span class="input-group-text">€</span>
+            </div>
+            <div *ngIf="productForm.get('price')?.invalid && productForm.get('price')?.touched" class="text-danger">
+              Le prix doit être un nombre positif
+            </div>
+          </div>
+
+          <!-- Quantité -->
+          <div class="col-md-4 mb-3">
+            <label for="quantity" class="form-label">Quantité en stock *</label>
+            <input type="number" class="form-control" id="quantity" formControlName="quantity" min="0">
+            <div *ngIf="productForm.get('quantity')?.invalid && productForm.get('quantity')?.touched" class="text-danger">
+              La quantité doit être un nombre positif
+            </div>
+          </div>
+
+          <!-- Seuil d'alerte -->
+          <div class="col-md-4 mb-3">
+            <label for="alertThreshold" class="form-label">Seuil d'alerte *</label>
+            <input type="number" class="form-control" id="alertThreshold" formControlName="alertThreshold" min="0">
+            <div *ngIf="productForm.get('alertThreshold')?.invalid && productForm.get('alertThreshold')?.touched" class="text-danger">
+              Le seuil d'alerte doit être un nombre positif
+            </div>
+            <small class="form-text text-muted">Vous serez alerté lorsque le stock sera inférieur à ce seuil</small>
+          </div>
+        </div>
+
+        <!-- Catégorie -->
+        <div class="mb-3">
+          <label for="categoryId" class="form-label">Catégorie *</label>
+          <select class="form-select" id="categoryId" formControlName="categoryId">
+            <option value="">Sélectionner une catégorie</option>
+            <option *ngFor="let category of categories" [value]="category.id">{{ category.name }}</option>
+          </select>
+          <div *ngIf="productForm.get('categoryId')?.invalid && productForm.get('categoryId')?.touched" class="text-danger">
+            La catégorie est obligatoire
+          </div>
+        </div>
+
+        <!-- Statut -->
+        <div class="mb-3 form-check">
+          <input type="checkbox" class="form-check-input" id="active" formControlName="active">
+          <label class="form-check-label" for="active">Produit actif</label>
+        </div>
+
+        <!-- Boutons d'action -->
+        <div class="d-flex justify-content-between mt-4">
+          <button type="button" class="btn btn-secondary" (click)="onCancel()">
+            <i class="fas fa-times"></i> Annuler
+          </button>
+          <button type="submit" class="btn btn-primary" [disabled]="productForm.invalid || isLoading">
+            <span *ngIf="isLoading" class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+            <i class="fas fa-save"></i> {{ isEditMode ? 'Mettre à jour' : 'Enregistrer' }}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
