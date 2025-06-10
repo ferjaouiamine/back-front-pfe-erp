@@ -169,6 +169,15 @@ export class CommandeDetailComponent implements OnInit {
   }
 
   /**
+   * Vérifie si un avis d'expédition peut être créé pour cette commande
+   * Un avis d'expédition peut être créé si la commande est en cours ou livrée
+   */
+  peutCreerAvisExpedition(): boolean {
+    return this.commande?.statut === StatutCommande.EN_COURS || 
+           this.commande?.statut === StatutCommande.LIVREE;
+  }
+
+  /**
    * Retourne au tableau des commandes
    */
   retourListe(): void {

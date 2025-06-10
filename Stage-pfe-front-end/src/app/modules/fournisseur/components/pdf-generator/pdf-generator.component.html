@@ -1,0 +1,128 @@
+<div class="pdf-generator-container">
+  <div class="pdf-header">
+    <div class="header-content">
+      <div class="logo-container">
+        <img src="assets/images/logo.png" alt="Logo" class="logo">
+      </div>
+      <div class="title-container">
+        <h1>Génération de Documents</h1>
+        <p class="subtitle">Générez des documents PDF pour la commande</p>
+      </div>
+    </div>
+    <button mat-icon-button color="primary" class="back-button" (click)="retourDetail()" matTooltip="Retour à la commande">
+      <mat-icon>arrow_back</mat-icon>
+    </button>
+  </div>
+  
+  <!-- Indicateur de chargement -->
+  <div class="loading-container" *ngIf="isLoading">
+    <mat-spinner diameter="40"></mat-spinner>
+    <p>Chargement des données...</p>
+  </div>
+  
+  <!-- Message d'erreur -->
+  <div class="error-container" *ngIf="error">
+    <div class="alert alert-danger">
+      <i class="fas fa-exclamation-circle me-2"></i>
+      {{ error }}
+    </div>
+  </div>
+  
+  <!-- Contenu principal -->
+  <div class="pdf-content" *ngIf="!isLoading && !error && commande">
+    <!-- Informations de la commande -->
+    <div class="commande-info mat-elevation-z2">
+      <h2>Informations de la commande</h2>
+      <div class="info-grid">
+        <div class="info-item">
+          <span class="label">Numéro:</span>
+          <span class="value">{{ commande.numero }}</span>
+        </div>
+        <div class="info-item">
+          <span class="label">Date:</span>
+          <span class="value">{{ commande.date | date:'dd/MM/yyyy' }}</span>
+        </div>
+        <div class="info-item">
+          <span class="label">Client:</span>
+          <span class="value">{{ commande.client.nom }}</span>
+        </div>
+        <div class="info-item">
+          <span class="label">Montant:</span>
+          <span class="value">{{ commande.montantTotal | currency:'EUR' }}</span>
+        </div>
+        <div class="info-item">
+          <span class="label">Statut:</span>
+          <span class="value statut-badge" [ngClass]="commande.statut">{{ commande.statut }}</span>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Options de génération de documents -->
+    <div class="documents-options">
+      <h2>Documents disponibles</h2>
+      <div class="documents-grid">
+        <!-- Bon de commande -->
+        <div class="document-card mat-elevation-z2">
+          <div class="document-icon">
+            <mat-icon>description</mat-icon>
+          </div>
+          <div class="document-info">
+            <h3>Bon de commande</h3>
+            <p>Générez le bon de commande avec tous les détails des produits.</p>
+          </div>
+          <div class="document-actions">
+            <button mat-raised-button color="primary" (click)="genererBonCommande()">
+              <mat-icon>file_download</mat-icon>
+              Générer PDF
+            </button>
+          </div>
+        </div>
+        
+        <!-- Avis d'expédition -->
+        <div class="document-card mat-elevation-z2" [class.disabled]="!avisExpedition">
+          <div class="document-icon">
+            <mat-icon>local_shipping</mat-icon>
+          </div>
+          <div class="document-info">
+            <h3>Avis d'expédition</h3>
+            <p *ngIf="avisExpedition">Générez l'avis d'expédition avec les détails de livraison.</p>
+            <p *ngIf="!avisExpedition" class="unavailable-message">Aucun avis d'expédition n'a été créé pour cette commande.</p>
+          </div>
+          <div class="document-actions">
+            <button mat-raised-button color="primary" (click)="genererAvisExpedition()" [disabled]="!avisExpedition">
+              <mat-icon>file_download</mat-icon>
+              Générer PDF
+            </button>
+          </div>
+        </div>
+        
+        <!-- Facture -->
+        <div class="document-card mat-elevation-z2" [class.disabled]="!facture">
+          <div class="document-icon">
+            <mat-icon>receipt</mat-icon>
+          </div>
+          <div class="document-info">
+            <h3>Facture</h3>
+            <p *ngIf="facture">Générez la facture avec les détails de paiement.</p>
+            <p *ngIf="!facture" class="unavailable-message">Aucune facture n'a été créée pour cette commande.</p>
+          </div>
+          <div class="document-actions">
+            <button mat-raised-button color="primary" (click)="genererFacture()" [disabled]="!facture">
+              <mat-icon>file_download</mat-icon>
+              Générer PDF
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Informations sur les documents -->
+    <div class="document-info-box mat-elevation-z1">
+      <mat-icon color="primary">info</mat-icon>
+      <div class="info-text">
+        <p>Les documents générés seront téléchargés au format PDF. Vous pourrez les imprimer ou les envoyer par email.</p>
+        <p>Pour créer un avis d'expédition, retournez à la page de détail de la commande et cliquez sur "Créer un avis d'expédition".</p>
+      </div>
+    </div>
+  </div>
+</div>

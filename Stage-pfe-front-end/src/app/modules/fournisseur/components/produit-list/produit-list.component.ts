@@ -1,12 +1,15 @@
 import { Component, OnInit, ViewChild, AfterViewInit } from '@angular/core';
 import { Router } from '@angular/router';
 import { MatPaginator, PageEvent } from '@angular/material/paginator';
+
 import { MatSort } from '@angular/material/sort';
 import { MatTableDataSource } from '@angular/material/table';
 import { MatDialog } from '@angular/material/dialog';
+import { MatSnackBar } from '@angular/material/snack-bar';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { FournisseurService, ProduitFournisseur } from '../../services/fournisseur.service';
-import { finalize } from 'rxjs/operators';
+import { finalize, catchError } from 'rxjs/operators';
+import { of } from 'rxjs';
 
 @Component({
   selector: 'app-produit-list',
@@ -47,7 +50,8 @@ export class ProduitListComponent implements OnInit, AfterViewInit {
     private fournisseurService: FournisseurService,
     private router: Router,
     private dialog: MatDialog,
-    private fb: FormBuilder
+    private fb: FormBuilder,
+    private snackBar: MatSnackBar
   ) { }
 
   ngOnInit(): void {
@@ -79,7 +83,7 @@ export class ProduitListComponent implements OnInit, AfterViewInit {
   }
 
   /**
-   * Charge les produits depuis le backend
+   * Charge les produits depuis le backend avec gestion avancée des erreurs
    */
   chargerProduits(): void {
     this.isLoading = true;
@@ -109,9 +113,9 @@ export class ProduitListComponent implements OnInit, AfterViewInit {
     }
 
     this.fournisseurService.getProduits(this.pageIndex, this.pageSize, filters)
-      .pipe(finalize(() => this.isLoading = false))
       .subscribe({
         next: (response) => {
+          this.isLoading = false;
           if (response && response.content) {
             this.dataSource.data = response.content;
             this.totalItems = response.totalElements || 0;
@@ -120,11 +124,42 @@ export class ProduitListComponent implements OnInit, AfterViewInit {
             console.error('Format de réponse inattendu:', response);
             this.dataSource.data = [];
             this.totalItems = 0;
+            this.snackBar.open('Format de réponse inattendu', 'Fermer', {
+              duration: 5000,
+              panelClass: ['warning-snackbar']
+            });
           }
         },
         error: (err: any) => {
+          this.isLoading = false;
           console.error('Erreur lors du chargement des produits:', err);
-          this.error = 'Impossible de charger les produits. Veuillez réessayer plus tard.';
+          
+          // Gestion détaillée des erreurs
+          if (err.status === 401 || err.status === 403) {
+            this.error = 'Vous n\'avez pas les autorisations nécessaires pour accéder à ces produits.';
+            this.snackBar.open('Accès non autorisé', 'Fermer', {
+              duration: 5000,
+              panelClass: ['error-snackbar']
+            });
+          } else if (err.status === 404) {
+            this.error = 'Aucun produit trouvé.';
+            this.snackBar.open('Aucun produit trouvé', 'Fermer', {
+              duration: 5000,
+              panelClass: ['warning-snackbar']
+            });
+          } else if (err.status === 0) {
+            this.error = 'Impossible de se connecter au serveur. Veuillez vérifier votre connexion internet.';
+            this.snackBar.open('Erreur de connexion au serveur', 'Fermer', {
+              duration: 5000,
+              panelClass: ['error-snackbar']
+            });
+          } else {
+            this.error = 'Une erreur est survenue lors du chargement des produits. Veuillez réessayer plus tard.';
+            this.snackBar.open('Erreur de chargement', 'Fermer', {
+              duration: 5000,
+              panelClass: ['error-snackbar']
+            });
+          }
 
           // Données de test en cas d'erreur (à supprimer en production)
           const donneesDeMock = [
@@ -224,12 +259,20 @@ export class ProduitListComponent implements OnInit, AfterViewInit {
   }
 
   /**
-   * Change la disponibilité d'un produit
+   * Change la disponibilité d'un produit avec notification et gestion d'erreur améliorée
    */
   toggleDisponibilite(produit: ProduitFournisseur): void {
     this.isLoading = true;
+    this.error = null;
+    
+    // Sauvegarder l'état actuel pour pouvoir revenir en arrière en cas d'erreur
+    const previousState = produit.disponible;
+    const newState = !previousState;
+    
+    // Message pour l'utilisateur
+    const statusMessage = newState ? 'disponible' : 'indisponible';
 
-    this.fournisseurService.updateProduitDisponibilite(produit.id, !produit.disponible)
+    this.fournisseurService.updateProduitDisponibilite(produit.id, newState)
       .pipe(finalize(() => this.isLoading = false))
       .subscribe({
         next: (updatedProduit) => {
@@ -239,23 +282,48 @@ export class ProduitListComponent implements OnInit, AfterViewInit {
             this.dataSource.data[index].disponible = updatedProduit.disponible;
             // Créer une nouvelle référence pour déclencher la mise à jour de la vue
             this.dataSource.data = [...this.dataSource.data];
+            
+            // Notification de succès
+            this.snackBar.open(`Le produit "${produit.nom}" est maintenant ${statusMessage}`, 'Fermer', {
+              duration: 3000,
+              panelClass: ['success-snackbar']
+            });
           }
         },
         error: (err: any) => {
+          // Gestion détaillée des erreurs
           console.error(`Erreur lors de la mise à jour de la disponibilité du produit ${produit.id}:`, err);
-          this.error = 'Impossible de mettre à jour la disponibilité du produit. Veuillez réessayer plus tard.';
+          
+          // Message d'erreur approprié
+          if (err.status === 401 || err.status === 403) {
+            this.error = 'Vous n\'avez pas les autorisations nécessaires pour modifier ce produit.';
+          } else if (err.status === 404) {
+            this.error = 'Produit introuvable. Il a peut-être été supprimé.';
+          } else if (err.status === 0) {
+            this.error = 'Impossible de se connecter au serveur. Vérifiez votre connexion internet.';
+          } else {
+            this.error = 'Impossible de mettre à jour la disponibilité du produit. Veuillez réessayer plus tard.';
+          }
+          
+          // Notification d'erreur
+          this.snackBar.open(this.error, 'Fermer', {
+            duration: 5000,
+            panelClass: ['error-snackbar']
+          });
+          
           // Annuler le changement d'état du toggle
-          produit.disponible = !produit.disponible;
+          produit.disponible = previousState;
         }
       });
   }
 
   /**
-   * Ouvre la boîte de dialogue pour ajouter un nouveau produit
+   * Ouvre la boîte de dialogue pour ajouter un nouveau produit avec notification et gestion d'erreur améliorée
    */
   ajouterProduit(): void {
     // TODO: Implémenter la boîte de dialogue pour ajouter un produit
     console.log('Ajouter un nouveau produit');
+    this.error = null;
 
     // Exemple de structure pour un nouveau produit
     const nouveauProduit: Partial<ProduitFournisseur> = {
@@ -273,24 +341,53 @@ export class ProduitListComponent implements OnInit, AfterViewInit {
     this.fournisseurService.createProduit(nouveauProduit)
       .pipe(finalize(() => this.isLoading = false))
       .subscribe({
-        next: () => {
+        next: (produitCree) => {
+          // Notification de succès
+          this.snackBar.open(`Le produit "${nouveauProduit.nom}" a été ajouté avec succès`, 'Fermer', {
+            duration: 3000,
+            panelClass: ['success-snackbar']
+          });
+          
           // Recharger la liste des produits
           this.chargerProduits();
         },
         error: (err: any) => {
           console.error('Erreur lors de la création du produit:', err);
-          this.error = 'Impossible de créer le produit. Veuillez réessayer plus tard.';
+          
+          // Gestion détaillée des erreurs
+          if (err.status === 401 || err.status === 403) {
+            this.error = 'Vous n\'avez pas les autorisations nécessaires pour ajouter un produit.';
+          } else if (err.status === 400) {
+            this.error = 'Données invalides. Veuillez vérifier les informations du produit.';
+          } else if (err.status === 409) {
+            this.error = 'Un produit avec cette référence existe déjà.';
+          } else if (err.status === 0) {
+            this.error = 'Impossible de se connecter au serveur. Vérifiez votre connexion internet.';
+          } else {
+            this.error = 'Impossible de créer le produit. Veuillez réessayer plus tard.';
+          }
+          
+          // Notification d'erreur
+          this.snackBar.open(this.error, 'Fermer', {
+            duration: 5000,
+            panelClass: ['error-snackbar']
+          });
         }
       });
   }
 
   /**
-   * Ouvre la boîte de dialogue pour modifier un produit
+   * Ouvre la boîte de dialogue pour modifier un produit avec notification et gestion d'erreur améliorée
    */
   modifierProduit(produit: ProduitFournisseur): void {
     // TODO: Implémenter la boîte de dialogue pour modifier un produit
     console.log('Modifier le produit:', produit);
+    this.error = null;
 
+    // Stocker les informations du produit pour les messages
+    const produitId = produit.id;
+    const produitNomOriginal = produit.nom;
+    
     // Exemple de mise à jour (sans boîte de dialogue)
     const produitModifie: Partial<ProduitFournisseur> = {
       ...produit,
@@ -300,37 +397,94 @@ export class ProduitListComponent implements OnInit, AfterViewInit {
 
     this.isLoading = true;
 
-    this.fournisseurService.updateProduit(produit.id, produitModifie)
+    this.fournisseurService.updateProduit(produitId, produitModifie)
       .pipe(finalize(() => this.isLoading = false))
       .subscribe({
-        next: () => {
+        next: (produitMisAJour) => {
+          // Notification de succès
+          this.snackBar.open(`Le produit "${produitNomOriginal}" a été mis à jour avec succès`, 'Fermer', {
+            duration: 3000,
+            panelClass: ['success-snackbar']
+          });
+          
           // Recharger la liste des produits
           this.chargerProduits();
         },
         error: (err: any) => {
-          console.error(`Erreur lors de la mise à jour du produit ${produit.id}:`, err);
-          this.error = 'Impossible de mettre à jour le produit. Veuillez réessayer plus tard.';
+          console.error(`Erreur lors de la mise à jour du produit ${produitId}:`, err);
+          
+          // Gestion détaillée des erreurs
+          if (err.status === 401 || err.status === 403) {
+            this.error = 'Vous n\'avez pas les autorisations nécessaires pour modifier ce produit.';
+          } else if (err.status === 400) {
+            this.error = 'Données invalides. Veuillez vérifier les informations du produit.';
+          } else if (err.status === 404) {
+            this.error = 'Produit introuvable. Il a peut-être été supprimé.';
+          } else if (err.status === 409) {
+            this.error = 'Un conflit est survenu lors de la mise à jour du produit.';
+          } else if (err.status === 0) {
+            this.error = 'Impossible de se connecter au serveur. Vérifiez votre connexion internet.';
+          } else {
+            this.error = 'Impossible de mettre à jour le produit. Veuillez réessayer plus tard.';
+          }
+          
+          // Notification d'erreur
+          this.snackBar.open(this.error, 'Fermer', {
+            duration: 5000,
+            panelClass: ['error-snackbar']
+          });
         }
       });
   }
 
   /**
-   * Supprime un produit
+   * Supprime un produit avec notification et gestion d'erreur améliorée
    */
   supprimerProduit(produit: ProduitFournisseur): void {
     if (confirm(`Êtes-vous sûr de vouloir supprimer le produit "${produit.nom}" ?`)) {
       this.isLoading = true;
+      this.error = null;
+      
+      // Stocker les informations du produit pour les messages
+      const produitNom = produit.nom;
+      const produitId = produit.id;
 
-      this.fournisseurService.deleteProduit(produit.id)
+      this.fournisseurService.deleteProduit(produitId)
         .pipe(finalize(() => this.isLoading = false))
         .subscribe({
           next: () => {
+            // Notification de succès
+            this.snackBar.open(`Le produit "${produitNom}" a été supprimé avec succès`, 'Fermer', {
+              duration: 3000,
+              panelClass: ['success-snackbar']
+            });
+            
             // Recharger la liste des produits
             this.chargerProduits();
           },
           error: (err: any) => {
-            console.error(`Erreur lors de la suppression du produit ${produit.id}:`, err);
-            this.error = 'Impossible de supprimer le produit. Veuillez réessayer plus tard.';
+            console.error(`Erreur lors de la suppression du produit ${produitId}:`, err);
+            
+            // Gestion détaillée des erreurs
+            if (err.status === 401 || err.status === 403) {
+              this.error = 'Vous n\'avez pas les autorisations nécessaires pour supprimer ce produit.';
+            } else if (err.status === 404) {
+              this.error = 'Produit introuvable. Il a peut-être déjà été supprimé.';
+              // Dans ce cas, on recharge quand même la liste pour s'assurer qu'elle est à jour
+              this.chargerProduits();
+            } else if (err.status === 409) {
+              this.error = 'Impossible de supprimer ce produit car il est utilisé dans des commandes.';
+            } else if (err.status === 0) {
+              this.error = 'Impossible de se connecter au serveur. Vérifiez votre connexion internet.';
+            } else {
+              this.error = 'Impossible de supprimer le produit. Veuillez réessayer plus tard.';
+            }
+            
+            // Notification d'erreur
+            this.snackBar.open(this.error, 'Fermer', {
+              duration: 5000,
+              panelClass: ['error-snackbar']
+            });
           }
         });
     }

@@ -3,6 +3,7 @@
     <button mat-icon-button color="primary" (click)="retourListe()" matTooltip="Retour à la liste">
       <mat-icon>arrow_back</mat-icon>
     </button>
+
     <h1 *ngIf="commande">Commande {{ commande.numero }}</h1>
     <h1 *ngIf="!commande && !isLoading">Détail de la commande</h1>
   </div>
@@ -106,6 +107,25 @@
           >
             <mat-icon>local_shipping</mat-icon>
             Marquer comme livrée
+          </button>
+
+          <button 
+            mat-raised-button 
+            color="primary" 
+            [routerLink]="['/fournisseur/commandes', commandeId, 'documents']"
+          >
+            <mat-icon>description</mat-icon>
+            Générer documents
+          </button>
+          
+          <button 
+            mat-raised-button 
+            color="accent" 
+            [routerLink]="['/fournisseur/commandes', commandeId, 'avis-expedition']"
+            [disabled]="!peutCreerAvisExpedition()"
+          >
+            <mat-icon>local_shipping</mat-icon>
+            Créer avis d'expédition
           </button>
         </div>
       </mat-card-content>

@@ -70,28 +70,37 @@ export class CaisseService {
 
   /**
    * Ferme une session de caisse existante
+   * @param sessionId ID de la session à fermer
+   * @param countedAmount Montant compté en caisse
+   * @param notes Notes optionnelles pour la fermeture
+   * @param difference Différence entre le montant attendu et le montant compté
    */
-  closeCashRegisterSession(sessionId: string, endingAmount: number, notes?: string): Observable<CashRegisterSession> {
+  closeCashRegisterSession(sessionId: string, countedAmount: number, notes: string = '', difference: number = 0): Observable<CashRegisterSession> {
     const headers = this.getAuthHeaders();
     const userData = this.authService.getCurrentUser();
     
     const closeData = {
       sessionId,
       closedBy: userData?.id || 'unknown',
-      endingAmount,
-      notes
+      countedAmount,
+      notes,
+      difference
     };
     
     return this.http.post<CashRegisterSession>(`${this.apiUrl}/sessions/${sessionId}/close`, closeData, { headers }).pipe(
       tap(() => this.backendAvailable = true),
       catchError(error => {
         // Essayer l'URL alternative
-        return this.http.post<CashRegisterSession>(`${this.alternativeApiUrl}/sessions/${sessionId}/close`, closeData, { headers }).pipe(
+        return this.http.post<CashRegisterSession>(
+          `${this.alternativeApiUrl}/sessions/${sessionId}/close`, 
+          closeData, 
+          { headers }
+        ).pipe(
           tap(() => this.backendAvailable = true),
-          catchError(() => {
+          catchError((err) => {
             this.backendAvailable = false;
             // Générer une session fermée fictive
-            return this.generateMockClosedSession(sessionId, endingAmount, notes);
+            return this.generateMockClosedSession(sessionId, countedAmount, notes, difference);
           })
         );
       })
@@ -194,13 +203,14 @@ export class CaisseService {
               taxTotal: 0,
               total: 0,
               paymentMethod: PaymentMethod.CASH,
-              paymentAmount: 0,
-              changeAmount: 0,
+              amountTendered: 0,
+              change: 0,
               cashierId: 'unknown',
               cashierName: 'Mock Cashier',
               registerNumber: 'REG-001',
               status: TransactionStatus.VOIDED,
-              notes: `Annulée: ${reason}`
+              notes: `Annulée: ${reason}`,
+              sessionId: ''
             } as SaleTransaction).pipe(delay(this.mockDelay));
           })
         );
@@ -273,22 +283,35 @@ export class CaisseService {
 
   /**
    * Génère une session de caisse fermée fictive
+   * @param sessionId ID de la session
+   * @param countedAmount Montant compté en caisse
+   * @param notes Notes optionnelles
+   * @param difference Différence entre le montant attendu et le montant compté
    */
-  private generateMockClosedSession(sessionId: string, endingAmount: number, notes?: string): Observable<CashRegisterSession> {
+  private generateMockClosedSession(
+    sessionId: string, 
+    countedAmount: number, 
+    notes: string = '',
+    difference: number = 0
+  ): Observable<CashRegisterSession> {
     const userData = this.authService.getCurrentUser();
+    const startingAmount = countedAmount > 1000 ? countedAmount - 500 : 500; // Montant initial réaliste
+    const expectedAmount = countedAmount - difference; // Calcul du montant attendu basé sur la différence
+    
     const mockSession: CashRegisterSession = {
       id: sessionId,
       registerNumber: 'REG-001',
-      openedBy: 'unknown',
+      openedBy: userData?.id || 'unknown',
       openedAt: new Date(Date.now() - 8 * 60 * 60 * 1000), // 8 heures avant
       closedBy: userData?.id || 'unknown',
       closedAt: new Date(),
-      startingAmount: endingAmount - (Math.random() * 1000),
-      endingAmount,
-      expectedAmount: endingAmount + (Math.random() * 20 - 10),
-      discrepancy: Math.random() * 20 - 10,
+      startingAmount,
+      endingAmount: countedAmount,
+      expectedAmount,
+      discrepancy: difference,
       status: SessionStatus.CLOSED,
-      notes: notes || 'Session fermée fictive (backend indisponible)'
+      notes: notes || 'Session fermée fictive (backend indisponible)',
+      transactions: []
     };
     
     return of(mockSession).pipe(delay(this.mockDelay));
@@ -328,6 +351,8 @@ export class CaisseService {
         const totalPrice = unitPrice * quantity;
         subtotal += totalPrice;
         
+        const taxRate = 0.2;
+        const taxAmount = totalPrice * taxRate;
         items.push({
           productId: `prod-${Math.floor(Math.random() * 1000)}`,
           productName: `Produit fictif ${j+1}`,
@@ -335,7 +360,9 @@ export class CaisseService {
           quantity,
           unitPrice,
           totalPrice,
-          taxRate: 0.2
+          taxRate: taxRate,
+          taxAmount: taxAmount,
+          discount: 0
         });
       }
       
@@ -352,14 +379,15 @@ export class CaisseService {
         taxTotal,
         total,
         paymentMethod: Object.values(PaymentMethod)[Math.floor(Math.random() * 3)],
-        paymentAmount,
-        changeAmount: paymentAmount - total,
+        amountTendered: paymentAmount,
+        change: paymentAmount - total,
         cashierId: userData?.id || 'unknown',
         cashierName: userData?.username || 'Caissier Fictif',
         registerNumber: 'REG-001',
         status: TransactionStatus.COMPLETED,
+        sessionId: '',
         notes: i === 0 ? 'Transaction fictive (backend indisponible)' : undefined
-      });
+      } as SaleTransaction);
     }
     
     return of(mockTransactions).pipe(delay(this.mockDelay));

@@ -226,7 +226,7 @@ export class FournisseurService {
   /**
    * Récupère une facture par son ID
    */
-  getFactureById(factureId: string): Observable<any> {
+  getFactureById(factureId: string): Observable<FactureFournisseur> {
     // Récupère l'utilisateur connecté pour vérifier son rôle
     const currentUser = this.authService.getCurrentUser();
     if (!currentUser || !this.authService.hasRole('FOURNISSEUR')) {
@@ -245,14 +245,51 @@ export class FournisseurService {
           montantTTC: response.montantTTC,
           commentaires: response.commentaires,
           cheminFichier: response.cheminFichier,
-          statutPaiement: response.statutPaiement,
+          statutPaiement: response.statutPaiement as StatutPaiement,
           datePaiement: response.datePaiement ? new Date(response.datePaiement) : undefined,
           commandeId: response.commandeId,
           commandeNumero: response.commandeNumero
         })),
         catchError(error => {
-          console.error(`Erreur lors de la récupération de la facture ${factureId}:`, error);
-          return throwError(() => new Error('Impossible de récupérer la facture.'));
+          console.error(`Erreur lors de la récupération de la facture:`, error);
+          return throwError(() => new Error('Impossible de charger la facture.'));
+        })
+      );
+  }
+
+  /**
+   * Récupère la facture associée à une commande spécifique
+   */
+  getFactureByCommandeId(commandeId: string): Observable<FactureFournisseur> {
+    // Récupère l'utilisateur connecté pour vérifier son rôle
+    const currentUser = this.authService.getCurrentUser();
+    if (!currentUser || !this.authService.hasRole('FOURNISSEUR')) {
+      return throwError(() => new Error('Accès non autorisé. Vous devez être connecté en tant que fournisseur.'));
+    }
+    
+    return this.http.get<any>(`${this.apiUrl}/commandes/${commandeId}/facture`)
+      .pipe(
+        map(response => ({
+          id: response.id,
+          numero: response.numero,
+          dateFacture: new Date(response.dateFacture),
+          dateEcheance: new Date(response.dateEcheance),
+          montantHT: response.montantHT,
+          montantTVA: response.montantTVA,
+          montantTTC: response.montantTTC,
+          commentaires: response.commentaires,
+          cheminFichier: response.cheminFichier,
+          statutPaiement: response.statutPaiement as StatutPaiement,
+          datePaiement: response.datePaiement ? new Date(response.datePaiement) : undefined,
+          commandeId: response.commandeId,
+          commandeNumero: response.commandeNumero
+        })),
+        catchError(error => {
+          if (error.status === 404) {
+            return throwError(() => new Error('Aucune facture trouvée pour cette commande.'));
+          }
+          console.error(`Erreur lors de la récupération de la facture:`, error);
+          return throwError(() => new Error('Impossible de charger la facture.'));
         })
       );
   }
@@ -405,64 +442,6 @@ export class FournisseurService {
         catchError(error => {
           console.error(`Erreur lors de la création du paiement pour la facture ${factureId}:`, error);
           return throwError(() => new Error('Impossible de créer le paiement.'));
-        })
-      );
-  }
-
-  /**
-   * Récupère le profil du fournisseur connecté
-   */
-  getProfilFournisseur(): Observable<ProfilFournisseur> {
-    // Récupère l'utilisateur connecté pour vérifier son rôle
-    const currentUser = this.authService.getCurrentUser();
-    if (!currentUser || !this.authService.hasRole('FOURNISSEUR')) {
-      return throwError(() => new Error('Accès non autorisé. Vous devez être connecté en tant que fournisseur.'));
-    }
-    
-    return this.http.get<any>(`${this.apiUrl}/profil`)
-      .pipe(
-        map(response => ({
-          id: response.id,
-          nom: response.nom,
-          email: response.email,
-          telephone: response.telephone,
-          adresse: response.adresse,
-          description: response.description,
-          categorieProduits: response.categorieProduits || [],
-          dateInscription: new Date(response.dateInscription)
-        })),
-        catchError(error => {
-          console.error('Erreur lors de la récupération du profil:', error);
-          return throwError(() => new Error('Impossible de récupérer le profil du fournisseur.'));
-        })
-      );
-  }
-
-  /**
-   * Met à jour le profil du fournisseur
-   */
-  updateProfilFournisseur(profil: Partial<ProfilFournisseur>): Observable<ProfilFournisseur> {
-    // Récupère l'utilisateur connecté pour vérifier son rôle
-    const currentUser = this.authService.getCurrentUser();
-    if (!currentUser || !this.authService.hasRole('FOURNISSEUR')) {
-      return throwError(() => new Error('Accès non autorisé. Vous devez être connecté en tant que fournisseur.'));
-    }
-    
-    return this.http.put<any>(`${this.apiUrl}/profil`, profil)
-      .pipe(
-        map(response => ({
-          id: response.id,
-          nom: response.nom,
-          email: response.email,
-          telephone: response.telephone,
-          adresse: response.adresse,
-          description: response.description,
-          categorieProduits: response.categorieProduits || [],
-          dateInscription: new Date(response.dateInscription)
-        })),
-        catchError(error => {
-          console.error('Erreur lors de la mise à jour du profil:', error);
-          return throwError(() => new Error('Impossible de mettre à jour le profil du fournisseur.'));
         })
       );
   }
@@ -791,6 +770,60 @@ export class FournisseurService {
   /**
    * Récupère les statistiques pour le tableau de bord du fournisseur
    */
+  /**
+   * Récupère le profil du fournisseur connecté
+   */
+  getProfilFournisseur(): Observable<ProfilFournisseur> {
+    // Récupère l'utilisateur connecté pour vérifier son rôle
+    const currentUser = this.authService.getCurrentUser();
+    if (!currentUser || !this.authService.hasRole('FOURNISSEUR')) {
+      return throwError(() => new Error('Accès non autorisé. Vous devez être connecté en tant que fournisseur.'));
+    }
+    
+    return this.http.get<ProfilFournisseur>(`${this.apiUrl}/profil`)
+      .pipe(
+        map(response => ({
+          id: response.id,
+          nom: response.nom,
+          email: response.email,
+          telephone: response.telephone,
+          adresse: response.adresse,
+          description: response.description,
+          categorieProduits: response.categorieProduits || [],
+          dateInscription: new Date(response.dateInscription)
+        })),
+        catchError(error => {
+          if (error.status === 404) {
+            return throwError(() => new Error('Profil fournisseur non trouvé.'));
+          }
+          if (error.status === 401 || error.status === 403) {
+            return throwError(() => new Error('Accès non autorisé. Veuillez vous reconnecter.'));
+          }
+          console.error('Erreur lors de la récupération du profil:', error);
+          return throwError(() => new Error('Impossible de charger le profil fournisseur.'));
+        })
+      );
+  }
+
+  /**
+   * Met à jour le profil du fournisseur connecté
+   */
+  updateProfilFournisseur(profilData: Partial<ProfilFournisseur>): Observable<ProfilFournisseur> {
+    // Récupère l'utilisateur connecté pour vérifier son rôle
+    const currentUser = this.authService.getCurrentUser();
+    if (!currentUser || !this.authService.hasRole('FOURNISSEUR')) {
+      return throwError(() => new Error('Accès non autorisé. Vous devez être connecté en tant que fournisseur.'));
+    }
+    
+    return this.http.put<ProfilFournisseur>(`${this.apiUrl}/profil`, profilData)
+      .pipe(
+        catchError(error => {
+          console.error('Erreur lors de la mise à jour du profil fournisseur:', error);
+          return throwError(() => new Error('Impossible de mettre à jour les informations du profil.'));
+        })
+      );
+  }
+
   getDashboardStats(): Observable<DashboardStats> {
     // Récupère l'utilisateur connecté pour vérifier son rôle
     const currentUser = this.authService.getCurrentUser();
@@ -812,4 +845,6 @@ export class FournisseurService {
         })
       );
   }
+
+
 }

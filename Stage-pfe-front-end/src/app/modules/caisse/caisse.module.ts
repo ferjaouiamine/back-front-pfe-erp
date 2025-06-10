@@ -5,6 +5,8 @@ import { CaisseRoutingModule } from './caisse-routing.module';
 import { VendorDashboardComponent } from './components/vendor-dashboard/vendor-dashboard.component';
 import { PosComponent } from './components/pos/pos.component';
 import { ProductDetailsDialogComponent } from './components/product-details-dialog/product-details-dialog.component';
+import { OpenRegisterDialogComponent } from './components/open-register-dialog/open-register-dialog.component';
+import { CloseRegisterDialogComponent } from './components/close-register-dialog/close-register-dialog.component';
 
 // Angular Material Imports
 import { MatCardModule } from '@angular/material/card';
@@ -26,7 +28,9 @@ import { MatTooltipModule } from '@angular/material/tooltip';
   declarations: [
     VendorDashboardComponent,
     PosComponent,
-    ProductDetailsDialogComponent
+    ProductDetailsDialogComponent,
+    OpenRegisterDialogComponent,
+    CloseRegisterDialogComponent
   ],
   imports: [
     CommonModule,

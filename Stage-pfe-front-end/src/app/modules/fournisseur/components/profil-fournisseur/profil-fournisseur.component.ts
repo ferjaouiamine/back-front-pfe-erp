@@ -64,14 +64,28 @@ export class ProfilFournisseurComponent implements OnInit {
     
     this.fournisseurService.getProfilFournisseur()
       .subscribe({
-        next: (profil) => {
+        next: (profil: ProfilFournisseur) => {
           this.profil = profil;
           this.remplirFormulaire(profil);
-          this.isLoading = false;
+            this.isLoading = false;
         },
-        error: (err) => {
-          this.error = 'Erreur lors du chargement du profil';
+        error: (err: any) => {
           this.isLoading = false;
+          
+          if (err.status === 401 || err.status === 403) {
+            this.error = 'Accès non autorisé. Veuillez vous reconnecter.';
+            this.snackBar.open('Session expirée. Veuillez vous reconnecter.', 'Fermer', {
+              duration: 5000,
+              horizontalPosition: 'center',
+              verticalPosition: 'bottom',
+              panelClass: ['error-snackbar']
+            });
+          } else if (err.status === 0) {
+            this.error = 'Impossible de se connecter au serveur. Vérifiez votre connexion internet.';
+          } else {
+            this.error = `Erreur lors du chargement du profil: ${err.status ? err.status : 'Erreur inconnue'}`;
+          }
+          
           console.error('Erreur profil fournisseur:', err);
         }
       });
@@ -101,10 +115,18 @@ export class ProfilFournisseurComponent implements OnInit {
         const control = this.profilForm.get(key);
         control?.markAsTouched();
       });
+      
+      this.snackBar.open('Veuillez corriger les erreurs dans le formulaire', 'Fermer', {
+        duration: 3000,
+        horizontalPosition: 'center',
+        verticalPosition: 'bottom',
+        panelClass: ['warning-snackbar']
+      });
       return;
     }
     
     this.isSaving = true;
+    this.error = null;
     
     const profilData: Partial<ProfilFournisseur> = {
       ...this.profilForm.value
@@ -112,23 +134,38 @@ export class ProfilFournisseurComponent implements OnInit {
     
     this.fournisseurService.updateProfilFournisseur(profilData)
       .subscribe({
-        next: (profil) => {
+        next: (profil: ProfilFournisseur) => {
           this.profil = profil;
           this.isSaving = false;
           this.snackBar.open('Profil mis à jour avec succès', 'Fermer', {
             duration: 3000,
             horizontalPosition: 'center',
-            verticalPosition: 'bottom'
+            verticalPosition: 'bottom',
+            panelClass: ['success-snackbar']
           });
         },
-        error: (err) => {
+        error: (err: any) => {
           this.isSaving = false;
-          this.snackBar.open('Erreur lors de la mise à jour du profil', 'Fermer', {
-            duration: 3000,
+          
+          let errorMessage = 'Erreur lors de la mise à jour du profil';
+          
+          if (err.status === 401 || err.status === 403) {
+            errorMessage = 'Session expirée. Veuillez vous reconnecter.';
+          } else if (err.status === 0) {
+            errorMessage = 'Impossible de se connecter au serveur. Vérifiez votre connexion internet.';
+          } else if (err.status === 400) {
+            errorMessage = 'Données invalides. Veuillez vérifier les informations saisies.';
+          } else if (err.error && err.error.message) {
+            errorMessage = err.error.message;
+          }
+          
+          this.snackBar.open(errorMessage, 'Fermer', {
+            duration: 5000,
             horizontalPosition: 'center',
             verticalPosition: 'bottom',
             panelClass: ['error-snackbar']
           });
+          
           console.error('Erreur mise à jour profil:', err);
         }
       });

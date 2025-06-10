@@ -2,6 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
 import { FournisseurService, DashboardStats } from '../../services/fournisseur.service';
 import { AuthService } from '../../../auth/services/auth.service';
+import { MatSnackBar } from '@angular/material/snack-bar';
 
 @Component({
   selector: 'app-fournisseur-dashboard',
@@ -21,11 +22,15 @@ export class FournisseurDashboardComponent implements OnInit {
   
   // Informations utilisateur
   username: string = '';
+  
+  // Date du jour
+  today: Date = new Date();
 
   constructor(
     private router: Router,
     private authService: AuthService,
-    private fournisseurService: FournisseurService
+    private fournisseurService: FournisseurService,
+    private snackBar: MatSnackBar
   ) { }
 
   ngOnInit(): void {
@@ -55,18 +60,27 @@ export class FournisseurDashboardComponent implements OnInit {
         this.isLoading = false;
       },
       error: (err) => {
-        this.error = 'Erreur lors du chargement des statistiques';
-        this.isLoading = false;
         console.error('Erreur dashboard fournisseur:', err);
         
-        // En mode développement, utiliser des données simulées en cas d'erreur
-        // À supprimer en production
-        this.commandesEnAttente = 5;
-        this.commandesEnCours = 3;
-        this.commandesLivrees = 12;
-        this.totalCommandes = this.commandesEnAttente + this.commandesEnCours + this.commandesLivrees;
+        // Afficher un message d'erreur plus précis
+        if (err.status === 401 || err.status === 403) {
+          this.error = 'Accès non autorisé. Veuillez vous reconnecter.';
+          this.snackBar.open('Session expirée. Veuillez vous reconnecter.', 'OK', {
+            duration: 5000,
+            panelClass: ['error-snackbar']
+          });
+        } else if (err.status === 0 || err.status === 504) {
+          this.error = 'Impossible de se connecter au serveur. Vérifiez votre connexion internet.';
+        } else {
+          this.error = 'Erreur lors du chargement des statistiques. Veuillez réessayer.';
+        }
+        
+        // Utiliser des données simulées en cas d'erreur pour éviter un tableau de bord vide
+        this.commandesEnAttente = 0;
+        this.commandesEnCours = 0;
+        this.commandesLivrees = 0;
+        this.totalCommandes = 0;
         this.isLoading = false;
-        this.error = null;
       }
     });
   }
@@ -76,6 +90,50 @@ export class FournisseurDashboardComponent implements OnInit {
    */
   voirCommandes(): void {
     this.router.navigate(['/fournisseur/commandes']);
+  }
+
+  /**
+   * Navigue vers le module de commandes
+   */
+  navigateToCommandes(): void {
+    this.router.navigate(['/fournisseur/commandes']);
+  }
+
+  /**
+   * Navigue vers le module de factures
+   */
+  navigateToFactures(): void {
+    this.router.navigate(['/fournisseur/factures']);
+  }
+
+  /**
+   * Navigue vers le module de produits
+   */
+  navigateToProduits(): void {
+    this.router.navigate(['/fournisseur/produits']);
+  }
+
+  /**
+   * Navigue vers le module d'expéditions
+   */
+  navigateToExpeditions(): void {
+    // Vérifier s'il y a des commandes en cours
+    if (this.commandesEnCours > 0) {
+      this.router.navigate(['/fournisseur/commandes']);
+    } else {
+      this.snackBar.open('Aucune commande en cours à expédier', 'Fermer', {
+        duration: 3000,
+        horizontalPosition: 'center',
+        verticalPosition: 'bottom'
+      });
+    }
+  }
+
+  /**
+   * Navigue vers les notifications
+   */
+  navigateToNotifications(): void {
+    this.router.navigate(['/fournisseur/notifications']);
   }
 
   /**

@@ -511,7 +511,6 @@ export class FactureService {
       case 'BROUILLON':
         return 'DRAFT';
       case 'EN_ATTENTE':
-      case 'EN_ATTENTE':
         return 'PENDING';
       case 'PAYEE':
       case 'PAYÉE':

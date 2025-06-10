@@ -338,7 +338,7 @@ export class VendorDashboardComponent implements OnInit, OnDestroy {
   }
 
   viewAllFactures(): void {
-    this.router.navigate(['/facturation']);
+    this.router.navigate(['/facturation/list']);
   }
 
   createNewFacture(): void {

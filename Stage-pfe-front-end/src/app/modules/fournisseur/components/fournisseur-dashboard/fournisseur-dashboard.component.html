@@ -2,6 +2,7 @@
   <div class="dashboard-header">
     <h1>Tableau de bord Fournisseur</h1>
     <p class="welcome-message">Bienvenue, <strong>{{ username }}</strong></p>
+    <p class="date-info">{{ today | date:'EEEE d MMMM yyyy' }}</p>
   </div>
 
   <div class="loading-container" *ngIf="isLoading">
@@ -18,59 +19,150 @@
 
   <div class="dashboard-content" *ngIf="!isLoading && !error">
     <!-- Statistiques -->
-    <div class="stats-container">
-      <div class="stat-card">
-        <div class="stat-icon">
-          <i class="fas fa-clock"></i>
+    <div class="stats-section">
+      <h2>Aperçu des commandes</h2>
+      <div class="stats-container">
+        <div class="stat-card">
+          <div class="stat-icon">
+            <i class="fas fa-clock"></i>
+          </div>
+          <div class="stat-content">
+            <h3>{{ commandesEnAttente }}</h3>
+            <p>En attente</p>
+          </div>
         </div>
-        <div class="stat-content">
-          <h3>{{ commandesEnAttente }}</h3>
-          <p>Commandes en attente</p>
-        </div>
-      </div>
 
-      <div class="stat-card">
-        <div class="stat-icon">
-          <i class="fas fa-spinner"></i>
+        <div class="stat-card">
+          <div class="stat-icon">
+            <i class="fas fa-spinner"></i>
+          </div>
+          <div class="stat-content">
+            <h3>{{ commandesEnCours }}</h3>
+            <p>En cours</p>
+          </div>
         </div>
-        <div class="stat-content">
-          <h3>{{ commandesEnCours }}</h3>
-          <p>Commandes en cours</p>
-        </div>
-      </div>
 
-      <div class="stat-card">
-        <div class="stat-icon">
-          <i class="fas fa-check-circle"></i>
+        <div class="stat-card">
+          <div class="stat-icon">
+            <i class="fas fa-check-circle"></i>
+          </div>
+          <div class="stat-content">
+            <h3>{{ commandesLivrees }}</h3>
+            <p>Livrées</p>
+          </div>
         </div>
-        <div class="stat-content">
-          <h3>{{ commandesLivrees }}</h3>
-          <p>Commandes livrées</p>
-        </div>
-      </div>
 
-      <div class="stat-card">
-        <div class="stat-icon">
-          <i class="fas fa-shopping-cart"></i>
-        </div>
-        <div class="stat-content">
-          <h3>{{ totalCommandes }}</h3>
-          <p>Total commandes</p>
+        <div class="stat-card">
+          <div class="stat-icon">
+            <i class="fas fa-shopping-cart"></i>
+          </div>
+          <div class="stat-content">
+            <h3>{{ totalCommandes }}</h3>
+            <p>Total</p>
+          </div>
         </div>
       </div>
     </div>
 
-    <!-- Actions rapides -->
-    <div class="quick-actions">
-      <h2>Actions rapides</h2>
-      <div class="actions-container">
-        <button mat-raised-button color="primary" (click)="voirCommandes()">
-          <i class="fas fa-list me-2"></i>Voir toutes les commandes
-        </button>
-        <button mat-raised-button color="accent" (click)="voirProfil()">
-          <i class="fas fa-user me-2"></i>Gérer mon profil
-        </button>
+    <!-- Modules disponibles -->
+    <div class="modules-section">
+      <h2>Modules disponibles</h2>
+      <div class="modules-grid">
+        <!-- Module Commandes -->
+        <mat-card class="module-card" (click)="navigateToCommandes()">
+          <mat-card-header>
+            <mat-icon mat-card-avatar>shopping_cart</mat-icon>
+            <mat-card-title>Gestion des commandes</mat-card-title>
+            <mat-card-subtitle>Suivi et traitement des commandes</mat-card-subtitle>
+          </mat-card-header>
+          <mat-card-content>
+            <ul class="feature-list">
+              <li><mat-icon>visibility</mat-icon> Consulter les commandes</li>
+              <li><mat-icon>edit</mat-icon> Mettre à jour le statut</li>
+              <li><mat-icon>local_shipping</mat-icon> Gérer les expéditions</li>
+            </ul>
+          </mat-card-content>
+          <mat-card-actions>
+            <button mat-raised-button color="primary">ACCÉDER</button>
+          </mat-card-actions>
+        </mat-card>
+
+        <!-- Module Factures -->
+        <mat-card class="module-card" (click)="navigateToFactures()">
+          <mat-card-header>
+            <mat-icon mat-card-avatar>receipt</mat-icon>
+            <mat-card-title>Factures et paiements</mat-card-title>
+            <mat-card-subtitle>Gestion de la facturation</mat-card-subtitle>
+          </mat-card-header>
+          <mat-card-content>
+            <ul class="feature-list">
+              <li><mat-icon>post_add</mat-icon> Créer des factures</li>
+              <li><mat-icon>picture_as_pdf</mat-icon> Générer des PDF</li>
+              <li><mat-icon>payments</mat-icon> Suivre les paiements</li>
+            </ul>
+          </mat-card-content>
+          <mat-card-actions>
+            <button mat-raised-button color="primary">ACCÉDER</button>
+          </mat-card-actions>
+        </mat-card>
+
+        <!-- Module Produits -->
+        <mat-card class="module-card" (click)="navigateToProduits()">
+          <mat-card-header>
+            <mat-icon mat-card-avatar>inventory_2</mat-icon>
+            <mat-card-title>Catalogue produits</mat-card-title>
+            <mat-card-subtitle>Gestion de vos produits</mat-card-subtitle>
+          </mat-card-header>
+          <mat-card-content>
+            <ul class="feature-list">
+              <li><mat-icon>add_circle</mat-icon> Ajouter des produits</li>
+              <li><mat-icon>update</mat-icon> Mettre à jour le stock</li>
+              <li><mat-icon>price_change</mat-icon> Gérer les prix</li>
+            </ul>
+          </mat-card-content>
+          <mat-card-actions>
+            <button mat-raised-button color="primary">ACCÉDER</button>
+          </mat-card-actions>
+        </mat-card>
+
+        <!-- Module Expéditions -->
+        <mat-card class="module-card" (click)="navigateToExpeditions()">
+          <mat-card-header>
+            <mat-icon mat-card-avatar>local_shipping</mat-icon>
+            <mat-card-title>Avis d'expédition</mat-card-title>
+            <mat-card-subtitle>Gestion des livraisons</mat-card-subtitle>
+          </mat-card-header>
+          <mat-card-content>
+            <ul class="feature-list">
+              <li><mat-icon>add_box</mat-icon> Créer des avis</li>
+              <li><mat-icon>track_changes</mat-icon> Suivi des colis</li>
+              <li><mat-icon>update</mat-icon> Mise à jour des statuts</li>
+            </ul>
+          </mat-card-content>
+          <mat-card-actions>
+            <button mat-raised-button color="primary">ACCÉDER</button>
+          </mat-card-actions>
+        </mat-card>
       </div>
+    </div>
+
+    <!-- Profil et paramètres -->
+    <div class="profile-section">
+      <h2>Profil et paramètres</h2>
+      <mat-card class="profile-card">
+        <mat-card-content>
+          <div class="profile-actions">
+            <button mat-raised-button color="accent" (click)="voirProfil()">
+              <mat-icon>account_circle</mat-icon>
+              Gérer mon profil
+            </button>
+            <button mat-raised-button color="primary" (click)="navigateToNotifications()">
+              <mat-icon>notifications</mat-icon>
+              Mes notifications
+            </button>
+          </div>
+        </mat-card-content>
+      </mat-card>
     </div>
   </div>
 </div>

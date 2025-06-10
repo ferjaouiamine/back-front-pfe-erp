@@ -946,8 +946,12 @@ export class ProductService {
     
     const headers = this.getAuthHeaders();
     
+    // URL correcte pour les catégories
+    const categoriesUrl = 'http://localhost:8082/api/categories';
+    const alternativeCategoriesUrl = 'http://localhost:8083/api/categories';
+    
     // Essayer d'abord avec le backend sur le port 8082
-    return this.http.get<any[]>(`${this.apiUrl}/categories`, { headers }).pipe(
+    return this.http.get<any[]>(categoriesUrl, { headers }).pipe(
       map(response => {
         // Marquer le backend comme disponible puisque la requête a réussi
         this.backendAvailable = true;
@@ -957,7 +961,7 @@ export class ProductService {
         console.error('Erreur lors de la récupération des catégories sur le port 8082:', error);
         
         // En cas d'échec, essayer avec le backend sur le port 8083
-        return this.http.get<any[]>(`${this.alternativeApiUrl}/categories`, { headers }).pipe(
+        return this.http.get<any[]>(alternativeCategoriesUrl, { headers }).pipe(
           map(response => {
             // Marquer le backend comme disponible puisque la requête a réussi
             this.backendAvailable = true;

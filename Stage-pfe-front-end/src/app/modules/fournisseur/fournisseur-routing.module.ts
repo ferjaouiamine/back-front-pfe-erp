@@ -13,6 +13,7 @@ import { AvisExpeditionComponent } from './components/avis-expedition/avis-exped
 import { FactureListComponent } from './components/facture-list/facture-list.component';
 import { FactureFormComponent } from './components/facture-form/facture-form.component';
 import { PaiementListComponent } from './components/paiement-list/paiement-list.component';
+import { PdfGeneratorComponent } from './components/pdf-generator/pdf-generator.component';
 
 // Guards
 import { AuthGuard } from '../../core/guards/auth.guard';
@@ -40,6 +41,10 @@ const routes: Routes = [
       {
         path: 'commandes/:id/avis-expedition',
         component: AvisExpeditionComponent
+      },
+      {
+        path: 'commandes/:id/documents',
+        component: PdfGeneratorComponent
       },
       {
         path: 'factures',

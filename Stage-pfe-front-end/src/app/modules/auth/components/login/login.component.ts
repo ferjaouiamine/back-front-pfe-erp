@@ -227,8 +227,8 @@ export class LoginComponent implements OnInit {
       console.log('Redirection vers dashboard ADMIN');
       return '/admin/dashboard';
     } else if (hasVendeurRole) {
-      console.log('Redirection vers POS (VENDEUR)');
-      return '/caisse/pos';
+      console.log('Redirection vers dashboard VENDEUR');
+      return '/vendor-dashboard';
     } else if (hasFournisseurRole) {
       console.log('Redirection vers interface FOURNISSEUR');
       return '/fournisseur/commandes';
@@ -255,7 +255,7 @@ export class LoginComponent implements OnInit {
       case 'ADMIN':
         return '/admin/dashboard';
       case 'VENDEUR':
-        return '/caisse/pos'; // Redirection des vendeurs vers le POS
+        return '/vendor-dashboard'; // Redirection des vendeurs vers le nouveau dashboard
       case 'FOURNISSEUR':
         return '/fournisseur/commandes';
       case 'ACHAT':

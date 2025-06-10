@@ -42,9 +42,11 @@ import { AvisExpeditionComponent } from './components/avis-expedition/avis-exped
 import { FactureListComponent } from './components/facture-list/facture-list.component';
 import { FactureFormComponent } from './components/facture-form/facture-form.component';
 import { ProduitListComponent } from './components/produit-list/produit-list.component';
+import { PdfGeneratorComponent } from './components/pdf-generator/pdf-generator.component';
 
 // Services
 import { FournisseurService } from './services/fournisseur.service';
+import { PdfService } from './services/pdf.service';
 
 @NgModule({
   declarations: [
@@ -59,7 +61,8 @@ import { FournisseurService } from './services/fournisseur.service';
     AvisExpeditionComponent,
     FactureListComponent,
     FactureFormComponent,
-    ProduitListComponent
+    ProduitListComponent,
+    PdfGeneratorComponent
   ],
   imports: [
     CommonModule,
@@ -91,7 +94,8 @@ import { FournisseurService } from './services/fournisseur.service';
     MatSnackBarModule
   ],
   providers: [
-    FournisseurService
+    FournisseurService,
+    PdfService
   ],
   schemas: [NO_ERRORS_SCHEMA, CUSTOM_ELEMENTS_SCHEMA]
 })
