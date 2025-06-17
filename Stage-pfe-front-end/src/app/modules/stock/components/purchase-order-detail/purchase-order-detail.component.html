@@ -1,0 +1,282 @@
+<div class="purchase-order-detail-container">
+  <header class="page-header">
+    <div class="header-title">
+      <h1 *ngIf="isNewOrder">Nouvelle Commande d'Achat</h1>
+      <h1 *ngIf="!isNewOrder && !isReadOnly">Modifier la Commande d'Achat</h1>
+      <h1 *ngIf="!isNewOrder && isReadOnly">Détails de la Commande d'Achat</h1>
+      <p *ngIf="!isNewOrder">{{ orderForm.get('orderNumber')?.value || 'Sans numéro' }}</p>
+    </div>
+    <div class="header-actions">
+      <button *ngIf="!isReadOnly" class="btn btn-primary" (click)="saveOrder()" [disabled]="isLoading">
+        <i class="fas fa-save"></i> Enregistrer
+      </button>
+      <button *ngIf="isReadOnly && !isNewOrder && orderId" class="btn btn-primary" [routerLink]="['/stock/purchase-orders/edit', orderId]">
+        <i class="fas fa-edit"></i> Modifier
+      </button>
+      <button *ngIf="!isNewOrder && orderId" class="btn btn-outline-secondary me-2" (click)="generatePdf()">
+        <i class="fas fa-file-pdf"></i> Générer PDF
+      </button>
+      <button class="btn btn-outline-secondary me-2" (click)="cancel()">
+        <i class="fas fa-times"></i> {{ isReadOnly ? 'Retour' : 'Annuler' }}
+      </button>
+      <button class="btn" [ngClass]="{'btn-warning': !useMockData, 'btn-secondary': useMockData}" (click)="toggleMockData()">
+        <i class="fas" [ngClass]="{'fa-toggle-on': useMockData, 'fa-toggle-off': !useMockData}"></i> 
+        {{ useMockData ? 'Désactiver données fictives' : 'Activer données fictives' }}
+      </button>
+    </div>
+  </header>
+
+  <!-- Messages d'alerte -->
+  <div class="alert alert-success" *ngIf="successMessage">
+    <i class="fas fa-check-circle"></i> {{ successMessage }}
+  </div>
+  <div class="alert alert-warning" *ngIf="warningMessage">
+    <i class="fas fa-exclamation-triangle"></i> {{ warningMessage }}
+  </div>
+  <div class="alert alert-warning" *ngIf="mockDataWarningMessage">
+    <i class="fas fa-exclamation-triangle"></i> {{ mockDataWarningMessage }}
+  </div>
+  <div class="alert alert-danger" *ngIf="errorMessage">
+    <i class="fas fa-exclamation-circle"></i> {{ errorMessage }}
+  </div>
+
+  <!-- Indicateur de chargement -->
+  <div class="loading-overlay" *ngIf="isLoading">
+    <div class="spinner"></div>
+    <p>Traitement en cours...</p>
+  </div>
+
+  <!-- Formulaire de commande -->
+  <form [formGroup]="orderForm" (ngSubmit)="saveOrder()" class="order-form">
+    <!-- Informations générales -->
+    <div class="form-section">
+      <h3>Informations Générales</h3>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="supplierId">Fournisseur <span class="required">*</span></label>
+          <select 
+            id="supplierId" 
+            formControlName="supplierId" 
+            class="form-control" 
+            [class.is-invalid]="isInvalid('supplierId')"
+          >
+            <option value="">Sélectionner un fournisseur</option>
+            <option *ngFor="let supplier of suppliers" [value]="supplier.id">
+              {{ supplier.name }}
+            </option>
+          </select>
+          <div class="invalid-feedback" *ngIf="isInvalid('supplierId')">
+            Veuillez sélectionner un fournisseur
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="orderDate">Date de commande <span class="required">*</span></label>
+          <input 
+            type="date" 
+            id="orderDate" 
+            formControlName="orderDate" 
+            class="form-control" 
+            [class.is-invalid]="isInvalid('orderDate')"
+          >
+          <div class="invalid-feedback" *ngIf="isInvalid('orderDate')">
+            Veuillez sélectionner une date de commande
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="expectedDeliveryDate">Date de livraison prévue</label>
+          <input 
+            type="date" 
+            id="expectedDeliveryDate" 
+            formControlName="expectedDeliveryDate" 
+            class="form-control"
+          >
+        </div>
+
+        <div class="form-group">
+          <label for="status">Statut <span class="required">*</span></label>
+          <div class="status-display">
+            <span class="status-badge" [ngClass]="'status-' + orderForm.get('status')?.value?.toLowerCase()">
+              {{ getStatusLabel(orderForm.get('status')?.value) }}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group full-width">
+          <label for="notes">Notes</label>
+          <textarea 
+            id="notes" 
+            formControlName="notes" 
+            class="form-control" 
+            rows="3"
+            placeholder="Notes ou instructions spéciales pour cette commande..."
+          ></textarea>
+        </div>
+      </div>
+    </div>
+
+    <!-- Liste des articles -->
+    <div class="form-section">
+      <div class="section-header">
+        <h3>Articles</h3>
+        <button 
+          type="button" 
+          class="btn btn-sm btn-outline-primary" 
+          (click)="openProductSearch()"
+          *ngIf="!isReadOnly"
+        >
+          <i class="fas fa-plus"></i> Ajouter un article
+        </button>
+      </div>
+
+      <div class="items-table-container">
+        <table class="items-table">
+          <thead>
+            <tr>
+              <th>Produit</th>
+              <th>Quantité</th>
+              <th>Prix unitaire</th>
+              <th>Total</th>
+              <th *ngIf="!isReadOnly">Actions</th>
+            </tr>
+          </thead>
+          <tbody formArrayName="items">
+            <tr *ngFor="let item of items.controls; let i = index" [formGroupName]="i">
+              <td>{{ item.get('productName')?.value }}</td>
+              <td>
+                <input 
+                  type="number" 
+                  formControlName="quantity" 
+                  class="form-control quantity-input" 
+                  min="1"
+                  [class.is-invalid]="isItemInvalid(i, 'quantity')"
+                  *ngIf="!isReadOnly"
+                >
+                <span *ngIf="isReadOnly">{{ item.get('quantity')?.value }}</span>
+                <div class="invalid-feedback" *ngIf="isItemInvalid(i, 'quantity')">
+                  Quantité requise (min: 1)
+                </div>
+              </td>
+              <td>
+                <input 
+                  type="number" 
+                  formControlName="unitPrice" 
+                  class="form-control price-input" 
+                  min="0"
+                  step="0.01"
+                  [class.is-invalid]="isItemInvalid(i, 'unitPrice')"
+                  *ngIf="!isReadOnly"
+                >
+                <span *ngIf="isReadOnly">{{ item.get('unitPrice')?.value | currency:'EUR':'symbol':'1.2-2' }}</span>
+                <div class="invalid-feedback" *ngIf="isItemInvalid(i, 'unitPrice')">
+                  Prix unitaire requis
+                </div>
+              </td>
+              <td>{{ item.get('total')?.value | currency:'EUR':'symbol':'1.2-2' }}</td>
+              <td *ngIf="!isReadOnly">
+                <button type="button" class="btn btn-sm btn-danger" (click)="removeItem(i)">
+                  <i class="fas fa-trash"></i>
+                </button>
+              </td>
+            </tr>
+            <tr *ngIf="items.length === 0">
+              <td colspan="5" class="empty-message">
+                <i class="fas fa-info-circle"></i>
+                Aucun article dans cette commande
+              </td>
+            </tr>
+          </tbody>
+          <tfoot>
+            <tr>
+              <td colspan="3" class="text-end">Total:</td>
+              <td colspan="2" class="total-value">{{ calculateOrderTotal() | currency:'EUR':'symbol':'1.2-2' }}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+
+    <!-- Actions de statut -->
+    <div class="form-section" *ngIf="!isNewOrder && !isReadOnly">
+      <h3>Actions</h3>
+      <div class="status-actions">
+        <button 
+          type="button" 
+          class="btn btn-outline-primary" 
+          [disabled]="!canChangeStatusTo('SENT')"
+          (click)="sendByEmail()"
+        >
+          <i class="fas fa-paper-plane"></i> Envoyer au fournisseur
+        </button>
+        <button 
+          type="button" 
+          class="btn btn-outline-success" 
+          [disabled]="!canChangeStatusTo('CONFIRMED')"
+          (click)="updateStatus('CONFIRMED')"
+        >
+          <i class="fas fa-check"></i> Confirmer la commande
+        </button>
+        <button 
+          type="button" 
+          class="btn btn-outline-info" 
+          [disabled]="!canChangeStatusTo('DELIVERED')"
+          (click)="updateStatus('DELIVERED')"
+        >
+          <i class="fas fa-truck"></i> Marquer comme livrée
+        </button>
+        <button 
+          type="button" 
+          class="btn btn-outline-danger" 
+          [disabled]="!canChangeStatusTo('CANCELLED')"
+          (click)="updateStatus('CANCELLED')"
+        >
+          <i class="fas fa-ban"></i> Annuler la commande
+        </button>
+      </div>
+    </div>
+  </form>
+
+  <!-- Recherche de produits (modal) -->
+  <div class="product-search-modal" *ngIf="showProductSearch">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h4>Ajouter un produit</h4>
+        <button type="button" class="close-btn" (click)="closeProductSearch()">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="search-box">
+          <input 
+            type="text" 
+            [(ngModel)]="productSearchTerm" 
+            (input)="filterProducts()" 
+            placeholder="Rechercher un produit..." 
+            class="form-control"
+          >
+          <i class="fas fa-search"></i>
+        </div>
+
+        <div class="products-list">
+          <div class="product-item" *ngFor="let product of filteredProducts" (click)="selectProduct(product)">
+            <div class="product-name">{{ product.name }}</div>
+            <div class="product-info">
+              <span class="product-sku" *ngIf="product.sku">SKU: {{ product.sku }}</span>
+              <span class="product-price">{{ product.price | currency:'EUR':'symbol':'1.2-2' }}</span>
+            </div>
+            <div class="product-description" *ngIf="product.description">
+              {{ product.description }}
+            </div>
+          </div>
+          <div class="empty-message" *ngIf="filteredProducts.length === 0">
+            <i class="fas fa-info-circle"></i>
+            Aucun produit trouvé
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

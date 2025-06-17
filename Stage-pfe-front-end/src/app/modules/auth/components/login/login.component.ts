@@ -239,8 +239,8 @@ export class LoginComponent implements OnInit {
       console.log('Redirection vers dashboard MAGASINIER');
       return '/stock/dashboard';
     } else if (hasClientRole) {
-      console.log('Redirection vers CAISSE (rôle CLIENT)');
-      return '/caisse';
+      console.log('Redirection vers interface ACHETEUR (rôle CLIENT)');
+      return '/acheteur/dashboard';
     } else {
       console.log('Aucun rôle reconnu, redirection vers CAISSE (par défaut)');
       return '/caisse';
@@ -263,7 +263,7 @@ export class LoginComponent implements OnInit {
       case 'MAGASINIER':
         return '/stock/dashboard';
       case 'CLIENT':
-        return '/caisse';
+        return '/acheteur/dashboard';
       default:
         return '/caisse';
     }

@@ -145,13 +145,43 @@ export class FactureDetailComponent implements OnInit {
     return this.getTotal() - this.getDiscountAmount();
   }
 
-  toggleItemDetails(item: FactureItem): void {
-    const itemId = item.id;
-    if (this.expandedItems.has(itemId)) {
-      this.expandedItems.delete(itemId);
-    } else {
-      this.expandedItems.add(itemId);
+  toggleItemDetails(item: ExtendedFactureItem): void {
+    item.showDetails = !item.showDetails;
+  }
+
+  /**
+   * Télécharge le reçu de la facture
+   */
+  downloadReceipt(): void {
+    if (!this.factureId) return;
+    if (!this.facture) return;
+    
+    // Vérifier si la facture est payée
+    if (this.facture.status !== 'PAID') {
+      this.errorMessage = 'Vous devez d\'abord payer la facture pour télécharger le reçu.';
+      setTimeout(() => this.errorMessage = null, 5000);
+      return;
     }
+    
+    this.isLoading = true;
+    this.factureService.downloadReceipt(this.factureId)
+      .pipe(finalize(() => this.isLoading = false))
+      .subscribe({
+        next: () => {
+          // Le téléchargement est géré dans le service
+          // Afficher un message de succès temporaire
+          const previousMessage = this.errorMessage;
+          this.errorMessage = 'Le reçu a été téléchargé avec succès.';
+          setTimeout(() => {
+            // Restaurer le message précédent ou effacer
+            this.errorMessage = previousMessage;
+          }, 5000);
+        },
+        error: (error) => {
+          console.error('Erreur lors du téléchargement du reçu:', error);
+          this.errorMessage = 'Impossible de télécharger le reçu. Veuillez réessayer plus tard.';
+        }
+      });
   }
 
   isItemExpanded(item: FactureItem): boolean {

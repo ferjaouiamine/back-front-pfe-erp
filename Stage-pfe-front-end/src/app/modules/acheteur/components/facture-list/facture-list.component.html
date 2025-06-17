@@ -1,0 +1,75 @@
+<div class="facture-list-container">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>Mes Factures</h2>
+    <div class="d-flex">
+      <input type="text" class="form-control mr-2" placeholder="Rechercher une facture...">
+      <button class="btn btn-outline-primary">Rechercher</button>
+    </div>
+  </div>
+
+  <div class="alert alert-info" role="alert" *ngIf="loading">
+    <i class="fas fa-spinner fa-spin mr-2"></i> Chargement des factures...
+  </div>
+
+  <div class="alert alert-danger" role="alert" *ngIf="error">
+    <i class="fas fa-exclamation-triangle mr-2"></i> {{ error }}
+  </div>
+  
+  <div class="alert" [ngClass]="'alert-' + message.type" role="alert" *ngIf="message">
+    <i class="fas" [ngClass]="{
+      'fa-check-circle': message.type === 'success',
+      'fa-exclamation-triangle': message.type === 'warning' || message.type === 'danger',
+      'fa-info-circle': message.type === 'info'
+    }"></i> {{ message.text }}
+  </div>
+
+  <div class="card" *ngIf="!loading && !error && factures.length === 0">
+    <div class="card-body text-center">
+      <h5 class="card-title">Aucune facture disponible</h5>
+      <p class="card-text">Vous n'avez actuellement aucune facture à payer.</p>
+    </div>
+  </div>
+
+  <div class="table-responsive">
+    <table class="table table-striped table-hover">
+      <thead>
+        <tr>
+          <th>Numéro</th>
+          <th>Date</th>
+          <th>Montant</th>
+          <th>Statut</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let facture of factures">
+          <td>{{ facture.number }}</td>
+          <td>{{ facture.date | date:'dd/MM/yyyy' }}</td>
+          <td>{{ facture.total | currency:'EUR' }}</td>
+          <td>
+            <span class="badge" [ngClass]="{
+              'badge-success': facture.status === 'PAID' || facture.payee,
+              'badge-warning': facture.status === 'PENDING',
+              'badge-secondary': facture.status === 'DRAFT',
+              'badge-danger': facture.status === 'CANCELLED'
+            }">
+              {{ facture.status === 'PAID' ? 'Payée' : 
+                 facture.status === 'PENDING' ? 'En attente' : 
+                 facture.status === 'DRAFT' ? 'Brouillon' : 
+                 facture.status === 'CANCELLED' ? 'Annulée' : 
+                 facture.status }}
+            </span>
+          </td>
+          <td>
+            <button class="btn btn-sm btn-primary mr-2" (click)="payerFacture(facture)" [disabled]="facture.payee">
+              <i class="fas fa-credit-card mr-1"></i> Payer
+            </button>
+            <button class="btn btn-sm btn-success" (click)="telechargerRecu(facture)" [disabled]="!facture.payee" title="Télécharger le reçu">
+              <i class="fas fa-file-download mr-1"></i> Reçu
+            </button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>

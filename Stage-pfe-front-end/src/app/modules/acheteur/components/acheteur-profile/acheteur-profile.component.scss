@@ -1,0 +1,224 @@
+@import '../../../../../theme-variables';
+
+.profile-container {
+  padding: 1.5rem;
+  animation: fadeIn 0.5s ease;
+  max-width: 1200px;
+  margin: 0 auto;
+  width: 100%;
+  min-height: calc(100vh - 64px);
+  display: flex;
+  flex-direction: column;
+  
+  @media (max-width: 768px) {
+    padding: 1rem;
+  }
+  
+  .row {
+    flex: 1;
+  }
+}
+
+.profile-card {
+  margin-bottom: 1.5rem;
+  border: none;
+  border-radius: 12px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+  overflow: hidden;
+  height: 100%;
+  
+  .card-header {
+    background: linear-gradient(135deg, #3f51b5 0%, #2196f3 100%);
+    border-bottom: none;
+    padding: 1.25rem 1.5rem;
+    
+    h5 {
+      color: white;
+      font-weight: 600;
+      margin: 0;
+      display: flex;
+      align-items: center;
+      
+      &:before {
+        content: '';
+        display: inline-block;
+        width: 4px;
+        height: 18px;
+        background: white;
+        margin-right: 10px;
+        border-radius: 2px;
+      }
+    }
+  }
+  
+  .card-body {
+    padding: 2rem 1.5rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+}
+
+.profile-avatar {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  background: $primary-color;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+  border: 4px solid white;
+  
+  i {
+    font-size: 4rem;
+    color: white;
+  }
+}
+
+.profile-name {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+  color: #333;
+}
+
+.profile-role {
+  color: #666;
+  font-size: 1rem;
+  margin-bottom: 1.5rem;
+  padding: 0.25rem 1rem;
+  background-color: rgba(63, 81, 181, 0.1);
+  border-radius: 20px;
+  display: inline-block;
+}
+
+.profile-info {
+  width: 100%;
+  
+  .info-item {
+    display: flex;
+    align-items: center;
+    margin-bottom: 0.75rem;
+    padding: 0.75rem;
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    
+    i {
+      color: #3f51b5;
+      font-size: 1.2rem;
+      margin-right: 1rem;
+      min-width: 20px;
+      text-align: center;
+    }
+    
+    span {
+      color: #555;
+      font-weight: 500;
+    }
+  }
+}
+
+.card {
+  border: none;
+  border-radius: 12px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+  overflow: hidden;
+  
+  .card-header {
+    background: linear-gradient(135deg, #3f51b5 0%, #2196f3 100%);
+    border-bottom: none;
+    padding: 1.25rem 1.5rem;
+    
+    h5 {
+      color: white;
+      font-weight: 600;
+      margin: 0;
+      display: flex;
+      align-items: center;
+      
+      &:before {
+        content: '';
+        display: inline-block;
+        width: 4px;
+        height: 18px;
+        background: white;
+        margin-right: 10px;
+        border-radius: 2px;
+      }
+    }
+  }
+  
+  .card-body {
+    padding: 1.5rem;
+  }
+}
+
+.form-group {
+  margin-bottom: 1.25rem;
+  
+  label {
+    font-weight: 500;
+    color: #555;
+    margin-bottom: 0.5rem;
+  }
+  
+  .form-control {
+    border-radius: 6px;
+    border: 1px solid #e0e0e0;
+    padding: 0.75rem 1rem;
+    transition: all 0.2s ease;
+    
+    &:focus {
+      border-color: #3f51b5;
+      box-shadow: 0 0 0 0.2rem rgba(63, 81, 181, 0.25);
+    }
+    
+    &:disabled {
+      background-color: #f8f9fa;
+    }
+  }
+}
+
+.btn-primary {
+  background: $primary-color;
+  border: none;
+  border-radius: 6px;
+  padding: 0.75rem 2rem;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(33, 150, 243, 0.3);
+  }
+  
+  &:active {
+    transform: translateY(0);
+  }
+}
+
+.btn-danger {
+  background: $error-color;
+  border: none;
+  border-radius: 6px;
+  padding: 0.75rem 2rem;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  color: white;
+  
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(33, 150, 243, 0.3);
+  }
+  
+  &:active {
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}

@@ -50,6 +50,12 @@ const routes: Routes = [
     data: { roles: ['FOURNISSEUR'] } // Restreindre l'accès uniquement au rôle FOURNISSEUR
   },
   { 
+    path: 'acheteur', 
+    loadChildren: () => import('./modules/acheteur/acheteur.module').then(m => m.AcheteurModule),
+    canActivate: [AuthGuard, RoleGuard],
+    data: { roles: ['CLIENT'] } // Restreindre l'accès uniquement au rôle CLIENT
+  },
+  { 
     path: 'access-denied', 
     loadChildren: () => import('./modules/shared/access-denied/access-denied.module').then(m => m.AccessDeniedModule) 
   },

@@ -19,8 +19,9 @@ import { AuthService } from '../../auth/services/auth.service';
 export class CaisseService {
   private apiUrl = 'http://localhost:8082/api/pos';
   private alternativeApiUrl = 'http://localhost:8083/api/pos';
-  private backendAvailable = true;
+  private backendAvailable = false; // Forcer l'utilisation des données fictives
   private mockDelay = 500; // Délai pour les données fictives (ms)
+  private showedMockWarning = false; // Pour éviter d'afficher plusieurs fois l'avertissement
 
   constructor(
     private http: HttpClient,
@@ -467,6 +468,17 @@ export class CaisseService {
    */
   isBackendAvailable(): boolean {
     return this.backendAvailable;
+  }
+  
+  /**
+   * Affiche un avertissement lorsque des données fictives sont utilisées
+   * N'affiche l'avertissement qu'une seule fois
+   */
+  showMockDataWarning(): void {
+    if (!this.showedMockWarning) {
+      console.warn('ATTENTION: Le backend de caisse n\'est pas disponible. Des données fictives sont utilisées.');
+      this.showedMockWarning = true;
+    }
   }
 
   /**

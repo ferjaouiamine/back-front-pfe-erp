@@ -1,4 +1,7 @@
-@import 'src/theme-variables';
+@import '../../../../../theme-variables';
+
+// Variables locales
+$text-light: rgba(255, 255, 255, 0.87);
 
 // Main container
 .dashboard-container {

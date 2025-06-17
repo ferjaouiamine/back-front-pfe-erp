@@ -9,6 +9,7 @@ import { AdminDashboardComponent } from './components/admin-dashboard/admin-dash
 import { UserManagementComponent } from './components/user-management/user-management.component';
 import { FactureManagementComponent } from './components/facture-management/facture-management.component';
 import { ProductManagementComponent } from './components/product-management/product-management.component';
+import { CategoryManagementComponent } from './components/category-management/category-management.component';
 
 @NgModule({
   declarations: [
@@ -16,7 +17,8 @@ import { ProductManagementComponent } from './components/product-management/prod
     AdminDashboardComponent,
     UserManagementComponent,
     FactureManagementComponent,
-    ProductManagementComponent
+    ProductManagementComponent,
+    CategoryManagementComponent
   ],
   imports: [
     CommonModule,

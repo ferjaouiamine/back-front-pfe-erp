@@ -236,6 +236,55 @@ $border-radius: 4px;
             margin-right: 0;
           }
         }
+        
+        .btn-action {
+          border: none;
+          background: none;
+          width: 32px;
+          height: 32px;
+          border-radius: 50%;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          transition: all 0.2s;
+          
+          &.view {
+            background-color: rgba($primary-color, 0.1);
+            color: $primary-color;
+            
+            &:hover {
+              background-color: rgba($primary-color, 0.2);
+            }
+          }
+          
+          &.pdf {
+            background-color: rgba($warning-color, 0.1);
+            color: $warning-color;
+            
+            &:hover {
+              background-color: rgba($warning-color, 0.2);
+            }
+          }
+          
+          &.email {
+            background-color: rgba($success-color, 0.1);
+            color: $success-color;
+            
+            &:hover {
+              background-color: rgba($success-color, 0.2);
+            }
+          }
+          
+          &.delete {
+            background-color: rgba($danger-color, 0.1);
+            color: $danger-color;
+            
+            &:hover {
+              background-color: rgba($danger-color, 0.2);
+            }
+          }
+        }
       }
     }
     

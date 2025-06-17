@@ -1,0 +1,235 @@
+@import '../../../../../theme-variables';
+
+.paiement-container {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 2rem 0;
+}
+
+.card {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+  border-radius: 12px;
+  overflow: hidden;
+  border: none;
+  transition: all 0.3s ease;
+  
+  &:hover {
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.15);
+  }
+}
+
+.card-header {
+  padding: 1.5rem;
+  background: linear-gradient(135deg, #3f51b5 0%, #2196f3 100%) !important;
+  border-bottom: none;
+  
+  h3 {
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    font-size: 1.5rem;
+  }
+}
+
+.card-body {
+  padding: 2rem;
+}
+
+.form-group {
+  margin-bottom: 1.5rem;
+  
+  label {
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 0.5rem;
+    font-size: 0.95rem;
+  }
+  
+  .form-text {
+    color: #6c757d;
+    font-size: 0.85rem;
+    margin-top: 0.5rem;
+  }
+}
+
+.form-control {
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  padding: 0.85rem 1rem;
+  font-size: 1rem;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+  transition: all 0.3s ease;
+  
+  &:focus {
+    box-shadow: 0 0 0 3px rgba(63, 81, 181, 0.15);
+    border-color: #3f51b5;
+  }
+  
+  &:disabled, &[readonly] {
+    background-color: #f8f9fa;
+  }
+}
+
+.input-group-text {
+  background-color: #f8f9fa;
+  border-color: rgba(0, 0, 0, 0.1);
+  color: #495057;
+  font-weight: 600;
+  border-top-left-radius: 8px;
+  border-bottom-left-radius: 8px;
+}
+
+.btn {
+  border-radius: 50px;
+  padding: 0.85rem 2rem;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  transition: all 0.3s ease;
+  
+  &.btn-primary {
+    background: linear-gradient(135deg, #3f51b5 0%, #2196f3 100%);
+    border: none;
+    box-shadow: 0 4px 10px rgba(33, 150, 243, 0.3);
+    
+    &:hover:not([disabled]) {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 15px rgba(33, 150, 243, 0.4);
+    }
+    
+    &:focus {
+      box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.3);
+    }
+  }
+  
+  &.btn-outline-secondary {
+    border-width: 2px;
+    color: #6c757d;
+    
+    &:hover {
+      background-color: #f8f9fa;
+      color: #495057;
+      transform: translateY(-2px);
+    }
+  }
+  
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.7;
+  }
+}
+
+.alert {
+  border: none;
+  border-radius: 12px;
+  padding: 1rem 1.5rem;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+  
+  &.alert-info {
+    background-color: rgba(33, 150, 243, 0.1);
+    color: #0d47a1;
+    border-left: 4px solid #2196f3;
+  }
+  
+  &.alert-danger {
+    background-color: rgba(244, 67, 54, 0.1);
+    color: #b71c1c;
+    border-left: 4px solid #f44336;
+  }
+  
+  i {
+    margin-right: 0.5rem;
+    font-size: 1.1rem;
+  }
+}
+
+.secure-payment-info {
+  border-top: 1px solid rgba(0, 0, 0, 0.05);
+  padding-top: 1.5rem;
+  font-size: 0.9rem;
+  color: #6c757d;
+  
+  i {
+    color: #4caf50;
+    font-size: 1.2rem;
+  }
+}
+
+.stripe-logo {
+  height: 28px;
+  width: auto;
+  margin-left: 0.5rem;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.1));
+  transition: all 0.3s ease;
+  
+  &:hover {
+    transform: scale(1.05);
+  }
+}
+
+.success-container {
+  text-align: center;
+  padding: 3rem 1rem;
+  
+  .success-icon {
+    font-size: 5rem;
+    color: #4caf50;
+    margin-bottom: 1rem;
+    animation: pulse 2s infinite;
+  }
+  
+  h4 {
+    font-weight: 700;
+    color: #333;
+    margin-bottom: 1rem;
+  }
+  
+  p {
+    font-size: 1.1rem;
+    color: #6c757d;
+    max-width: 80%;
+    margin: 0 auto 1.5rem;
+  }
+  
+  .btn {
+    min-width: 200px;
+  }
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.7);
+  }
+  
+  70% {
+    transform: scale(1);
+    box-shadow: 0 0 0 15px rgba(76, 175, 80, 0);
+  }
+  
+  100% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(76, 175, 80, 0);
+  }
+}
+
+// Styles pour le composant Stripe
+::ng-deep {
+  .StripeElement {
+    padding: 0.85rem 1rem;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+    background-color: white;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+    transition: all 0.3s ease;
+    
+    &--focus {
+      box-shadow: 0 0 0 3px rgba(63, 81, 181, 0.15);
+      border-color: #3f51b5;
+    }
+    
+    &--invalid {
+      border-color: #f44336;
+      box-shadow: 0 0 0 3px rgba(244, 67, 54, 0.15);
+    }
+  }
+}

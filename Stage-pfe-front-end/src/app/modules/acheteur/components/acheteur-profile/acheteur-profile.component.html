@@ -1,0 +1,59 @@
+<div class="profile-container">
+  <div class="row g-4">
+    <div class="col-md-4">
+      <div class="card profile-card">
+        <div class="card-header">
+          <h5 class="mb-0">Mon Profil</h5>
+        </div>
+        <div class="card-body">
+          <div class="profile-avatar">
+            <i class="fas fa-user-circle"></i>
+          </div>
+          <h4 class="profile-name">{{ username }}</h4>
+          <p class="profile-role">{{ role }}</p>
+          <div class="profile-info">
+            <div class="info-item">
+              <i class="fas fa-envelope"></i>
+              <span>{{ email || 'Email non disponible' }}</span>
+            </div>
+            <button class="btn btn-danger mt-3 w-100" (click)="logout()">
+              <i class="fas fa-sign-out-alt me-2"></i>Déconnexion
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-8">
+      <div class="card">
+        <div class="card-header">
+          <h5 class="mb-0">Paramètres du compte</h5>
+        </div>
+        <div class="card-body">
+          <form>
+            <div class="form-group">
+              <label for="username">Nom d'utilisateur</label>
+              <input type="text" class="form-control" id="username" [value]="username" disabled>
+            </div>
+            <div class="form-group">
+              <label for="email">Email</label>
+              <input type="email" class="form-control" id="email" [value]="email" disabled>
+            </div>
+            <div class="form-group">
+              <label for="currentPassword">Mot de passe actuel</label>
+              <input type="password" class="form-control" id="currentPassword">
+            </div>
+            <div class="form-group">
+              <label for="newPassword">Nouveau mot de passe</label>
+              <input type="password" class="form-control" id="newPassword">
+            </div>
+            <div class="form-group">
+              <label for="confirmPassword">Confirmer le mot de passe</label>
+              <input type="password" class="form-control" id="confirmPassword">
+            </div>
+            <button type="submit" class="btn btn-primary">Mettre à jour</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,129 @@
+<div class="category-management-container">
+  <div class="dashboard-header">
+    <h1>Gestion des Catégories</h1>
+    <div class="action-buttons">
+      <button class="btn btn-primary" (click)="newCategory()">
+        <i class="fas fa-plus"></i> Nouvelle Catégorie
+      </button>
+    </div>
+  </div>
+
+  <!-- Affichage des messages -->
+  <div class="alert alert-danger" *ngIf="errorMessage">
+    <i class="fas fa-exclamation-circle"></i> {{ errorMessage }}
+    <button type="button" class="close" (click)="errorMessage = null">&times;</button>
+  </div>
+  <div class="alert alert-success" *ngIf="successMessage">
+    <i class="fas fa-check-circle"></i> {{ successMessage }}
+    <button type="button" class="close" (click)="successMessage = null">&times;</button>
+  </div>
+
+  <div class="dashboard-content">
+    <!-- Panneau de gauche: Liste des catégories -->
+    <div class="category-list-section">
+      <div class="section-header">
+        <h2>Liste des catégories</h2>
+        <div class="search-filters">
+          <div class="input-group">
+            <input type="text" class="form-control" placeholder="Rechercher une catégorie..." 
+                  [(ngModel)]="searchTerm" (keyup)="searchCategories()">
+            <div class="input-group-append">
+              <button class="btn btn-outline-secondary" type="button" (click)="searchCategories()">
+                <i class="fas fa-search"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Loader -->
+      <div class="loader-container" *ngIf="isLoading">
+        <div class="spinner-border text-primary" role="status">
+          <span class="sr-only">Chargement...</span>
+        </div>
+      </div>
+
+      <!-- Message si aucune catégorie -->
+      <div class="empty-state" *ngIf="!isLoading && filteredCategories.length === 0">
+        <i class="fas fa-folder-open fa-3x"></i>
+        <p>Aucune catégorie trouvée</p>
+        <button class="btn btn-primary" (click)="newCategory()">
+          Créer une catégorie
+        </button>
+      </div>
+
+      <!-- Liste des catégories -->
+      <div class="category-list" *ngIf="!isLoading && filteredCategories.length > 0">
+        <div class="table-responsive">
+          <table class="table table-striped table-hover">
+            <thead>
+              <tr>
+                <th>Nom</th>
+                <th>Description</th>
+                <th>Nombre de produits</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let category of filteredCategories" 
+                  [class.selected]="selectedCategory?.id === category.id"
+                  (click)="selectCategory(category)">
+                <td>{{ category.name }}</td>
+                <td>{{ category.description || 'Aucune description' }}</td>
+                <td>{{ category.productCount || 0 }}</td>
+                <td>
+                  <div class="btn-group">
+                    <button class="btn btn-sm btn-outline-primary" (click)="selectCategory(category); $event.stopPropagation()">
+                      <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline-danger" (click)="deleteCategory(category); $event.stopPropagation()">
+                      <i class="fas fa-trash"></i>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Panneau de droite: Formulaire d'édition -->
+    <div class="category-form-section" *ngIf="isEditing">
+      <div class="section-header">
+        <h2>{{ selectedCategory ? 'Modifier la catégorie' : 'Nouvelle catégorie' }}</h2>
+      </div>
+
+      <form [formGroup]="categoryForm" (ngSubmit)="saveCategory()">
+        <div class="form-group">
+          <label for="categoryName">Nom de la catégorie *</label>
+          <input type="text" id="categoryName" class="form-control" formControlName="name" 
+                placeholder="Nom de la catégorie">
+          <div class="invalid-feedback" *ngIf="categoryForm.get('name')?.invalid && categoryForm.get('name')?.touched">
+            Le nom de la catégorie est requis et doit contenir au moins 3 caractères.
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="categoryDescription">Description</label>
+          <textarea id="categoryDescription" class="form-control" formControlName="description" 
+                   placeholder="Description de la catégorie" rows="3"></textarea>
+        </div>
+
+        <div class="form-error" *ngIf="formErrorMessage">
+          {{ formErrorMessage }}
+        </div>
+
+        <div class="form-actions">
+          <button type="button" class="btn btn-secondary" (click)="cancelEdit()">
+            Annuler
+          </button>
+          <button type="submit" class="btn btn-primary" [disabled]="categoryForm.invalid || isLoading">
+            <span *ngIf="isLoading" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+            {{ selectedCategory ? 'Mettre à jour' : 'Créer' }}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>

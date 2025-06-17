@@ -41,7 +41,8 @@ export class AuthService {
   // Mode de débogage pour afficher plus d'informations dans la console
   private debugMode = true;
   private currentUser: User | null = null;
-  private simulationMode = false; // Mode simulation désactivé pour utiliser le backend réel
+  private simulationMode = false;
+  // Mode simulation activé pour contourner les problèmes de backend
 
   constructor(
     private http: HttpClient, 
@@ -120,7 +121,7 @@ export class AuthService {
             username: userData.username,
             email: userData.email,
             address: userData.address,
-            roles: userData.roles || ['CLIENT'],
+            roles: userData.roles || ['ACHETEUR'],
             active: userData.roles && userData.roles.includes('VENDEUR') ? false : true // Les vendeurs doivent être activés par un admin
           }
         };
@@ -300,6 +301,14 @@ export class AuthService {
   }
   
   /**
+   * Récupère l'email de l'utilisateur connecté
+   * @returns L'email ou null si non connecté
+   */
+  getEmail(): string | null {
+    return this.currentUser ? this.currentUser.email : null;
+  }
+  
+  /**
    * Récupère les rôles de l'utilisateur courant
    * @param normalized Si true, normalise les rôles (supprime le préfixe ROLE_ et convertit en majuscules)
    */
@@ -419,14 +428,31 @@ export class AuthService {
       const decodedToken = this.decodeToken(token);
       
       if (decodedToken) {
+        // Normaliser les rôles
+        let roles = [];
+        if (Array.isArray(decodedToken.roles)) {
+          roles = decodedToken.roles.map((role: string) => this.normalizeRoleForDisplay(role));
+        } else if (typeof decodedToken.roles === 'string') {
+          roles = [this.normalizeRoleForDisplay(decodedToken.roles)];
+        }
+        
+        // Vérifier si l'utilisateur a le rôle ACHETEUR ou CLIENT
+        const hasAcheteurRole = roles.some((role: string) => 
+          role === 'ACHETEUR' || role === 'ROLE_ACHETEUR' || 
+          role === 'CLIENT' || role === 'ROLE_CLIENT');
+        
+        // Si l'utilisateur a un de ces rôles, s'assurer qu'il a les deux
+        if (hasAcheteurRole) {
+          if (!roles.includes('ACHETEUR')) roles.push('ACHETEUR');
+          if (!roles.includes('CLIENT')) roles.push('CLIENT');
+        }
+        
         this.currentUser = {
           id: decodedToken.sub || decodedToken.id,
           username: decodedToken.username || decodedToken.preferred_username,
           email: decodedToken.email,
           address: decodedToken.address,
-          roles: Array.isArray(decodedToken.roles) 
-            ? decodedToken.roles.map((role: string) => this.normalizeRoleForDisplay(role)) 
-            : (typeof decodedToken.roles === 'string' ? [this.normalizeRoleForDisplay(decodedToken.roles)] : []),
+          roles: roles,
           active: decodedToken.active !== undefined ? decodedToken.active : true
         };
         console.log('AuthService: Utilisateur chargé avec succès:', this.currentUser);
@@ -462,7 +488,7 @@ export class AuthService {
     const users = [
       { username: 'admin', email: 'admin@example.com', password: 'password', roles: ['ADMIN'], active: true },
       { username: 'vendeur', email: 'vendeur@example.com', password: 'password', roles: ['VENDEUR'], active: true },
-      { username: 'client', email: 'client@example.com', password: 'password', roles: ['CLIENT'], active: true },
+      { username: 'acheteur', email: 'acheteur@example.com', password: 'password', roles: ['ACHETEUR'], active: true },
       { username: 'inactive', email: 'inactive@example.com', password: 'password', roles: ['VENDEUR'], active: false }
     ];
     
@@ -534,7 +560,7 @@ export class AuthService {
     const existingUsers = [
       { username: 'admin', email: 'admin@example.com' },
       { username: 'vendeur', email: 'vendeur@example.com' },
-      { username: 'client', email: 'client@example.com' }
+      { username: 'acheteur', email: 'acheteur@example.com' }
     ];
     
     if (existingUsers.some(u => u.username === userData.username)) {
@@ -555,7 +581,7 @@ export class AuthService {
       username: userData.username,
       email: userData.email,
       address: userData.address,
-      roles: userData.roles || ['CLIENT'],
+      roles: userData.roles || ['ACHETEUR'],
       active: isActive,
       iat: now,
       exp: now + 3600 // Expiration dans 1 heure
@@ -574,7 +600,7 @@ export class AuthService {
         username: userData.username,
         email: userData.email,
         address: userData.address,
-        roles: userData.roles || ['CLIENT'],
+        roles: userData.roles || ['ACHETEUR'],
         active: isActive
       }
     };

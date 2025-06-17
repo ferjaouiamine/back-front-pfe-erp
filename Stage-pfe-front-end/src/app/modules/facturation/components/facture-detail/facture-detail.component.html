@@ -11,6 +11,9 @@
     <button class="btn btn-outline-primary me-2" (click)="generatePdf()">
       <i class="fas fa-file-pdf"></i> PDF
     </button>
+    <button class="btn btn-outline-success me-2" (click)="downloadReceipt()" [disabled]="!facture || facture.status !== 'PAID'" title="Télécharger le reçu de paiement">
+      <i class="fas fa-file-download"></i> Reçu
+    </button>
     <button class="btn btn-outline-info" (click)="sendFactureByEmail()">
       <i class="fas fa-envelope"></i> Imprimer
     </button>

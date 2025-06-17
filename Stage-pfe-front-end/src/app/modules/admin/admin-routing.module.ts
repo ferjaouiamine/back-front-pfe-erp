@@ -4,6 +4,7 @@ import { AdminDashboardComponent } from './components/admin-dashboard/admin-dash
 import { UserManagementComponent } from './components/user-management/user-management.component';
 import { FactureManagementComponent } from './components/facture-management/facture-management.component';
 import { ProductManagementComponent } from './components/product-management/product-management.component';
+import { CategoryManagementComponent } from './components/category-management/category-management.component';
 import { AdminLayoutComponent } from './components/admin-layout/admin-layout.component';
 import { ProfileComponent } from './components/profile/profile.component';
 import { AuthGuard } from '../../core/guards/auth.guard';
@@ -21,6 +22,7 @@ const routes: Routes = [
       { path: 'users', component: UserManagementComponent },
       { path: 'factures', component: FactureManagementComponent },
       { path: 'products', component: ProductManagementComponent },
+      { path: 'categories', component: CategoryManagementComponent },
       { path: 'profile', component: ProfileComponent }
     ]
   }

@@ -165,6 +165,9 @@
             <button class="btn-action email" (click)="sendByEmail(facture.id || '', facture.clientEmail || '')" title="Envoyer par email">
               <i class="fas fa-envelope"></i>
             </button>
+            <button class="btn-action delete" (click)="confirmDeleteFacture(facture.id || '')" title="Supprimer">
+              <i class="fas fa-trash-alt"></i>
+            </button>
           </td>
         </tr>
       </tbody>

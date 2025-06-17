@@ -5,6 +5,7 @@ import { map, catchError, delay } from 'rxjs/operators';
 import { AuthService } from '../../auth/services/auth.service';
 
 export interface Product {
+  sku?: any; // Rendu optionnel avec le point d'interrogation
   id?: number;
   reference?: string;
   name: string;

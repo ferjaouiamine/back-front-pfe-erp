@@ -361,4 +361,43 @@ export class VendorFacturesComponent implements OnInit {
   createNewFacture(): void {
     this.router.navigate(['/caisse/dashboard']);
   }
+
+  /**
+   * Affiche une confirmation avant de supprimer une facture
+   * @param id Identifiant de la facture à supprimer
+   */
+  confirmDeleteFacture(id: string): void {
+    if (!id) {
+      this.showErrorMessage('Identifiant de facture invalide');
+      return;
+    }
+    
+    // Demander confirmation avant suppression
+    if (confirm('Êtes-vous sûr de vouloir supprimer cette facture ? Cette action est irréversible.')) {
+      this.deleteFacture(id);
+    }
+  }
+
+  /**
+   * Supprime une facture après confirmation
+   * @param id Identifiant de la facture à supprimer
+   */
+  deleteFacture(id: string): void {
+    this.isLoading = true;
+    this.errorMessage = null;
+    
+    this.factureService.deleteFacture(id).subscribe({
+      next: () => {
+        // Suppression réussie, mettre à jour la liste des factures
+        this.showSuccessMessage('Facture supprimée avec succès');
+        // Recharger la liste des factures
+        this.loadFactures();
+      },
+      error: (error) => {
+        console.error('Erreur lors de la suppression de la facture:', error);
+        this.showErrorMessage('Erreur lors de la suppression de la facture. Veuillez réessayer.');
+        this.isLoading = false;
+      }
+    });
+  }
 }

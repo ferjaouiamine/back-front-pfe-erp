@@ -1,0 +1,73 @@
+<div class="dashboard-container">
+  <div class="welcome-section">
+    <h1>Bienvenue dans votre espace acheteur, {{ username }}</h1>
+    <p class="lead">Gérez vos factures et effectuez vos paiements en toute sécurité</p>
+  </div>
+
+  <div class="row mt-4">
+    <div class="col-md-4">
+      <div class="card dashboard-card">
+        <div class="card-body">
+          <div class="card-icon">
+            <i class="fas fa-file-invoice"></i>
+          </div>
+          <h5 class="card-title">Factures en attente</h5>
+          <p class="card-text stat-number">{{ facturesEnAttente }}</p>
+          <a routerLink="/acheteur/factures" class="btn btn-primary">Voir mes factures</a>
+        </div>
+      </div>
+    </div>
+    
+    <div class="col-md-4">
+      <div class="card dashboard-card">
+        <div class="card-body">
+          <div class="card-icon">
+            <i class="fas fa-credit-card"></i>
+          </div>
+          <h5 class="card-title">Paiements récents</h5>
+          <p class="card-text stat-number">{{ paiementsRecents }}</p>
+          <a routerLink="/acheteur/paiements" class="btn btn-primary">Voir mes paiements</a>
+        </div>
+      </div>
+    </div>
+    
+    <div class="col-md-4">
+      <div class="card dashboard-card">
+        <div class="card-body">
+          <div class="card-icon">
+            <i class="fas fa-euro-sign"></i>
+          </div>
+          <h5 class="card-title">Montant total dû</h5>
+          <p class="card-text stat-number">{{ montantTotal }} €</p>
+          <a routerLink="/acheteur/paiements/new" class="btn btn-success">Effectuer un paiement</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row mt-4">
+    <div class="col-12">
+      <div class="card">
+        <div class="card-header">
+          <h5 class="mb-0"><i class="fas fa-shield-alt mr-2"></i> Paiements sécurisés avec Stripe</h5>
+        </div>
+        <div class="card-body">
+          <div class="row align-items-center">
+            <div class="col-md-8">
+              <p>Notre plateforme utilise Stripe pour sécuriser vos paiements. Vous pouvez payer vos factures en toute confiance avec votre carte bancaire.</p>
+              <ul>
+                <li>Paiements 100% sécurisés</li>
+                <li>Transactions cryptées</li>
+                <li>Historique des paiements accessible</li>
+                <li>Reçus automatiques par email</li>
+              </ul>
+            </div>
+            <div class="col-md-4 text-center">
+              <img src="assets/stripe-logo.png" alt="Stripe" class="img-fluid stripe-logo" onerror="this.src='https://stripe.com/img/v3/home/social.png'; this.onerror=null;">
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

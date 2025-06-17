@@ -1,0 +1,234 @@
+<div class="purchase-order-list-container">
+  <header class="page-header">
+    <div class="header-title">
+      <h1>Gestion des Commandes d'Achat</h1>
+      <p>Gérez vos commandes d'achat fournisseurs</p>
+    </div>
+    <div class="header-actions">
+      <button class="btn btn-primary" (click)="createNewOrder()">
+        <i class="fas fa-plus-circle"></i> Nouvelle Commande
+      </button>
+      <button class="btn btn-outline-secondary" routerLink="/stock/dashboard">
+        <i class="fas fa-arrow-left"></i> Retour au Dashboard
+      </button>
+    </div>
+  </header>
+
+  <!-- Messages d'alerte -->
+  <div class="alert alert-success" *ngIf="successMessage">
+    <i class="fas fa-check-circle"></i> {{ successMessage }}
+  </div>
+  <div class="alert alert-danger" *ngIf="errorMessage">
+    <i class="fas fa-exclamation-circle"></i> {{ errorMessage }}
+  </div>
+  <div class="alert alert-warning" *ngIf="mockDataWarningMessage">
+    <i class="fas fa-exclamation-triangle"></i> {{ mockDataWarningMessage }}
+  </div>
+
+  <!-- Statistiques des commandes -->
+  <div class="order-stats">
+    <div class="stat-card">
+      <div class="stat-icon draft">
+        <i class="fas fa-file-alt"></i>
+      </div>
+      <div class="stat-content">
+        <h3>Brouillons</h3>
+        <p class="stat-value">{{ getOrderCountByStatus('DRAFT') }}</p>
+        <p class="stat-secondary">{{ getTotalByStatus('DRAFT') | currency:'EUR':'symbol':'1.2-2' }}</p>
+      </div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-icon sent">
+        <i class="fas fa-paper-plane"></i>
+      </div>
+      <div class="stat-content">
+        <h3>Envoyées</h3>
+        <p class="stat-value">{{ getOrderCountByStatus('SENT') }}</p>
+        <p class="stat-secondary">{{ getTotalByStatus('SENT') | currency:'EUR':'symbol':'1.2-2' }}</p>
+      </div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-icon confirmed">
+        <i class="fas fa-check"></i>
+      </div>
+      <div class="stat-content">
+        <h3>Confirmées</h3>
+        <p class="stat-value">{{ getOrderCountByStatus('CONFIRMED') }}</p>
+        <p class="stat-secondary">{{ getTotalByStatus('CONFIRMED') | currency:'EUR':'symbol':'1.2-2' }}</p>
+      </div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-icon delivered">
+        <i class="fas fa-truck"></i>
+      </div>
+      <div class="stat-content">
+        <h3>Livrées</h3>
+        <p class="stat-value">{{ getOrderCountByStatus('DELIVERED') }}</p>
+        <p class="stat-secondary">{{ getTotalByStatus('DELIVERED') | currency:'EUR':'symbol':'1.2-2' }}</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Filtres -->
+  <div class="filters-container">
+    <div class="search-box">
+      <input 
+        type="text" 
+        [(ngModel)]="searchTerm" 
+        (input)="applyFilters()" 
+        placeholder="Rechercher une commande..." 
+        class="form-control"
+      >
+      <i class="fas fa-search"></i>
+    </div>
+
+    <div class="filter-group">
+      <label>Date de début:</label>
+      <input 
+        type="date" 
+        [(ngModel)]="dateRange.start" 
+        (change)="applyFilters()" 
+        class="form-control"
+      >
+    </div>
+
+    <div class="filter-group">
+      <label>Date de fin:</label>
+      <input 
+        type="date" 
+        [(ngModel)]="dateRange.end" 
+        (change)="applyFilters()" 
+        class="form-control"
+      >
+    </div>
+
+    <div class="filter-group">
+      <label>Statut:</label>
+      <select [(ngModel)]="statusFilter" (change)="applyFilters()" class="form-control">
+        <option value="">Tous les statuts</option>
+        <option value="DRAFT">Brouillon</option>
+        <option value="SENT">Envoyée</option>
+        <option value="CONFIRMED">Confirmée</option>
+        <option value="DELIVERED">Livrée</option>
+        <option value="CANCELLED">Annulée</option>
+      </select>
+    </div>
+
+    <button class="btn btn-outline-secondary" (click)="resetFilters()">
+      <i class="fas fa-undo"></i> Réinitialiser
+    </button>
+  </div>
+
+  <!-- Indicateur de chargement -->
+  <div class="loading-container" *ngIf="isLoading">
+    <div class="spinner"></div>
+    <p>Chargement des commandes...</p>
+  </div>
+
+  <!-- Tableau des commandes -->
+  <div class="table-container" *ngIf="!isLoading">
+    <table class="table">
+      <thead>
+        <tr>
+          <th (click)="changeSort('orderNumber')">
+            N° Commande
+            <i class="fas" [ngClass]="{'fa-sort-up': sortField === 'orderNumber' && sortDirection === 'asc', 'fa-sort-down': sortField === 'orderNumber' && sortDirection === 'desc', 'fa-sort': sortField !== 'orderNumber'}"></i>
+          </th>
+          <th (click)="changeSort('supplierName')">
+            Fournisseur
+            <i class="fas" [ngClass]="{'fa-sort-up': sortField === 'supplierName' && sortDirection === 'asc', 'fa-sort-down': sortField === 'supplierName' && sortDirection === 'desc', 'fa-sort': sortField !== 'supplierName'}"></i>
+          </th>
+          <th (click)="changeSort('orderDate')">
+            Date
+            <i class="fas" [ngClass]="{'fa-sort-up': sortField === 'orderDate' && sortDirection === 'asc', 'fa-sort-down': sortField === 'orderDate' && sortDirection === 'desc', 'fa-sort': sortField !== 'orderDate'}"></i>
+          </th>
+          <th (click)="changeSort('status')">
+            Statut
+            <i class="fas" [ngClass]="{'fa-sort-up': sortField === 'status' && sortDirection === 'asc', 'fa-sort-down': sortField === 'status' && sortDirection === 'desc', 'fa-sort': sortField !== 'status'}"></i>
+          </th>
+          <th (click)="changeSort('total')">
+            Total
+            <i class="fas" [ngClass]="{'fa-sort-up': sortField === 'total' && sortDirection === 'asc', 'fa-sort-down': sortField === 'total' && sortDirection === 'desc', 'fa-sort': sortField !== 'total'}"></i>
+          </th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let order of filteredOrders">
+          <td>{{ order.orderNumber || 'N/A' }}</td>
+          <td>{{ order.supplierName || 'N/A' }}</td>
+          <td>{{ order.orderDate | date:'dd/MM/yyyy' }}</td>
+          <td>
+            <span class="status-badge" [ngClass]="getStatusClass(order.status)">
+              {{ getStatusLabel(order.status) }}
+            </span>
+          </td>
+          <td>{{ order.total | currency:'EUR':'symbol':'1.2-2' }}</td>
+          <td class="actions-cell">
+            <button class="action-btn view" (click)="viewOrder(order.id || '')">
+              <i class="fas fa-eye"></i>
+            </button>
+            <button class="action-btn edit" (click)="editOrder(order.id || '')">
+              <i class="fas fa-edit"></i>
+            </button>
+            <button class="action-btn pdf" (click)="generatePdf(order.id || '')">
+              <i class="fas fa-file-pdf"></i>
+            </button>
+            <button class="action-btn email" (click)="sendByEmail(order.id || '', order.supplierEmail || '')">
+              <i class="fas fa-envelope"></i>
+            </button>
+            <button class="action-btn delete" (click)="confirmDeleteOrder(order.id || '')">
+              <i class="fas fa-trash-alt"></i>
+            </button>
+          </td>
+        </tr>
+        <tr *ngIf="filteredOrders.length === 0">
+          <td colspan="6" class="empty-message">
+            <i class="fas fa-info-circle"></i>
+            Aucune commande d'achat trouvée
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Pagination -->
+  <div class="pagination-container" *ngIf="totalItems > pageSize">
+    <div class="pagination-info">
+      Affichage de {{ (currentPage - 1) * pageSize + 1 }} à {{ Math.min(currentPage * pageSize, totalItems) }} sur {{ totalItems }} commandes
+    </div>
+    <div class="pagination-controls">
+      <button 
+        class="page-btn" 
+        [disabled]="currentPage === 1" 
+        (click)="changePage(currentPage - 1)"
+      >
+        <i class="fas fa-chevron-left"></i>
+      </button>
+      
+      <ng-container *ngFor="let page of [].constructor(Math.ceil(totalItems / pageSize)); let i = index">
+        <button 
+          class="page-btn" 
+          [class.active]="currentPage === i + 1" 
+          (click)="changePage(i + 1)"
+          *ngIf="i < 5 || i >= Math.ceil(totalItems / pageSize) - 5 || (i >= currentPage - 2 && i <= currentPage + 2)"
+        >
+          {{ i + 1 }}
+        </button>
+        <span *ngIf="i === 5 && currentPage > 7" class="page-ellipsis">...</span>
+        <span *ngIf="i === Math.ceil(totalItems / pageSize) - 6 && currentPage < Math.ceil(totalItems / pageSize) - 6" class="page-ellipsis">...</span>
+      </ng-container>
+      
+      <button 
+        class="page-btn" 
+        [disabled]="currentPage === Math.ceil(totalItems / pageSize)" 
+        (click)="changePage(currentPage + 1)"
+      >
+        <i class="fas fa-chevron-right"></i>
+      </button>
+    </div>
+  </div>
+</div>

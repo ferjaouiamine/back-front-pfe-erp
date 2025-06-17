@@ -1,4 +1,7 @@
-@import 'src/theme-variables';
+@import '../../../../../theme-variables';
+
+// Variables locales
+$accent-color: #ff4081;
 
 .produits-container {
   padding: $spacing-lg;

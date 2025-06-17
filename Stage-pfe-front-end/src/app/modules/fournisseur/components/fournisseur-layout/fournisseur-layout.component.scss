@@ -1,8 +1,23 @@
+// Variables
+$sidebar-width: 260px;
+$sidebar-collapsed-width: 70px;
+$header-height: 60px;
+$primary-color: #3f51b5;
+$secondary-color: #f5f5f5;
+$text-color: #333;
+$text-light: #fff;
+$border-color: #e0e0e0;
+$hover-color: rgba(255, 255, 255, 0.1);
+$active-color: rgba(255, 255, 255, 0.15);
+$shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+$transition: all 0.3s ease;
+
 .fournisseur-layout {
   display: flex;
   flex-direction: column;
   height: 100vh;
   overflow: hidden;
+  font-family: 'Roboto', Arial, sans-serif;
 }
 
 /* Barre de navigation supérieure */
@@ -10,11 +25,11 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background-color: #2c3e50;
-  color: white;
+  background-color: $primary-color;
+  color: $text-light;
   padding: 0 20px;
-  height: 64px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  height: $header-height;
+  box-shadow: $shadow;
   z-index: 100;
   
   .navbar-left {
@@ -84,11 +99,12 @@
 
 /* Menu latéral */
 .sidebar {
-  width: 250px;
-  background-color: #34495e;
-  color: white;
+  width: $sidebar-width;
+  background-color: $primary-color;
+  color: $text-light;
   overflow-y: auto;
-  transition: transform 0.3s ease;
+  transition: $transition;
+  box-shadow: $shadow;
   
   @media (max-width: 768px) {
     position: fixed;
@@ -104,7 +120,7 @@
   }
   
   .sidebar-nav {
-    padding: 20px 0;
+    padding: 15px 0;
     
     .nav-list {
       list-style: none;
@@ -112,21 +128,24 @@
       margin: 0;
       
       .nav-item {
+        margin: 5px 0;
+        
         a {
           display: flex;
           align-items: center;
           padding: 12px 20px;
-          color: #ecf0f1;
+          color: $text-light;
           text-decoration: none;
-          transition: background-color 0.2s;
+          transition: $transition;
+          border-left: 3px solid transparent;
           
           &:hover {
-            background-color: #2c3e50;
+            background-color: $hover-color;
           }
           
           &.active {
-            background-color: #2980b9;
-            border-left: 4px solid #3498db;
+            background-color: $active-color;
+            border-left-color: $text-light;
           }
           
           i {
@@ -144,7 +163,7 @@
 .content {
   flex: 1;
   overflow-y: auto;
-  background-color: #f5f5f5;
+  background-color: $secondary-color;
   padding: 20px;
 }
 

@@ -32,7 +32,7 @@ export class RegisterComponent implements OnInit {
   availableRoles: {id: string, name: string}[] = [
     { id: 'ADMIN', name: 'Administrateur' },
     { id: 'VENDEUR', name: 'Vendeur' },
-    { id: 'CLIENT', name: 'Client' },
+    { id: 'ACHETEUR', name: 'Acheteur' },
     { id: 'FOURNISSEUR', name: 'Fournisseur' },
     { id: 'MAGASINIER', name: 'Magasinier' }
   ];
@@ -161,6 +161,9 @@ export class RegisterComponent implements OnInit {
             this.router.navigate(['/fournisseur/commandes']);
           } else if (role === 'MAGASINIER') {
             this.router.navigate(['/stock/dashboard']);
+          } else if (role === 'ACHETEUR') {
+            // Rediriger les acheteurs vers l'interface acheteur
+            this.router.navigate(['/acheteur/dashboard']);
           } else {
             this.router.navigate(['/facturation']);
           }

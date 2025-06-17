@@ -7,6 +7,8 @@ import { StockCreateComponent } from './components/stock-create/stock-create.com
 import { StockMovementComponent } from './components/stock-movement/stock-movement.component';
 import { InventoryComponent } from './components/inventory/inventory.component';
 import { ProfileComponent } from './components/profile/profile.component';
+import { PurchaseOrderListComponent } from './components/purchase-order-list/purchase-order-list.component';
+import { PurchaseOrderDetailComponent } from './components/purchase-order-detail/purchase-order-detail.component';
 
 const routes: Routes = [
   { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
@@ -17,7 +19,13 @@ const routes: Routes = [
   { path: 'edit/:id', component: StockCreateComponent },
   { path: 'movements', component: StockMovementComponent },
   { path: 'inventory', component: InventoryComponent },
-  { path: 'profile', component: ProfileComponent }
+  { path: 'profile', component: ProfileComponent },
+  
+  // Routes pour la gestion des commandes d'achat
+  { path: 'purchase-orders', component: PurchaseOrderListComponent },
+  { path: 'purchase-orders/new', component: PurchaseOrderDetailComponent },
+  { path: 'purchase-orders/:id', component: PurchaseOrderDetailComponent, data: { mode: 'view' } },
+  { path: 'purchase-orders/edit/:id', component: PurchaseOrderDetailComponent, data: { mode: 'edit' } }
 ];
 
 @NgModule({
