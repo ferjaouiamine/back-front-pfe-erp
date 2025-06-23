@@ -45,8 +45,8 @@ export interface Achat {
   providedIn: 'root'
 })
 export class AchatService {
-  private apiUrl = 'http://localhost:8083/api/achats';
-  private fournisseursUrl = 'http://localhost:8083/api/fournisseurs';
+  private apiUrl = 'http://localhost:8082/api/achats';
+  private fournisseursUrl = 'http://localhost:8082/api/fournisseurs';
 
   constructor(
     private http: HttpClient,

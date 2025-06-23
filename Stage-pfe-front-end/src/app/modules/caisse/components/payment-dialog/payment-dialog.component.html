@@ -1,0 +1,89 @@
+<div class="payment-dialog">
+  <h2 mat-dialog-title>Paiement</h2>
+  
+  <mat-dialog-content>
+    <div class="order-summary">
+      <h3>Résumé de la commande</h3>
+      <div class="summary-item">
+        <span>Sous-total:</span>
+        <span>{{ data.subtotal | currency:'EUR':'symbol':'1.2-2' }}</span>
+      </div>
+      <div class="summary-item">
+        <span>TVA:</span>
+        <span>{{ data.tax | currency:'EUR':'symbol':'1.2-2' }}</span>
+      </div>
+      <div class="summary-item" *ngIf="data.discount > 0">
+        <span>Remise:</span>
+        <span>{{ data.discount | currency:'EUR':'symbol':'1.2-2' }}</span>
+      </div>
+      <div class="summary-item total">
+        <span>Total:</span>
+        <span>{{ data.total | currency:'EUR':'symbol':'1.2-2' }}</span>
+      </div>
+    </div>
+    
+    <form [formGroup]="paymentForm" class="payment-form">
+      <div class="payment-method">
+        <h3>Méthode de paiement</h3>
+        <mat-button-toggle-group formControlName="method" class="payment-methods">
+          <mat-button-toggle [value]="'CASH'" class="method-toggle">
+            <mat-icon>payments</mat-icon>
+            <span>Espèces</span>
+          </mat-button-toggle>
+          <mat-button-toggle [value]="'CARD'" class="method-toggle">
+            <mat-icon>credit_card</mat-icon>
+            <span>Carte</span>
+          </mat-button-toggle>
+          <mat-button-toggle [value]="'TRANSFER'" class="method-toggle">
+            <mat-icon>account_balance</mat-icon>
+            <span>Virement</span>
+          </mat-button-toggle>
+        </mat-button-toggle-group>
+      </div>
+      
+      <div class="amount-section" *ngIf="paymentForm.get('method')?.value === 'CASH'">
+        <div class="amount-due">
+          <h3>Montant à payer</h3>
+          <div class="amount">{{ amountDue | currency:'EUR':'symbol':'1.2-2' }}</div>
+        </div>
+        
+        <div class="amount-tendered">
+          <h3>Montant reçu</h3>
+          <mat-form-field appearance="outline" class="full-width">
+            <input matInput type="number" formControlName="amountTendered" min="0" step="0.01">
+            <mat-error *ngIf="paymentForm.get('amountTendered')?.hasError('required')">
+              Montant requis
+            </mat-error>
+            <mat-error *ngIf="paymentForm.get('amountTendered')?.hasError('min')">
+              Le montant doit être positif
+            </mat-error>
+          </mat-form-field>
+          
+          <div class="quick-amounts">
+            <button mat-raised-button type="button" (click)="addAmount(5)">+5€</button>
+            <button mat-raised-button type="button" (click)="addAmount(10)">+10€</button>
+            <button mat-raised-button type="button" (click)="addAmount(20)">+20€</button>
+            <button mat-raised-button type="button" (click)="addAmount(50)">+50€</button>
+            <button mat-raised-button type="button" (click)="setExactAmount(amountDue)">Montant exact</button>
+          </div>
+        </div>
+        
+        <div class="change" *ngIf="change > 0">
+          <h3>Monnaie à rendre</h3>
+          <div class="amount">{{ change | currency:'EUR':'symbol':'1.2-2' }}</div>
+        </div>
+      </div>
+      
+      <div class="print-option">
+        <mat-checkbox formControlName="printReceipt">Imprimer le reçu</mat-checkbox>
+      </div>
+    </form>
+  </mat-dialog-content>
+  
+  <mat-dialog-actions align="end">
+    <button mat-button (click)="cancel()">Annuler</button>
+    <button mat-raised-button color="primary" [disabled]="paymentForm.invalid || (paymentForm.get('method')?.value === 'CASH' && amountTendered < amountDue)" (click)="confirmPayment()">
+      Confirmer le paiement
+    </button>
+  </mat-dialog-actions>
+</div>

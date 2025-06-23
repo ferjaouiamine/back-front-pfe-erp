@@ -18,11 +18,19 @@
     "changeOrigin": true,
     "logLevel": "debug"
   },
-  "/api/stock": {
+  "/api/stock/categories": {
     "target": "http://localhost:8082",
     "secure": false,
     "changeOrigin": true,
-    "logLevel": "debug"
+    "logLevel": "debug",
+    "pathRewrite": {"^/api/stock/categories": "/api/categories"}
+  },
+  "/api/stock/products": {
+    "target": "http://localhost:8082",
+    "secure": false,
+    "changeOrigin": true,
+    "logLevel": "debug",
+    "pathRewrite": {"^/api/stock/products": "/api/products"}
   },
   "/api/factures": {
     "target": "http://localhost:8085",

@@ -15,6 +15,12 @@ import { InventoryComponent } from './components/inventory/inventory.component';
 import { StockMovementNewComponent } from './components/stock-movement-new/stock-movement-new.component';
 import { PurchaseOrderListComponent } from './components/purchase-order-list/purchase-order-list.component';
 import { PurchaseOrderDetailComponent } from './components/purchase-order-detail/purchase-order-detail.component';
+import { LowStockComponent } from './components/low-stock/low-stock.component';
+import { CategoryManagementComponent } from './components/category-management/category-management.component';
+import { CategoryFormDialogComponent } from './components/category-management/category-form-dialog/category-form-dialog.component';
+import { PurchaseOrderDetailPlusComponent } from './components/purchase-order-detail-plus/purchase-order-detail-plus.component';
+import { PurchaseOrderService } from './services/purchase-order.service';
+import { ProductService } from './services/product.service';
 
 @NgModule({
   declarations: [
@@ -26,7 +32,9 @@ import { PurchaseOrderDetailComponent } from './components/purchase-order-detail
     InventoryComponent,
     StockMovementNewComponent,
     PurchaseOrderListComponent,
-    PurchaseOrderDetailComponent
+    PurchaseOrderDetailComponent,
+    PurchaseOrderDetailPlusComponent,
+    LowStockComponent
   ],
   imports: [
     CommonModule,
@@ -35,8 +43,14 @@ import { PurchaseOrderDetailComponent } from './components/purchase-order-detail
     RouterModule,
     SharedModule,
     StockRoutingModule,
-    HttpClientModule
+    HttpClientModule,
+    CategoryManagementComponent,
+    CategoryFormDialogComponent
   ],
-  providers: []
+  providers: [
+    // Ajouter les services pour résoudre les problèmes d'injection
+    PurchaseOrderService,
+    ProductService
+  ]
 })
 export class StockModule { }

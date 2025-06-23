@@ -1,0 +1,547 @@
+/* Améliorations visuelles pour le composant POS - Style Dreams POS */
+
+/* Style pour le bouton d'impression */
+.btn-print {
+  background-color: #007bff;
+  color: white;
+  transition: background-color 0.3s ease;
+}
+
+.btn-print:hover {
+  background-color: #0069d9;
+}
+
+.btn-print:disabled {
+  background-color: #6c757d;
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+:root {
+  --primary-color: #7638ff;
+  --secondary-color: #ff9f43;
+  --success: #28a745;
+  --warning: #ffc107;
+  --danger: #dc3545;
+  --light-gray: #f5f5f5;
+  --dark-gray: #333;
+  --border-radius: 10px;
+  --box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+/* Styles généraux pour le layout */
+.pos-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.pos-header {
+  background-color: var(--primary-color);
+  color: white;
+  padding: 10px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.header-left h2 {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 600;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.time {
+  font-size: 18px;
+  font-weight: 500;
+}
+
+.user {
+  font-size: 14px;
+}
+
+.backend-error {
+  background-color: rgba(220, 53, 69, 0.1);
+  color: var(--danger);
+  padding: 10px 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.register-closed {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: calc(100vh - 60px);
+  background-color: #f8f9fa;
+}
+
+.register-message {
+  background-color: white;
+  border-radius: var(--border-radius);
+  box-shadow: var(--box-shadow);
+  padding: 40px;
+  text-align: center;
+  max-width: 400px;
+}
+
+.register-message i {
+  font-size: 48px;
+  color: var(--primary-color);
+  margin-bottom: 20px;
+}
+
+.btn-open-register {
+  background-color: var(--primary-color);
+  color: white;
+  border: none;
+  border-radius: 5px;
+  padding: 10px 20px;
+  font-size: 16px;
+  cursor: pointer;
+  margin-top: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+}
+
+.pos-main {
+  background-color: #f8f9fa;
+  flex: 1;
+  overflow: hidden;
+  padding: 20px;
+}
+
+.pos-layout {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  gap: 20px;
+}
+
+/* Barre supérieure avec recherche et options */
+.pos-top-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: white;
+  border-radius: var(--border-radius);
+  box-shadow: var(--box-shadow);
+  padding: 10px 20px;
+}
+
+/* Styles pour la barre de catégories horizontale */
+.pos-categories-bar {
+  display: flex;
+  gap: 15px;
+  overflow-x: auto;
+  padding: 10px 5px;
+  background-color: white;
+  border-radius: var(--border-radius);
+  box-shadow: var(--box-shadow);
+  white-space: nowrap;
+}
+
+.category-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 10px;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+  cursor: pointer;
+  min-width: 80px;
+}
+
+.category-item:hover, .category-item.active {
+  background-color: var(--primary-color);
+  color: white;
+}
+
+.category-icon {
+  background-color: rgba(118, 56, 255, 0.1);
+  border-radius: 50%;
+  width: 50px;
+  height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 8px;
+}
+
+.category-item.active .category-icon {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+.category-name {
+  font-size: 12px;
+  font-weight: 500;
+  text-align: center;
+}
+
+/* Conteneur principal avec produits et panier */
+.pos-content {
+  display: grid;
+  grid-template-columns: 1fr 350px;
+  gap: 20px;
+  height: calc(100% - 120px);
+  overflow: hidden;
+}
+
+/* Panneau des produits */
+.pos-products {
+  background-color: white;
+  border-radius: var(--border-radius);
+  box-shadow: var(--box-shadow);
+  padding: 20px;
+  overflow-y: auto;
+}
+
+.loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 0;
+}
+
+.loading i.spinning {
+  animation: spin 1.5s infinite linear;
+  font-size: 48px;
+  color: var(--primary-color);
+  margin-bottom: 15px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.products-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 20px;
+  padding: 10px 0;
+}
+
+/* Overlay pour produits indisponibles */
+.product-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.6);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 10;
+  border-radius: var(--border-radius);
+}
+
+.product-overlay span {
+  background-color: var(--danger);
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  font-weight: 500;
+  font-size: 0.9rem;
+  transform: rotate(-15deg);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+
+/* Amélioration des cartes de produits */
+.product-card {
+  background-color: white;
+  border-radius: var(--border-radius);
+  box-shadow: var(--box-shadow);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  margin-bottom: 20px;
+  overflow: hidden;
+  position: relative;
+}
+
+.product-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 20px rgba(0,0,0,0.15);
+}
+
+.product-img {
+  height: 140px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  position: relative;
+}
+
+.product-img img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.product-content {
+  padding: 15px;
+}
+
+.product-title {
+  font-size: 16px;
+  font-weight: 500;
+  margin-bottom: 5px;
+  color: var(--dark-gray);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.product-price {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--primary-color);
+  margin-bottom: 10px;
+}
+
+/* Amélioration du bouton d'ajout au panier */
+.add-to-cart {
+  position: absolute;
+  bottom: 15px;
+  right: 15px;
+  background-color: var(--primary-color);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  z-index: 20; /* S'assurer que le bouton est au-dessus de l'overlay */
+  box-shadow: 0 3px 10px rgba(118, 56, 255, 0.3);
+}
+
+.add-to-cart:hover {
+  background-color: var(--secondary-color);
+  transform: scale(1.1);
+}
+
+.add-to-cart:disabled {
+  opacity: 0.7;
+  background-color: #aaa;
+  transform: none;
+  cursor: not-allowed;
+}
+
+/* Amélioration de l'affichage des statuts de stock */
+.stock-info {
+  font-size: 13px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+}
+
+.stock-info i {
+  margin-right: 5px;
+  font-size: 16px;
+}
+
+.stock-info.in-stock {
+  color: var(--success);
+}
+
+.stock-info.low-stock {
+  color: var(--warning);
+}
+
+.stock-info.out-of-stock {
+  color: var(--danger);
+}
+
+/* Amélioration du message "Aucun produit" */
+.no-products {
+  background-color: white;
+  border-radius: var(--border-radius);
+  box-shadow: var(--box-shadow);
+  margin: 1rem 0;
+  padding: 3rem;
+  text-align: center;
+}
+
+.no-products i {
+  color: var(--secondary-color);
+  font-size: 48px;
+  margin-bottom: 15px;
+}
+
+/* Style pour l'icône d'erreur */
+.no-products i.material-icons {
+  color: var(--secondary-color);
+}
+
+.no-products i.error-icon {
+  color: var(--danger);
+}
+
+.btn-retry {
+  background-color: var(--primary-color);
+  color: white;
+  border: none;
+  border-radius: 5px;
+  padding: 10px 20px;
+  margin-top: 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.btn-retry:hover {
+  background-color: darken(#7638ff, 10%);
+  transform: translateY(-2px);
+}
+
+/* Styles pour le panier */
+.pos-cart {
+  background-color: white;
+  border-radius: var(--border-radius);
+  box-shadow: var(--box-shadow);
+  height: 100%;
+}
+
+.cart-header {
+  background-color: var(--primary-color);
+  color: white;
+  padding: 15px;
+  border-top-left-radius: var(--border-radius);
+  border-top-right-radius: var(--border-radius);
+}
+
+.cart-items {
+  max-height: calc(100vh - 350px);
+  overflow-y: auto;
+  padding: 0 15px;
+}
+
+.cart-item {
+  border-bottom: 1px solid #eee;
+  padding: 10px 0;
+  position: relative;
+}
+
+.cart-item-details {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.cart-item-name {
+  font-weight: 500;
+  margin-bottom: 5px;
+}
+
+.cart-item-price {
+  font-weight: 600;
+  color: var(--primary-color);
+}
+
+.cart-totals {
+  padding: 15px;
+  border-top: 1px solid #eee;
+}
+
+.total-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.cart-total {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--primary-color);
+}
+
+/* Boutons d'action */
+.cart-actions {
+  padding: 15px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.btn-hold {
+  background-color: var(--warning);
+  color: white;
+}
+
+.btn-void {
+  background-color: var(--danger);
+  color: white;
+}
+
+.btn-payment {
+  background-color: var(--success);
+  color: white;
+  grid-column: span 2;
+}
+
+.btn-hold:hover, .btn-void:hover, .btn-payment:hover {
+  opacity: 0.9;
+}
+
+/* Styles pour la barre de recherche */
+.pos-search {
+  position: relative;
+  margin-bottom: 20px;
+}
+
+.pos-search input {
+  width: 100%;
+  padding: 10px 15px 10px 40px;
+  border: 1px solid #ddd;
+  border-radius: var(--border-radius);
+  font-size: 14px;
+}
+
+.pos-search i {
+  position: absolute;
+  left: 15px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #999;
+}
+
+/* Styles pour les icônes Material */
+.material-icons {
+  font-family: 'Material Icons';
+  font-weight: normal;
+  font-style: normal;
+  font-size: 24px;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  -webkit-font-smoothing: antialiased;
+}

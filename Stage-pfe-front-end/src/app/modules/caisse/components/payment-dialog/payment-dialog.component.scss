@@ -1,0 +1,113 @@
+.payment-dialog {
+  min-width: 400px;
+  max-width: 600px;
+}
+
+h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  color: #333;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 10px;
+}
+
+h3 {
+  margin: 10px 0;
+  font-size: 1.1rem;
+  color: #555;
+}
+
+.order-summary {
+  background-color: #f9f9f9;
+  padding: 15px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+
+.summary-item {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  font-size: 0.9rem;
+}
+
+.total {
+  font-weight: bold;
+  font-size: 1.1rem;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed #ddd;
+}
+
+.payment-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.payment-methods {
+  display: flex;
+  width: 100%;
+  margin-top: 10px;
+}
+
+.method-toggle {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 10px;
+}
+
+.method-toggle mat-icon {
+  font-size: 24px;
+  height: 24px;
+  width: 24px;
+  margin-bottom: 5px;
+}
+
+.amount-section {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.amount-due, .amount-tendered, .change {
+  padding: 10px;
+  border-radius: 8px;
+}
+
+.amount-due {
+  background-color: #e8f5e9;
+}
+
+.change {
+  background-color: #e3f2fd;
+}
+
+.amount {
+  font-size: 1.5rem;
+  font-weight: bold;
+  text-align: center;
+  margin-top: 5px;
+}
+
+.quick-amounts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.full-width {
+  width: 100%;
+}
+
+.print-option {
+  margin-top: 10px;
+}
+
+mat-dialog-actions {
+  padding: 15px 0;
+  margin-top: 20px;
+}

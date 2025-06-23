@@ -1,7 +1,8 @@
 import { Injectable } from '@angular/core';
-import { HttpClient, HttpParams, HttpHeaders } from '@angular/common/http';
+import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
 import { Observable, of, throwError } from 'rxjs';
-import { catchError, map, tap } from 'rxjs/operators';
+import { catchError, map, tap, timeout } from 'rxjs/operators';
+import { delay as rxjsDelay } from 'rxjs/operators';
 import { 
   SaleTransaction, 
   CartItem, 
@@ -9,7 +10,8 @@ import {
   SessionStatus,
   PaymentMethod,
   TransactionStatus,
-  CashRegisterReport
+  CashRegisterReport,
+  ProductCategory
 } from '../models/pos.models';
 import { AuthService } from '../../auth/services/auth.service';
 
@@ -17,16 +19,25 @@ import { AuthService } from '../../auth/services/auth.service';
   providedIn: 'root'
 })
 export class CaisseService {
-  private apiUrl = 'http://localhost:8082/api/pos';
-  private alternativeApiUrl = 'http://localhost:8083/api/pos';
-  private backendAvailable = false; // Forcer l'utilisation des données fictives
+  private apiUrl = 'http://localhost:8086/api/caisses';
+  private alternativeApiUrl = 'http://localhost:8086/api/caisses';
+  private stockServiceUrl = 'http://localhost:8082/api'; // URL directe du service stock
+  private backendAvailable = true; // Forcer l'utilisation des données fictives car les endpoints ne sont pas disponibles
   private mockDelay = 500; // Délai pour les données fictives (ms)
   private showedMockWarning = false; // Pour éviter d'afficher plusieurs fois l'avertissement
 
   constructor(
     private http: HttpClient,
     public authService: AuthService
-  ) { }
+  ) {
+    // Vérifier la disponibilité du backend au démarrage
+    this.checkBackendAvailability().subscribe(available => {
+      console.log(`Backend de caisse ${available ? 'disponible' : 'non disponible'} au démarrage`);
+      if (!available) {
+        this.showMockDataWarning();
+      }
+    });
+  }
 
   /**
    * Récupère les en-têtes d'authentification
@@ -212,7 +223,7 @@ export class CaisseService {
               status: TransactionStatus.VOIDED,
               notes: `Annulée: ${reason}`,
               sessionId: ''
-            } as SaleTransaction).pipe(delay(this.mockDelay));
+            } as SaleTransaction).pipe(rxjsDelay(this.mockDelay));
           })
         );
       })
@@ -246,18 +257,65 @@ export class CaisseService {
    */
   searchProduct(query: string): Observable<any[]> {
     const headers = this.getAuthHeaders();
-    let params = new HttpParams().set('query', query);
+    let params = new HttpParams().set('query', query || 'all');
+    const defaultImage = 'assets/img/product/default.jpg'; // Image par défaut existante dans le projet
     
-    return this.http.get<any[]>(`${this.apiUrl}/products/search`, { headers, params }).pipe(
+    // Utiliser le nouvel endpoint /api/produits/search
+    return this.http.get<any[]>('http://localhost:8086/api/produits/search', { headers, params }).pipe(
       tap(() => this.backendAvailable = true),
+      map(produits => {
+        console.log('Produits récupérés avec succès:', produits);
+        // Transformer les produits pour s'assurer que tous les champs nécessaires sont présents
+        return produits.map(produit => ({
+          ...produit,
+          // Assurer que l'URL de l'image est complète, essayer plusieurs fallbacks
+          imageUrl: produit.imageUrl || defaultImage,
+          // S'assurer que la quantité en stock est correctement définie et n'est pas 0 par défaut
+          // Si le backend renvoie null ou undefined, mettre une valeur par défaut de 10
+          quantityInStock: produit.quantityInStock != null ? produit.quantityInStock : 10,
+          // S'assurer que le stockQuantity est également défini pour la compatibilité
+          stockQuantity: produit.stockQuantity || produit.quantityInStock || 10
+        }));
+      }),
       catchError(error => {
+        console.error('Erreur lors de la recherche de produits via /api/produits/search:', error);
         // Essayer l'URL alternative
-        return this.http.get<any[]>(`${this.alternativeApiUrl}/products/search`, { headers, params }).pipe(
+        return this.http.get<any[]>('http://localhost:8086/api/products/search', { headers, params }).pipe(
           tap(() => this.backendAvailable = true),
-          catchError(() => {
-            this.backendAvailable = false;
-            // Générer des produits fictifs
-            return this.generateMockProducts(query);
+          map(produits => {
+            console.log('Produits récupérés avec succès via URL alternative:', produits);
+            // Transformer les produits pour s'assurer que tous les champs nécessaires sont présents
+            return produits.map(produit => ({
+              ...produit,
+              // Assurer que l'URL de l'image est complète
+              imageUrl: produit.imageUrl || defaultImage,
+              // S'assurer que la quantité en stock est correctement définie
+              quantityInStock: produit.quantityInStock != null ? produit.quantityInStock : 10,
+              // S'assurer que le stockQuantity est également défini pour la compatibilité
+              stockQuantity: produit.stockQuantity || produit.quantityInStock || 10
+            }));
+          }),
+          catchError(secondError => {
+            console.error('Erreur lors de la recherche de produits via /api/products/search:', secondError);
+            // Essayer le port 8080 comme dernier recours
+            return this.http.get<any[]>('http://localhost:8080/api/produits/search', { headers, params }).pipe(
+              tap(() => this.backendAvailable = true),
+              map(produits => {
+                console.log('Produits récupérés avec succès via port 8080:', produits);
+                return produits.map(produit => ({
+                  ...produit,
+                  imageUrl: produit.imageUrl || defaultImage,
+                  quantityInStock: produit.quantityInStock != null ? produit.quantityInStock : 10,
+                  stockQuantity: produit.stockQuantity || produit.quantityInStock || 10
+                }));
+              }),
+              catchError(() => {
+                console.warn('Aucun backend disponible, génération de produits fictifs');
+                this.backendAvailable = false;
+                // Générer des produits fictifs
+                return this.generateMockProducts(query);
+              })
+            );
           })
         );
       })
@@ -279,7 +337,7 @@ export class CaisseService {
       notes: notes || 'Session fictive (backend indisponible)'
     };
     
-    return of(mockSession).pipe(delay(this.mockDelay));
+    return of(mockSession).pipe(rxjsDelay(this.mockDelay));
   }
 
   /**
@@ -315,7 +373,7 @@ export class CaisseService {
       transactions: []
     };
     
-    return of(mockSession).pipe(delay(this.mockDelay));
+    return of(mockSession).pipe(rxjsDelay(this.mockDelay));
   }
 
   /**
@@ -331,7 +389,7 @@ export class CaisseService {
       notes: baseTransaction.notes || 'Transaction fictive (backend indisponible)'
     };
     
-    return of(mockTransaction).pipe(delay(this.mockDelay));
+    return of(mockTransaction).pipe(rxjsDelay(this.mockDelay));
   }
 
   /**
@@ -391,7 +449,7 @@ export class CaisseService {
       } as SaleTransaction);
     }
     
-    return of(mockTransactions).pipe(delay(this.mockDelay));
+    return of(mockTransactions).pipe(rxjsDelay(this.mockDelay));
   }
 
   /**
@@ -437,30 +495,193 @@ export class CaisseService {
       discrepancy: Math.random() * 20 - 10
     };
     
-    return of(mockReport).pipe(delay(this.mockDelay));
+    return of(mockReport).pipe(rxjsDelay(this.mockDelay));
   }
 
   /**
    * Génère des produits fictifs basés sur une recherche
    */
   private generateMockProducts(query: string): Observable<any[]> {
-    const mockProducts = [];
-    const count = Math.floor(Math.random() * 5) + 1;
+    // Afficher l'avertissement de données fictives
+    this.showMockDataWarning();
     
-    for (let i = 0; i < count; i++) {
-      mockProducts.push({
-        id: `prod-${Date.now()}-${i}`,
-        name: `${query} Produit ${i+1}`,
-        barcode: `BARCODE-${Math.floor(Math.random() * 10000)}`,
-        price: Math.floor(Math.random() * 100) + 1,
-        stockQuantity: Math.floor(Math.random() * 100) + 10,
-        category: 'Catégorie fictive',
-        description: 'Description fictive pour un produit généré automatiquement',
-        isFictive: true
-      });
+    // Produits prédéfinis pour avoir des données cohérentes
+    const predefinedProducts = [
+      {
+        id: 'prod-001',
+        name: 'Ordinateur portable HP',
+        barcode: 'BARCODE-1234',
+        price: 899.99,
+        stockQuantity: 15,
+        category: 'Informatique',
+        description: 'Ordinateur portable HP 15 pouces, 8Go RAM, 256Go SSD',
+        imageUrl: 'assets/images/products/laptop.jpg',
+        taxRate: 20
+      },
+      {
+        id: 'prod-002',
+        name: 'Smartphone Samsung Galaxy',
+        barcode: 'BARCODE-2345',
+        price: 699.99,
+        stockQuantity: 23,
+        category: 'Téléphonie',
+        description: 'Samsung Galaxy S21, 128Go, Noir',
+        imageUrl: 'assets/images/products/smartphone.jpg',
+        taxRate: 20
+      },
+      {
+        id: 'prod-003',
+        name: 'Imprimante Canon',
+        barcode: 'BARCODE-3456',
+        price: 149.99,
+        stockQuantity: 7,
+        category: 'Informatique',
+        description: 'Imprimante multifonction Canon PIXMA',
+        imageUrl: 'assets/images/products/printer.jpg',
+        taxRate: 20
+      },
+      {
+        id: 'prod-004',
+        name: 'Clavier sans fil Logitech',
+        barcode: 'BARCODE-4567',
+        price: 49.99,
+        stockQuantity: 32,
+        category: 'Accessoires',
+        description: 'Clavier sans fil Logitech K380',
+        imageUrl: 'assets/images/products/keyboard.jpg',
+        taxRate: 20
+      },
+      {
+        id: 'prod-005',
+        name: 'Souris gaming Razer',
+        barcode: 'BARCODE-5678',
+        price: 79.99,
+        stockQuantity: 18,
+        category: 'Accessoires',
+        description: 'Souris gaming Razer DeathAdder V2',
+        imageUrl: 'assets/images/products/mouse.jpg',
+        taxRate: 20
+      },
+      {
+        id: 'prod-006',
+        name: 'Moniteur Dell 27"',
+        barcode: 'BARCODE-6789',
+        price: 299.99,
+        stockQuantity: 9,
+        category: 'Informatique',
+        description: 'Moniteur Dell 27 pouces Full HD',
+        imageUrl: 'assets/images/products/monitor.jpg',
+        taxRate: 20
+      },
+      {
+        id: 'prod-007',
+        name: 'Casque audio Sony',
+        barcode: 'BARCODE-7890',
+        price: 129.99,
+        stockQuantity: 25,
+        category: 'Audio',
+        description: 'Casque audio Sony WH-1000XM4',
+        imageUrl: 'assets/images/products/headphones.jpg',
+        taxRate: 20
+      },
+      {
+        id: 'prod-008',
+        name: 'Enceinte Bluetooth JBL',
+        barcode: 'BARCODE-8901',
+        price: 89.99,
+        stockQuantity: 14,
+        category: 'Audio',
+        description: 'Enceinte Bluetooth JBL Flip 5',
+        imageUrl: 'assets/images/products/speaker.jpg',
+        taxRate: 20
+      },
+      {
+        id: 'prod-009',
+        name: 'Tablette iPad',
+        barcode: 'BARCODE-9012',
+        price: 499.99,
+        stockQuantity: 11,
+        category: 'Informatique',
+        description: 'Apple iPad 10.2 pouces 64Go',
+        imageUrl: 'assets/images/products/tablet.jpg',
+        taxRate: 20
+      },
+      {
+        id: 'prod-010',
+        name: 'Clé USB SanDisk 64Go',
+        barcode: 'BARCODE-0123',
+        price: 19.99,
+        stockQuantity: 42,
+        category: 'Accessoires',
+        description: 'Clé USB SanDisk Ultra 64Go',
+        imageUrl: 'assets/images/products/usb.jpg',
+        taxRate: 20
+      },
+      {
+        id: 'prod-011',
+        name: 'Disque dur externe 1To',
+        barcode: 'BARCODE-1357',
+        price: 59.99,
+        stockQuantity: 16,
+        category: 'Stockage',
+        description: 'Disque dur externe WD Elements 1To',
+        imageUrl: 'assets/images/products/hdd.jpg',
+        taxRate: 20
+      },
+      {
+        id: 'prod-012',
+        name: 'Carte SD 128Go',
+        barcode: 'BARCODE-2468',
+        price: 29.99,
+        stockQuantity: 38,
+        category: 'Stockage',
+        description: 'Carte SD SanDisk Extreme 128Go',
+        imageUrl: 'assets/images/products/sd-card.jpg',
+        taxRate: 20
+      }
+    ];
+    
+    // Filtrer les produits en fonction de la requête
+    const filteredProducts = predefinedProducts.filter(product => {
+      const searchQuery = query.toLowerCase();
+      return (
+        product.name.toLowerCase().includes(searchQuery) ||
+        product.barcode.toLowerCase().includes(searchQuery) ||
+        product.category.toLowerCase().includes(searchQuery) ||
+        product.description.toLowerCase().includes(searchQuery)
+      );
+    });
+    
+    // Si aucun produit ne correspond à la recherche, générer des produits aléatoires
+    if (filteredProducts.length === 0) {
+      const mockProducts = [];
+      const count = Math.floor(Math.random() * 3) + 1;
+      
+      for (let i = 0; i < count; i++) {
+        mockProducts.push({
+          id: `prod-${Date.now()}-${i}`,
+          name: `${query} Produit ${i+1}`,
+          barcode: `BARCODE-${Math.floor(Math.random() * 10000)}`,
+          price: Math.floor(Math.random() * 100) + 1,
+          stockQuantity: Math.floor(Math.random() * 100) + 10,
+          category: 'Catégorie fictive',
+          description: 'Description fictive pour un produit généré automatiquement',
+          imageUrl: 'assets/images/products/default.jpg',
+          taxRate: 20,
+          isFictive: true
+        });
+      }
+      
+      return of(mockProducts).pipe(rxjsDelay(this.mockDelay));
     }
     
-    return of(mockProducts).pipe(delay(this.mockDelay));
+    // Ajouter la propriété isFictive pour indiquer que ce sont des données fictives
+    const productsWithFlag = filteredProducts.map(product => ({
+      ...product,
+      isFictive: true
+    }));
+    
+    return of(productsWithFlag).pipe(rxjsDelay(this.mockDelay));
   }
 
   /**
@@ -468,6 +689,42 @@ export class CaisseService {
    */
   isBackendAvailable(): boolean {
     return this.backendAvailable;
+  }
+
+  /**
+   * Vérifie la disponibilité du backend en envoyant une requête de test
+   * @returns Observable<boolean> - true si le backend est disponible, false sinon
+   */
+  checkBackendAvailability(): Observable<boolean> {
+    console.log('Vérification de la disponibilité du backend de caisse sur le port 8086...');
+    return this.http.get(`${this.apiUrl}/health-check`, { headers: this.getAuthHeaders() })
+      .pipe(
+        timeout(3000), // Timeout après 3 secondes
+        map(() => {
+          console.log('Backend de caisse disponible sur le port 8086');
+          this.backendAvailable = true;
+          return true;
+        }),
+        catchError((error) => {
+          // Essayer l'URL alternative
+          console.log(`Erreur avec l'URL principale: ${error.message || error}`);
+          console.log('Tentative avec l\'URL alternative...');
+          return this.http.get(`${this.alternativeApiUrl}/health-check`, { headers: this.getAuthHeaders() })
+            .pipe(
+              timeout(3000), // Timeout après 3 secondes
+              map(() => {
+                console.log('Backend de caisse disponible sur l\'URL alternative');
+                this.backendAvailable = true;
+                return true;
+              }),
+              catchError((err) => {
+                console.warn(`Backend de caisse non disponible: ${err.message || err}`);
+                this.backendAvailable = false;
+                return of(false);
+              })
+            );
+        })
+      );
   }
   
   /**
@@ -503,7 +760,7 @@ export class CaisseService {
           catchError(() => {
             this.backendAvailable = false;
             // Simuler une mise à jour réussie
-            return of(transaction).pipe(delay(this.mockDelay));
+            return of(transaction).pipe(rxjsDelay(this.mockDelay));
           })
         );
       })
@@ -531,26 +788,146 @@ export class CaisseService {
       })
     );
   }
+
+  /**
+   * Récupère toutes les catégories de produits du service stock
+   * @returns Observable<ProductCategory[]> Liste des catégories de produits
+   */
+  getCategories(): Observable<ProductCategory[]> {
+    const headers = this.getAuthHeaders();
+    
+    return this.http.get<any[]>(`${this.stockServiceUrl}/categories`, { headers }).pipe(
+      map(categories => {
+        // Mapper les données du backend vers le format ProductCategory
+        return categories.map(cat => ({
+          id: cat.id.toString(),
+          name: cat.name,
+          // Utiliser une icône par défaut si non spécifiée
+          icon: this.getCategoryIcon(cat.name)
+        }));
+      }),
+      tap(() => this.backendAvailable = true),
+      catchError(error => {
+        console.error('Erreur lors de la récupération des catégories:', error);
+        this.backendAvailable = false;
+        // Retourner des catégories par défaut en cas d'erreur
+        return of([
+          { id: 'all', name: 'Tous', icon: 'apps' },
+          { id: 'mobiles', name: 'Mobiles', icon: 'smartphone' },
+          { id: 'computers', name: 'Ordinateurs', icon: 'laptop' },
+          { id: 'watches', name: 'Montres', icon: 'watch' },
+          { id: 'headphones', name: 'Écouteurs', icon: 'headphones' },
+          { id: 'components', name: 'Composants', icon: 'memory' },
+          { id: 'accessories', name: 'Accessoires', icon: 'devices_other' }
+        ]);
+      })
+    );
+  }
+
+  /**
+   * Récupère les produits d'une catégorie spécifique
+   * @param categoryId ID de la catégorie
+   * @returns Observable<any[]> Liste des produits de la catégorie
+   */
+  getProductsByCategory(categoryId: string): Observable<any[]> {
+    const headers = this.getAuthHeaders();
+    
+    return this.http.get<any[]>(`${this.stockServiceUrl}/products/category/${categoryId}`, { headers }).pipe(
+      map(products => {
+        console.log(`Produits bruts reçus pour la catégorie ${categoryId}:`, products);
+        
+        // Transformer les données pour s'assurer que quantityInStock est défini
+        return products.map(product => ({
+          ...product,
+          // Mapper la propriété quantity du backend vers quantityInStock pour le frontend
+          quantityInStock: product.quantity || product.quantityInStock || product.stock || 0,
+          // S'assurer que le prix est un nombre
+          price: product.price || 0,
+          // Ajouter une URL d'image par défaut si non définie
+          imageUrl: product.imageUrl || 'assets/images/product-default.png'
+        }));
+      }),
+      tap(products => {
+        console.log(`Produits transformés pour la catégorie ${categoryId}:`, products);
+        this.backendAvailable = true;
+      }),
+      catchError(error => {
+        console.error(`Erreur lors de la récupération des produits de la catégorie ${categoryId}:`, error);
+        this.backendAvailable = false;
+        // Utiliser la recherche générique en cas d'erreur
+        return this.searchProduct('').pipe(
+          map(products => products.filter(p => p.category === categoryId))
+        );
+      })
+    );
+  }
+
+  /**
+   * Récupère tous les produits du service stock
+   * @returns Observable<any[]> Liste de tous les produits
+   */
+  getAllProducts(): Observable<any[]> {
+    const headers = this.getAuthHeaders();
+    console.log('URL du service stock:', this.stockServiceUrl);
+    console.log('En-têtes d\'authentification:', headers);
+    
+    return this.http.get<any[]>(`${this.stockServiceUrl}/products`, { headers }).pipe(
+      map(products => {
+        console.log('Produits bruts reçus du backend:', products);
+        
+        // Transformer les données pour s'assurer que quantityInStock est défini
+        return products.map(product => ({
+          ...product,
+          // Mapper la propriété quantity du backend vers quantityInStock pour le frontend
+          quantityInStock: product.quantity || product.quantityInStock || product.stock || 0,
+          // S'assurer que le prix est un nombre
+          price: product.price || 0,
+          // Ajouter une URL d'image par défaut si non définie
+          imageUrl: product.imageUrl || 'assets/images/product-default.png'
+        }));
+      }),
+      tap(products => {
+        console.log('Produits transformés:', products);
+        this.backendAvailable = true;
+      }),
+      catchError(error => {
+        console.error('Erreur lors de la récupération de tous les produits:', error);
+        this.backendAvailable = false;
+        console.log('Utilisation des données de secours (fallback)...');
+        // Utiliser la recherche générique en cas d'erreur
+        return this.searchProduct('');
+      })
+    );
+  }
+
+  /**
+   * Retourne une icône pour une catégorie donnée
+   * @param categoryName Nom de la catégorie
+   * @returns string Nom de l'icône Material
+   */
+  private getCategoryIcon(categoryName: string): string {
+    const iconMap: {[key: string]: string} = {
+      'Mobiles': 'smartphone',
+      'Téléphones': 'smartphone',
+      'Ordinateurs': 'laptop',
+      'PC': 'laptop',
+      'Montres': 'watch',
+      'Écouteurs': 'headphones',
+      'Audio': 'headphones',
+      'Composants': 'memory',
+      'Accessoires': 'devices_other',
+      'Périphériques': 'devices_other'
+    };
+    
+    // Rechercher une correspondance partielle
+    for (const key in iconMap) {
+      if (categoryName.toLowerCase().includes(key.toLowerCase())) {
+        return iconMap[key];
+      }
+    }
+    
+    // Icône par défaut
+    return 'category';
+  }
 }
 
-// Helper pour le délai
-function delay(ms: number) {
-  return (source: Observable<any>) => new Observable<any>(observer => {
-    const subscription = source.subscribe({
-      next(value) {
-        const timeout = setTimeout(() => {
-          observer.next(value);
-        }, ms);
-        return () => clearTimeout(timeout);
-      },
-      error(err) { observer.error(err); },
-      complete() {
-        const timeout = setTimeout(() => {
-          observer.complete();
-        }, ms);
-        return () => clearTimeout(timeout);
-      }
-    });
-    return () => subscription.unsubscribe();
-  });
-}

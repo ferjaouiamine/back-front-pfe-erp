@@ -2,6 +2,14 @@
  * Modèles pour le système de point de vente (POS)
  */
 
+// Catégorie de produit
+export interface ProductCategory {
+  id: string;
+  name: string;
+  icon?: string;
+  description?: string;
+}
+
 // Modèle de produit
 interface Product {
   id: string;

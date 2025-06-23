@@ -50,9 +50,17 @@ export class StockCreateComponent implements OnInit {
   }
   
   loadCategories(): void {
+    console.log('Chargement des catégories...');
     this.productService.getCategories().subscribe({
       next: (data) => {
-        this.categories = data;
+        console.log('Catégories reçues dans le composant:', data);
+        if (data && Array.isArray(data) && data.length > 0) {
+          this.categories = data;
+          console.log('Catégories chargées avec succès:', this.categories);
+        } else {
+          console.warn('Aucune catégorie reçue ou format incorrect:', data);
+          this.errorMessage = 'Aucune catégorie disponible. Veuillez en créer une d\'abord.';
+        }
       },
       error: (error) => {
         console.error('Erreur lors du chargement des catégories:', error);

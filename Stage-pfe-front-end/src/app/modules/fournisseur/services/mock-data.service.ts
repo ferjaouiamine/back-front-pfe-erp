@@ -47,14 +47,14 @@ export class MockDataService {
 
   /**
    * Génère des données fictives pour les factures avec filtrage simple
-   * @deprecated Utiliser getMockFactures avec filtres avancés à la place
+   * @deprecated Utiliser getMockFacturesWithPagination avec filtres avancés à la place
    */
   getMockFacturesSimple(page: number = 0, size: number = 10, statut?: string): Observable<any> {
     // Crée un filtre compatible avec la nouvelle méthode
     const filters = statut ? { statut } : undefined;
     
     // Utilise la nouvelle méthode avec filtres avancés
-    return this.getMockFactures(page, size, filters);
+    return this.getMockFacturesWithPagination(page, size, filters);
   }
 
   /**
@@ -174,6 +174,29 @@ export class MockDataService {
   }
   
   /**
+   * Récupère des lignes de facture fictives pour une facture donnée
+   * @param factureId ID de la facture
+   * @returns Observable contenant un tableau de lignes de facture fictives
+   */
+  getMockLignesFacture(factureId: string): Observable<any[]> {
+    // Générer entre 1 et 5 lignes de facture
+    const count = Math.floor(Math.random() * 5) + 1;
+    const lignes = this.generateMockLignesFacture(count);
+    
+    // Assigner l'ID de facture à chaque ligne
+    lignes.forEach(ligne => {
+      ligne.factureId = factureId;
+    });
+    
+    return of(lignes).pipe(
+      map(() => {
+        console.log(`Génération de ${count} lignes fictives pour la facture ${factureId}`);
+        return lignes;
+      })
+    );
+  }
+
+  /**
    * Génère des lignes de facture fictives
    */
   private generateMockLignesFacture(count: number): any[] {
@@ -198,9 +221,20 @@ export class MockDataService {
   }
   
   /**
-   * Génère des factures fictives pour le fournisseur
+   * Génère des factures fictives pour le fournisseur sans pagination
+   * Utilisé comme fallback par FactureService
    */
-  getMockFactures(page: number = 0, size: number = 10, filters?: any): Observable<any> {
+  getMockFactures(): Observable<any[]> {
+    // Générer un ensemble de factures fictives (entre 5 et 15)
+    const count = Math.floor(Math.random() * 10) + 5;
+    const factures = this.generateMockFactures(count);
+    return of(factures);
+  }
+  
+  /**
+   * Génère des factures fictives pour le fournisseur avec pagination et filtres
+   */
+  getMockFacturesWithPagination(page: number = 0, size: number = 10, filters?: any): Observable<any> {
     // Génère un ensemble de factures fictives
     let factures: any[] = [];
     const totalElements = 50;

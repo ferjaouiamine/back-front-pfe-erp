@@ -241,21 +241,44 @@ export class PurchaseOrderListComponent implements OnInit {
       return;
     }
     
+    // Récupérer d'abord les détails de la commande
     this.isLoading = true;
-    this.purchaseOrderService.sendPurchaseOrderByEmail(
-      id, 
-      email,
-      'Commande d\'achat',
-      'Veuillez trouver ci-joint la commande d\'achat demandée.'
-    ).subscribe({
-      next: () => {
-        this.isLoading = false;
-        this.showSuccessMessage('Commande envoyée avec succès à ' + email);
+    this.purchaseOrderService.getPurchaseOrderById(id).subscribe({
+      next: (order) => {
+        if (!order) {
+          this.showErrorMessage('Commande introuvable');
+          this.isLoading = false;
+          return;
+        }
+        
+        // S'assurer que l'email du fournisseur est défini
+        const orderData = {
+          ...order,
+          supplierEmail: email || order.supplierEmail
+        };
+        
+        // Envoyer la commande par email
+        this.purchaseOrderService.sendOrderByEmail(orderData).subscribe({
+          next: (response) => {
+            this.isLoading = false;
+            this.showSuccessMessage(`Commande envoyée avec succès à ${email}`);
+            
+            // Mettre à jour le statut de la commande à "SENT" si elle est en brouillon
+            if (order.status === 'DRAFT') {
+              this.updateOrderStatus(id, 'SENT');
+            }
+          },
+          error: (error) => {
+            console.error('Erreur lors de l\'envoi de la commande par email:', error);
+            this.isLoading = false;
+            this.showErrorMessage(`Erreur lors de l'envoi de l'email: ${error.message || 'Erreur inconnue'}`);
+          }
+        });
       },
       error: (error) => {
-        console.error('Erreur lors de l\'envoi de la commande par email:', error);
+        console.error('Erreur lors de la récupération des détails de la commande:', error);
         this.isLoading = false;
-        this.showErrorMessage('Erreur lors de l\'envoi de la commande par email');
+        this.showErrorMessage('Impossible de récupérer les détails de la commande');
       }
     });
   }

@@ -326,6 +326,38 @@ mat-card-title {
   background-color: $white;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
   
+  .product-image-container {
+    height: 150px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+    background-color: $gray-100;
+    margin-bottom: 0;
+    position: relative;
+  }
+  
+  .product-image {
+    max-height: 100%;
+    max-width: 100%;
+    object-fit: contain;
+  }
+  
+  .no-image {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+    width: 100%;
+    color: $gray-400;
+    
+    mat-icon {
+      font-size: 50px;
+      height: 50px;
+      width: 50px;
+    }
+  }
+  
   &:hover {
     transform: translateY(-5px);
     box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);

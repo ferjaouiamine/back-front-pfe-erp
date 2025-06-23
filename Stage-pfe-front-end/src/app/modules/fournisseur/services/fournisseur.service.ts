@@ -512,7 +512,7 @@ export class FournisseurService {
     // Si le backend n'est pas disponible, utiliser les données fictives
     if (!this.backendAvailable) {
       this.showMockDataWarning();
-      return this.mockDataService.getMockFactures(page, size, statut);
+      return this.mockDataService.getMockFacturesWithPagination(page, size, statut);
     }
     
     let params = new HttpParams()
@@ -539,7 +539,7 @@ export class FournisseurService {
             console.warn('Utilisation des données fictives suite à une erreur de connexion au backend');
             this.backendAvailable = false;
             this.showMockDataWarning();
-            return this.mockDataService.getMockFactures(page, size, statut);
+            return this.mockDataService.getMockFacturesWithPagination(page, size, statut);
           }
           return throwError(() => new Error('Impossible de charger les factures.'));
         })

@@ -82,7 +82,7 @@ export interface CommandeStatistiques {
   providedIn: 'root'
 })
 export class CommandeService {
-  private apiUrl = 'http://localhost:8083/api/commandes';
+  private apiUrl = 'http://localhost:8082/api/commandes';
 
   constructor(
     private http: HttpClient,

@@ -1,0 +1,147 @@
+<div class="account-content">
+    <div class="login-wrapper register-wrap bg-img">
+        <div class="login-content">
+            <form [formGroup]="registerForm" (ngSubmit)="navigation()">
+                <div class="login-userset">
+                    <div class="login-logo logo-normal">
+                        <img src="assets/img/logo.png" alt="img">
+                    </div>
+                    <a [routerLink] = "routes.adminDashboard" class="login-logo logo-white">
+                        <img src="assets/img/logo-white.png" alt="">
+                    </a>
+                    <div class="login-userheading">
+                        <h3>Register</h3>
+                        <h4>Create New Account</h4>
+                    </div>
+                    
+                    <!-- Messages de notification -->
+                    <div *ngIf="error" class="alert alert-danger">
+                        {{ error }}
+                    </div>
+                    <div *ngIf="success" class="alert alert-success">
+                        {{ success }}
+                    </div>
+                    <div class="form-login">
+                        <label>Username</label>
+                        <div class="form-addons">
+                            <input type="text" class="form-control" formControlName="username" 
+                                   [ngClass]="{'is-invalid': f['username'].touched && f['username'].invalid}">
+                            <img src="assets/img/icons/user-icon.svg" alt="img">
+                        </div>
+                        <div *ngIf="f['username'].touched && f['username'].invalid" class="text-danger">
+                            <small *ngIf="f['username'].errors?.['required']">Username is required</small>
+                            <small *ngIf="f['username'].errors?.['minlength']">Username must be at least 4 characters</small>
+                        </div>
+                    </div>
+                    <div class="form-login">
+                        <label>Email Address</label>
+                        <div class="form-addons">
+                            <input type="text" class="form-control" formControlName="email"
+                                   [ngClass]="{'is-invalid': f['email'].touched && f['email'].invalid}">
+                            <img src="assets/img/icons/mail.svg" alt="img">
+                        </div>
+                        <div *ngIf="f['email'].touched && f['email'].invalid" class="text-danger">
+                            <small *ngIf="f['email'].errors?.['required']">Email is required</small>
+                            <small *ngIf="f['email'].errors?.['email']">Please enter a valid email address</small>
+                        </div>
+                    </div>
+                    <div class="form-login">
+                        <label>Password</label>
+                        <div class="pass-group">
+                            <input [type]="password[0] ? 'text' : 'password'" class="pass-input" formControlName="password"
+                                   [ngClass]="{'is-invalid': f['password'].touched && f['password'].invalid}">
+                            <span class="fas toggle-password" [ngClass]="password[0] ? 'fa-eye' : 'fa-eye-slash'"
+                                (click)="togglePassword(0)"></span>
+                        </div>
+                        <div *ngIf="f['password'].touched && f['password'].invalid" class="text-danger">
+                            <small *ngIf="f['password'].errors?.['required']">Password is required</small>
+                            <small *ngIf="f['password'].errors?.['minlength']">Password must be at least 6 characters</small>
+                        </div>
+                    </div>
+                    <div class="form-login">
+                        <label>Confirm Password</label>
+                        <div class="pass-group">
+                            <input [type]="password[1] ? 'text' : 'password'" class="pass-input" formControlName="confirmPassword"
+                                   [ngClass]="{'is-invalid': f['confirmPassword'].touched && f['confirmPassword'].invalid}">
+                            <span class="fas toggle-password" [ngClass]="password[1] ? 'fa-eye' : 'fa-eye-slash'"
+                                (click)="togglePassword(1)"></span>
+                        </div>
+                        <div *ngIf="f['confirmPassword'].touched && f['confirmPassword'].invalid" class="text-danger">
+                            <small *ngIf="f['confirmPassword'].errors?.['required']">Confirm password is required</small>
+                            <small *ngIf="f['confirmPassword'].errors?.['passwordMismatch']">Passwords do not match</small>
+                        </div>
+                    </div>
+                    <!-- Option pour créer un compte administrateur -->
+                    <div class="form-login">
+                        <div class="d-flex align-items-center mb-2">
+                            <button type="button" class="btn btn-sm btn-outline-secondary" (click)="toggleAdminFields()">
+                                {{ showAdminFields ? 'Hide Admin Options' : 'Admin Registration' }}
+                            </button>
+                        </div>
+                        
+                        <div *ngIf="showAdminFields" class="admin-fields p-3 border rounded mt-2 mb-3">
+                            <label>Admin Secret Key</label>
+                            <div class="form-addons">
+                                <input type="password" class="form-control" formControlName="adminKey">
+                                <i class="fas fa-key"></i>
+                            </div>
+                            <small class="text-muted">Enter the admin secret key to register as an administrator</small>
+                        </div>
+                    </div>
+                    
+                    <div class="form-login authentication-check">
+                        <div class="row">
+                            <div class="col-sm-8">
+                                <div class="custom-control custom-checkbox custom-class-check justify-content-start">
+                                    <div class="custom-control custom-checkbox custom-class-check">
+                                        <label class="checkboxs ps-4 mb-0 pb-0 line-height-1">
+                                            <input type="checkbox" required>
+                                            <span class="checkmarks"></span>I agree to the <a href="javascript:void(0);"
+                                                class="hover-a">Terms & Privacy</a>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-login">
+                        <button type="submit" class="btn btn-login" [disabled]="loading || registerForm.invalid">
+                            <span *ngIf="loading" class="spinner-border spinner-border-sm mr-1"></span>
+                            Sign Up
+                        </button>
+                    </div>
+                    <div class="signinform">
+                        <h4>Already have an account ? <a [routerLink] = "routes.signIn" class="hover-a">Sign In Instead</a></h4>
+                    </div>
+                    <div class="form-setlogin or-text">
+                        <h4>OR</h4>
+                    </div>
+                    <div class="form-sociallink">
+                        <ul class="d-flex">
+                            <li>
+                                <a href="javascript:void(0);" class="facebook-logo">
+                                    <img src="assets/img/icons/facebook-logo.svg" alt="Facebook">
+                                </a>
+                            </li>
+                            <li>
+                                <a href="javascript:void(0);">
+                                    <img src="assets/img/icons/google.png" alt="Google">
+                                </a>
+                            </li>
+                            <li>
+                                <a href="javascript:void(0);" class="apple-logo">
+                                    <img src="assets/img/icons/apple-logo.svg" alt="Apple">
+                                </a>
+                            </li>
+
+                        </ul>
+                    </div>
+                    <div class="my-4 d-flex justify-content-center align-items-center copyright-text">
+                        <p>Copyright &copy; 2023-2024 Inventory Management System. All rights reserved</p>
+                    </div>
+                </div>
+            </form>
+
+        </div>
+    </div>
+</div>

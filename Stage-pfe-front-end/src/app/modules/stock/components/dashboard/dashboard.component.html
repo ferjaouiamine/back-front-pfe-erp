@@ -18,6 +18,12 @@
       <button class="btn btn-primary me-2" routerLink="/stock/purchase-orders">
         <i class="fas fa-shopping-cart"></i> Commandes d'achat
       </button>
+      <button class="btn btn-warning me-2" routerLink="/stock/low-stocks">
+        <i class="fas fa-exclamation-triangle"></i> Faibles stocks
+      </button>
+      <button class="btn btn-secondary me-2" routerLink="/stock/categories">
+        <i class="fas fa-tags"></i> Gérer les catégories
+      </button>
       <button class="refresh-btn" (click)="refreshData()">
         <i class="fas fa-sync-alt"></i> Rafraîchir
       </button>
@@ -52,7 +58,7 @@
         </div>
       </div>
 
-      <div class="stat-card">
+      <div class="stat-card clickable" routerLink="/stock/low-stocks">
         <div class="stat-icon warning">
           <i class="fas fa-exclamation-triangle"></i>
         </div>

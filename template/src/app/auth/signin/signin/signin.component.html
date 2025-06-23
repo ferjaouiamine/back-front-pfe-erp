@@ -1,0 +1,80 @@
+<div class="account-content">
+    <div class="login-wrapper bg-img">
+        <div class="login-content">
+            <form [formGroup]="loginForm" (ngSubmit)="navigation()">
+                <div class="login-userset">
+                    <div class="login-logo logo-normal">
+                       <img src="assets/img/logo.png" alt="img">
+                   </div>
+                   <a [routerLink] = "routes.adminDashboard" class="login-logo logo-white">
+                       <img src="assets/img/logo-white.png"  alt="">
+                   </a>
+                   <div class="login-userheading">
+                       <h3>Admin Sign In</h3>
+                       <h4>Access the Admin Dashboard using your email/username and password.</h4>
+                   </div>
+                   
+                   <!-- Message d'erreur -->
+                   <div *ngIf="error" class="alert alert-danger">
+                       {{ error }}
+                   </div>
+                   
+                   <div class="form-login mb-3">
+                       <label class="form-label">Email or Username</label>
+                       <div class="form-addons">
+                           <input type="text" class="form-control" formControlName="usernameOrEmail" 
+                                  [ngClass]="{ 'is-invalid': f['usernameOrEmail'].touched && f['usernameOrEmail'].invalid }">
+                           <img src="assets/img/icons/mail.svg" alt="img">
+                       </div>
+                       <div *ngIf="f['usernameOrEmail'].touched && f['usernameOrEmail'].invalid" class="text-danger">
+                           <small *ngIf="f['usernameOrEmail'].errors?.['required']">Email or username is required</small>
+                       </div>
+                   </div>
+                   
+                   <div class="form-login mb-3">
+                       <label class="form-label">Password</label>
+                       <div class="pass-group">
+                        <input [type]="password[1] ? 'text' : 'password'" class="pass-input" formControlName="password"
+                               [ngClass]="{ 'is-invalid': f['password'].touched && f['password'].invalid }">
+                        <span class="fas toggle-password" [ngClass]=" password[1] ? 'fa-eye' : 'fa-eye-slash'" (click)="togglePassword(1)"></span>
+                    </div>
+                    <div *ngIf="f['password'].touched && f['password'].invalid" class="text-danger">
+                        <small *ngIf="f['password'].errors?.['required']">Password is required</small>
+                    </div>
+                   </div>
+                   
+                   <div class="form-login authentication-check">
+                       <div class="row">
+                           <div class="col-12 d-flex align-items-center justify-content-between">
+                               <div class="custom-control custom-checkbox custom-class-check">
+                                   <label class="checkboxs ps-4 mb-0 pb-0 line-height-1">
+                                       <input type="checkbox" class="form-control" [(ngModel)]="rememberMe" [ngModelOptions]="{standalone: true}">
+                                       <span class="checkmarks"></span>Remember me
+                                   </label>
+                               </div>
+                               <div class="text-end">
+                                   <a class="forgot-link" [routerLink] = "routes.forgotPassword">Forgot Password?</a>
+                               </div>
+                           </div>                                    
+                       </div>
+                   </div>
+                   
+                   <div class="form-login">
+                       <button type="submit" class="btn btn-login" [disabled]="loading">
+                           <span *ngIf="loading" class="spinner-border spinner-border-sm mr-1"></span>
+                           Sign In
+                       </button>
+                   </div>
+                   
+                   <div class="signinform">
+                       <h4>New on our platform?<a [routerLink] = "routes.register" class="hover-a"> Create an account</a></h4>
+                   </div>
+                   
+                   <div class="my-4 d-flex justify-content-center align-items-center copyright-text">
+                       <p>Copyright &copy; 2023-2024 Inventory Management System. All rights reserved</p>
+                   </div>
+               </div>
+            </form>
+        </div>
+    </div>
+</div>

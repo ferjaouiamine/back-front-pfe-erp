@@ -103,7 +103,12 @@ export class FactureService {
     private mockDataService: MockDataService
   ) {
     // Vérifie la disponibilité du backend au démarrage du service
-    this.checkBackendAvailability().subscribe();
+    this.checkBackendAvailability().subscribe(available => {
+      console.log(`Backend de facturation ${available ? 'disponible' : 'non disponible'} au démarrage`);
+      if (!available) {
+        this.showMockDataWarning();
+      }
+    });
   }
   
   /**
@@ -111,16 +116,34 @@ export class FactureService {
    * @returns Observable<boolean> - true si le backend est disponible, false sinon
    */
   checkBackendAvailability(): Observable<boolean> {
-    return this.http.get<any>(`${this.apiUrl}/health-check`)
+    console.log('Vérification de la disponibilité du backend de facturation sur le port 8085...');
+    return this.http.get<any>(`${this.apiUrl}/health-check`, { headers: this.getAuthHeaders() })
       .pipe(
+        timeout(3000), // Timeout après 3 secondes
         map(() => {
+          console.log('Backend de facturation disponible sur le port 8085');
           this.backendAvailable = true;
           return true;
         }),
         catchError(error => {
-          console.error('Erreur lors de la vérification de la disponibilité du backend:', error);
-          this.backendAvailable = false;
-          return of(false);
+          // Essayer une URL alternative
+          console.log(`Erreur avec l'URL principale: ${error.message || error}`);
+          console.log('Tentative avec l\'URL alternative...');
+          const alternativeUrl = 'http://localhost:8085/api/factures-alt';
+          return this.http.get<any>(`${alternativeUrl}/health-check`, { headers: this.getAuthHeaders() })
+            .pipe(
+              timeout(3000), // Timeout après 3 secondes
+              map(() => {
+                console.log('Backend de facturation disponible sur l\'URL alternative');
+                this.backendAvailable = true;
+                return true;
+              }),
+              catchError(err => {
+                console.warn(`Backend de facturation non disponible: ${err.message || err}`);
+                this.backendAvailable = false;
+                return of(false);
+              })
+            );
         })
       );
   }
@@ -194,6 +217,16 @@ export class FactureService {
     clientName?: string;   // Recherche par nom de client
   }): Observable<Facture[]> {
     this.loading.next(true);
+    
+    // Si le backend n'est pas disponible, utiliser directement les données fictives
+    if (!this.backendAvailable) {
+      console.log('Backend indisponible, utilisation de données fictives pour la liste des factures');
+      this.showMockDataWarning();
+      return this.getMockFactures(params);
+    }
+    
+    // Définir un timeout pour éviter les attentes trop longues
+    const requestTimeout = 5000; // 5 secondes
 
     let httpParams = new HttpParams();
     if (params) {
@@ -202,38 +235,33 @@ export class FactureService {
       // Vérifier que startDate est une instance de Date avant d'appeler toISOString()
       if (params.startDate) {
         const startDate = params.startDate instanceof Date ? 
-                         params.startDate.toISOString().split('T')[0] : 
-                         params.startDate;
+                         params.startDate.toISOString() : params.startDate;
         httpParams = httpParams.set('dateDebut', startDate);
       }
       
       // Vérifier que endDate est une instance de Date avant d'appeler toISOString()
       if (params.endDate) {
         const endDate = params.endDate instanceof Date ? 
-                       params.endDate.toISOString().split('T')[0] : 
-                       params.endDate;
+                       params.endDate.toISOString() : params.endDate;
         httpParams = httpParams.set('dateFin', endDate);
       }
-      if (params.vendorId) httpParams = httpParams.set('vendeurId', params.vendorId);
-      if (params.searchTerm) httpParams = httpParams.set('recherche', params.searchTerm);
+      
+      if (params.vendorId) httpParams = httpParams.set('vendorId', params.vendorId);
+      if (params.searchTerm) httpParams = httpParams.set('searchTerm', params.searchTerm);
       if (params.clientName) httpParams = httpParams.set('clientName', params.clientName);
     }
 
-    console.log('Récupération des factures avec paramètres:', httpParams.toString());
-  
-    // Utiliser responseType: 'text' pour éviter les erreurs de parsing JSON automatique
-    return this.http.get(this.apiUrl, {
+    return this.http.get(`${this.apiUrl}`, {
       headers: this.getAuthHeaders(),
       params: httpParams,
       responseType: 'text'
     }).pipe(
-      timeout(10000), // 10 secondes de timeout
+      timeout(requestTimeout),
       map(responseText => {
         try {
-          // Parser manuellement la réponse JSON
-          const response = responseText ? JSON.parse(responseText) : [];
+          const response = JSON.parse(responseText);
           console.log('Réponse du backend pour getFactures:', response);
-          return Array.isArray(response) 
+          return Array.isArray(response)
             ? response.map(facture => this.mapSpringBootFactureToAngular(facture))
             : [];
         } catch (parseError) {
@@ -244,27 +272,40 @@ export class FactureService {
       }),
       catchError(error => {
         console.error('Erreur lors de la récupération des factures:', error);
-        // Retourner un tableau vide au lieu de propager l'erreur
-        return of([]);
+        console.warn('Utilisation des données fictives pour la liste des factures suite à une erreur');
+        this.backendAvailable = false;
+        this.showMockDataWarning();
+        return this.getMockFactures(params);
       }),
       finalize(() => this.loading.next(false))
-    );
+    );  
   }
 
   getFactureById(id: string): Observable<Facture> {
     console.log(`Récupération de la facture avec ID: ${id}`);
     this.loading.next(true);
     
+    // Si le backend n'est pas disponible, utiliser directement les données fictives
+    if (!this.backendAvailable) {
+      console.log(`Backend indisponible, utilisation de données fictives pour la facture ${id}`);
+      this.showMockDataWarning();
+      return this.getMockFactureById(id);
+    }
+    
+    // Définir un timeout pour éviter les attentes trop longues
+    const requestTimeout = 5000; // 5 secondes
+    
     // Récupérer la facture avec ses lignes (grâce aux annotations Jackson)
     return this.http.get<any>(`${this.apiUrl}/${id}`, {
       headers: this.getAuthHeaders()
     }).pipe(
+      timeout(requestTimeout),
       map(response => {
         console.log('Réponse brute du backend pour getFactureById:', JSON.stringify(response, null, 2));
         const mappedFacture = this.mapSpringBootFactureToAngular(response);
         
         // Recalculer les totaux si nécessaire
-        if (mappedFacture.items && mappedFacture.items.length > 0) {
+        if (!mappedFacture.subtotal || !mappedFacture.tax || !mappedFacture.total) {
           mappedFacture.subtotal = this.calculateSubtotal(mappedFacture.items);
           mappedFacture.tax = this.calculateTaxAmount(mappedFacture.subtotal, 20); // 20% de TVA
           mappedFacture.total = this.calculateTotal(mappedFacture.subtotal, mappedFacture.tax, mappedFacture.discount || 0);
@@ -274,7 +315,10 @@ export class FactureService {
       }),
       catchError(error => {
         console.error(`Erreur lors de la récupération de la facture ${id}:`, error);
-        return throwError(() => new Error(`Impossible de récupérer la facture: ${error.message}`));
+        console.warn(`Utilisation des données fictives pour la facture ${id} suite à une erreur`);
+        this.backendAvailable = false;
+        this.showMockDataWarning();
+        return this.getMockFactureById(id);
       }),
       finalize(() => this.loading.next(false))
     );
@@ -364,12 +408,22 @@ export class FactureService {
           catchError(secondError => {
             console.error(`Échec de la récupération alternative pour la facture ${factureId}:`, secondError);
             
-            // Les deux méthodes ont échoué, générer des lignes fictives pour démonstration
-            console.warn(`Toutes les tentatives de récupération des lignes ont échoué, retour d'un tableau vide`);
+            // Les deux méthodes ont échoué, utiliser des données fictives
+            console.warn(`Toutes les tentatives de récupération des lignes ont échoué, utilisation de données fictives`);
             
-            // Retourner un tableau vide plutôt que des données fictives
-            // pour permettre à l'utilisateur de décider s'il veut ajouter des articles fictifs
-            return of([]);
+            // Marquer le backend comme indisponible
+            this.backendAvailable = false;
+            this.showMockDataWarning();
+            
+            // Utiliser le MockDataService pour générer des lignes fictives
+            return this.mockDataService.getMockLignesFacture(factureId).pipe(
+              map(mockLignes => {
+                console.log(`Génération de ${mockLignes.length} lignes fictives pour la facture ${factureId}`);
+                
+                // Convertir les lignes fictives au format FactureItem
+                return mockLignes.map((ligne: any, index: number) => this.mapLigneFactureToFactureItem(ligne, factureId, index));
+              })
+            );
           })
         );
       })
@@ -1219,6 +1273,152 @@ export class FactureService {
     );
   }
   
+  /**
+   * Récupère une liste de factures fictives avec filtrage optionnel
+   * @param params Paramètres de filtrage optionnels
+   * @returns Observable de la liste de factures fictives
+   */
+  private getMockFactures(params?: {
+    status?: FactureStatus;
+    startDate?: Date;
+    endDate?: Date;
+    vendorId?: string;
+    searchTerm?: string;
+    clientName?: string;
+  }): Observable<Facture[]> {
+    console.log('Génération de factures fictives avec paramètres:', params);
+    
+    return this.mockDataService.getMockFactures().pipe(
+      map(mockFactures => {
+        // Convertir les factures fictives au format Angular
+        const factures: Facture[] = mockFactures.map((mockFacture: any) => ({
+          id: mockFacture.id,
+          number: mockFacture.reference,
+          reference: mockFacture.reference,
+          clientName: mockFacture.nomClient || `Client Fictif ${mockFacture.id.replace('FACT-', '')}`,
+          clientEmail: mockFacture.emailClient || `client${mockFacture.id.replace('FACT-', '')}@example.com`,
+          date: this.formatDate(mockFacture.dateEmission),
+          dueDate: this.formatDate(mockFacture.dateEcheance),
+          status: this.mapStatutToFactureStatus(mockFacture.statut),
+          total: mockFacture.montantTotal,
+          subtotal: mockFacture.montantTotal * 0.8, // Estimation du sous-total (80% du total)
+          tax: mockFacture.montantTotal * 0.2, // Estimation de la TVA (20% du total)
+          discount: 0,
+          notes: 'Facture fictive générée en mode hors ligne',
+          items: []
+        }));
+        
+        // Appliquer les filtres si nécessaire
+        let filteredFactures = [...factures];
+        
+        if (params) {
+          // Filtrer par statut
+          if (params.status) {
+            filteredFactures = filteredFactures.filter(f => f.status === params.status);
+          }
+          
+          // Filtrer par date de début
+          if (params.startDate) {
+            const startDate = params.startDate instanceof Date ? params.startDate : new Date(params.startDate);
+            filteredFactures = filteredFactures.filter(f => {
+              const factureDate = f.date instanceof Date ? f.date : new Date(f.date);
+              return factureDate >= startDate;
+            });
+          }
+          
+          // Filtrer par date de fin
+          if (params.endDate) {
+            const endDate = params.endDate instanceof Date ? params.endDate : new Date(params.endDate);
+            filteredFactures = filteredFactures.filter(f => {
+              const factureDate = f.date instanceof Date ? f.date : new Date(f.date);
+              return factureDate <= endDate;
+            });
+          }
+          
+          // Filtrer par terme de recherche (numéro ou référence)
+          if (params.searchTerm) {
+            const searchTerm = params.searchTerm.toLowerCase();
+            filteredFactures = filteredFactures.filter(f => 
+              (f.number && f.number.toLowerCase().includes(searchTerm)) || 
+              (f.reference && f.reference.toLowerCase().includes(searchTerm))
+            );
+          }
+          
+          // Filtrer par nom de client
+          if (params.clientName) {
+            const clientName = params.clientName.toLowerCase();
+            filteredFactures = filteredFactures.filter(f => 
+              f.clientName && f.clientName.toLowerCase().includes(clientName)
+            );
+          }
+        }
+        
+        console.log(`${filteredFactures.length} factures fictives générées après filtrage`);
+        return filteredFactures;
+      }),
+      catchError(error => {
+        console.error('Erreur lors de la génération des factures fictives:', error);
+        return of([]);
+      })
+    );
+  }
+
+  /**
+   * Récupère une facture fictive par son ID
+   * @param id ID de la facture
+   * @returns Observable de la facture fictive
+   */
+  private getMockFactureById(id: string): Observable<Facture> {
+    console.log(`Génération d'une facture fictive avec ID: ${id}`);
+    
+    return this.mockDataService.getMockFactureById(id).pipe(
+      switchMap(mockFacture => {
+        // Convertir la facture fictive au format Angular
+        const facture: Facture = {
+          id: mockFacture.id,
+          number: mockFacture.reference,
+          reference: mockFacture.reference,
+          clientName: `Client Fictif ${id.replace('FACT-', '')}`,
+          clientEmail: `client${id.replace('FACT-', '')}@example.com`,
+          date: this.formatDate(mockFacture.dateEmission),
+          dueDate: this.formatDate(mockFacture.dateEcheance),
+          status: this.mapStatutToFactureStatus(mockFacture.statut),
+          total: mockFacture.montantTotal,
+          subtotal: mockFacture.montantTotal * 0.8, // Estimation du sous-total (80% du total)
+          tax: mockFacture.montantTotal * 0.2, // Estimation de la TVA (20% du total)
+          discount: 0,
+          notes: 'Facture fictive générée en mode hors ligne',
+          items: []
+        };
+        
+        // Récupérer les lignes de facture fictives
+        return this.mockDataService.getMockLignesFacture(id).pipe(
+          map(mockLignes => {
+            // Convertir les lignes fictives au format FactureItem
+            facture.items = mockLignes.map((ligne: any, index: number) => 
+              this.mapLigneFactureToFactureItem(ligne, id, index)
+            );
+            
+            // Recalculer les totaux
+            facture.subtotal = this.calculateSubtotal(facture.items);
+            facture.tax = this.calculateTaxAmount(facture.subtotal, 20); // 20% de TVA
+            facture.total = this.calculateTotal(facture.subtotal, facture.tax, facture.discount);
+            
+            console.log(`Facture fictive générée avec ${facture.items.length} lignes:`, facture);
+            return facture;
+          })
+        );
+      }),
+      catchError(error => {
+        console.error(`Erreur lors de la génération de la facture fictive ${id}:`, error);
+        // Créer une facture vide en cas d'erreur
+        const emptyFacture = this.createEmptyFacture();
+        emptyFacture.id = id;
+        return of(emptyFacture);
+      })
+    );
+  }
+
   /**
    * Ajoute une ligne de facture fictive et retourne la facture mise à jour
    * @param factureId ID de la facture

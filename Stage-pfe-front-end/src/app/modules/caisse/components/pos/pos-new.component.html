@@ -1,0 +1,214 @@
+<!-- Nouvelle interface de caisse inspirée du template Dreams POS -->
+<div class="dreams-pos-container">
+  <!-- Alerte mode hors ligne -->
+  <div *ngIf="!backendAvailable" class="offline-alert">
+    <i class="material-icons">cloud_off</i>
+    <span>Mode hors ligne - Les données sont simulées</span>
+  </div>
+
+  <!-- En-tête du POS -->
+  <div class="pos-header">
+    <div class="header-left">
+      <h2>DreamsPOS</h2>
+    </div>
+    <div class="header-right">
+      <div class="time">{{ currentTime | date:'HH:mm:ss' }}</div>
+      <div class="user">Bienvenue, {{ currentUser?.username || 'Utilisateur' }}</div>
+    </div>
+  </div>
+
+  <!-- Message d'erreur si le backend n'est pas disponible -->
+  <div class="backend-error" *ngIf="!backendAvailable">
+    <i class="material-icons">error</i>
+    <p>Impossible de se connecter au service de stock. Certaines fonctionnalités peuvent être limitées.</p>
+  </div>
+
+  <!-- Écran d'ouverture de caisse -->
+  <div class="register-closed" *ngIf="!isRegisterOpen">
+    <div class="register-message">
+      <i class="material-icons">point_of_sale</i>
+      <h3>Caisse fermée</h3>
+      <p>Veuillez ouvrir la caisse pour commencer à vendre</p>
+      <button class="btn-open-register" (click)="openRegisterDialog()">
+        <i class="material-icons">login</i> Ouvrir la caisse
+      </button>
+    </div>
+  </div>
+
+  <!-- Interface principale du POS -->
+  <div class="pos-main" *ngIf="isRegisterOpen">
+    <div class="pos-layout">
+      <!-- Barre de recherche et options -->
+      <div class="pos-top-bar">
+        <div class="pos-search">
+          <i class="material-icons">search</i>
+          <input type="text" placeholder="Rechercher des produits..." [(ngModel)]="searchQuery" (input)="onSearchChange()">
+          <button *ngIf="searchQuery" (click)="clearSearch()"><i class="material-icons">close</i></button>
+        </div>
+        <div class="view-options">
+          <button class="btn view-btn active">
+            <i class="material-icons">grid_view</i>
+          </button>
+          <button class="btn view-btn">
+            <i class="material-icons">view_list</i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Barre de catégories horizontale -->
+      <div class="pos-categories-bar">
+        <!-- Catégorie "Tous" -->
+        <div class="category-item" [ngClass]="{'active': selectedCategory === 'all'}" (click)="loadProducts('all')">
+          <div class="category-icon">
+            <i class="material-icons">dashboard</i>
+          </div>
+          <span class="category-name">Tous</span>
+        </div>
+
+        <!-- Catégories dynamiques -->
+        <div class="category-item" *ngFor="let category of categories" 
+             [ngClass]="{'active': selectedCategory === category.id}" 
+             (click)="loadProducts(category.id)">
+          <div class="category-icon">
+            <i class="material-icons">{{ category.icon || 'category' }}</i>
+          </div>
+          <span class="category-name">{{ category.name }}</span>
+        </div>
+      </div>
+
+      <!-- Conteneur principal avec produits et panier -->
+      <div class="pos-content">
+        <!-- Panneau des produits -->
+        <div class="pos-products">
+          <!-- Message de chargement -->
+          <div class="loading" *ngIf="isSearching">
+            <i class="material-icons spinning">refresh</i>
+            <p>Chargement des produits...</p>
+          </div>
+
+          <!-- Message si aucun produit trouvé -->
+          <div class="no-products" *ngIf="!isSearching && products.length === 0">
+            <i class="material-icons" *ngIf="backendAvailable">inventory_2</i>
+            <i class="material-icons error-icon" *ngIf="!backendAvailable">error_outline</i>
+            <h3 *ngIf="backendAvailable">Aucun produit trouvé</h3>
+            <h3 *ngIf="!backendAvailable">Impossible de se connecter au service de stock</h3>
+            <p *ngIf="backendAvailable">Essayez une autre catégorie ou modifiez votre recherche</p>
+            <p *ngIf="!backendAvailable">Vérifiez que le service stock-service est bien démarré sur le port 8082</p>
+            <button class="btn-retry" *ngIf="!backendAvailable" (click)="loadProducts('all')">
+              <i class="material-icons">refresh</i> Réessayer
+            </button>
+          </div>
+
+          <!-- Grille de produits -->
+          <div class="products-grid">
+            <!-- Cartes de produits -->
+            <div class="product-card" *ngFor="let product of products" (click)="showProductDetails(product)">
+              <!-- Overlay pour produits indisponibles -->
+              <div class="product-overlay" *ngIf="!product.quantityInStock || product.quantityInStock <= 0">
+                <span>Indisponible</span>
+              </div>
+              <div class="product-img">
+                <img [src]="product.imageUrl || 'assets/images/product-default.png'" alt="{{ product.name }}">
+              </div>
+              <div class="product-content">
+                <h3 class="product-title">{{ product.name }}</h3>
+                <div class="product-price">{{ product.price | currency:'EUR':'symbol':'1.2-2' }}</div>
+                <div class="stock-info" [ngClass]="getStockStatus(product)">
+                  <i class="material-icons">{{ getStockIcon(product) }}</i>
+                  <span>{{ product.quantityInStock || 0 }} en stock</span>
+                </div>
+              </div>
+              <button class="add-to-cart" 
+                     [disabled]="!product.quantityInStock || product.quantityInStock <= 0" 
+                     (click)="addToCart(product, 1); $event.stopPropagation();">
+                <i class="material-icons">add_shopping_cart</i>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Panneau du panier -->
+        <div class="pos-cart">
+          <div class="cart-header">
+            <h3>Panier</h3>
+            <span class="order-id" *ngIf="activeSession">{{ activeSession.id }}</span>
+          </div>
+
+          <div class="customer-info">
+            <h4>Client</h4>
+            <div class="customer-select">
+              <select>
+                <option>Sélectionner un client</option>
+                <option>Client régulier</option>
+              </select>
+              <button class="btn-add-customer">
+                <i class="material-icons">person_add</i>
+              </button>
+            </div>
+          </div>
+
+          <div class="cart-items">
+            <div class="cart-empty" *ngIf="cartItems.length === 0">
+              <i class="material-icons">shopping_cart</i>
+              <p>Le panier est vide</p>
+            </div>
+
+            <div class="cart-item" *ngFor="let item of cartItems; let i = index">
+              <div class="cart-item-details">
+                <div class="cart-item-name">{{ item.productName }}</div>
+                <div class="cart-item-price">{{ item.unitPrice | currency:'EUR':'symbol':'1.2-2' }}</div>
+              </div>
+              <div class="item-quantity">
+                <button (click)="updateQuantity(i, item.quantity - 1)">
+                  <i class="material-icons">remove</i>
+                </button>
+                <span>{{ item.quantity }}</span>
+                <button (click)="updateQuantity(i, item.quantity + 1)">
+                  <i class="material-icons">add</i>
+                </button>
+              </div>
+              <div class="cart-item-price">{{ item.totalPrice | currency:'EUR':'symbol':'1.2-2' }}</div>
+              <button class="remove-item" (click)="removeFromCart(i)">
+                <i class="material-icons">close</i>
+              </button>
+            </div>
+          </div>
+
+          <div class="cart-totals" *ngIf="cartItems.length > 0">
+            <div class="total-row">
+              <span>Sous-total</span>
+              <span>{{ subtotal | currency:'EUR':'symbol':'1.2-2' }}</span>
+            </div>
+            <div class="total-row">
+              <span>TVA (20%)</span>
+              <span>{{ taxTotal | currency:'EUR':'symbol':'1.2-2' }}</span>
+            </div>
+            <div class="total-row">
+              <span>Remise</span>
+              <span>{{ discount | currency:'EUR':'symbol':'1.2-2' }}</span>
+            </div>
+            <div class="total-row cart-total">
+              <span>Total</span>
+              <span>{{ total | currency:'EUR':'symbol':'1.2-2' }}</span>
+            </div>
+          </div>
+
+          <div class="cart-actions">
+              <button class="btn-hold" (click)="holdOrder()">
+                <i class="material-icons">pause</i> Mettre en attente
+              </button>
+              <button class="btn-void" (click)="voidOrder()">
+                <i class="material-icons">delete</i> Annuler
+              </button>
+              <button class="btn-print" (click)="printOrder()" [disabled]="cartItems.length === 0">
+                <i class="material-icons">print</i> Imprimer
+              </button>
+              <button class="btn-payment" (click)="openPaymentModal()" [disabled]="cartItems.length === 0">
+                <i class="material-icons">payment</i> Paiement
+              </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

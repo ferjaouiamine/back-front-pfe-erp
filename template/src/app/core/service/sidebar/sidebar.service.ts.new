@@ -1,0 +1,411 @@
+import { Injectable } from '@angular/core';
+import { BehaviorSubject } from 'rxjs';
+import { routes } from '../../core.index';
+
+@Injectable({
+  providedIn: 'root',
+})
+export class SidebarService {
+  private collapseSubject = new BehaviorSubject<boolean>(false);
+  collapse$ = this.collapseSubject.asObservable();
+
+  toggleCollapse() {
+    this.collapseSubject.next(!this.collapseSubject.value);
+  }
+
+  public sideBarPosition: BehaviorSubject<string> = new BehaviorSubject<string>(
+    localStorage.getItem('sideBarPosition') || 'false'
+  );
+
+  public toggleMobileSideBar: BehaviorSubject<string> =
+    new BehaviorSubject<string>(
+      localStorage.getItem('isMobileSidebar') || 'false'
+    );
+
+  public expandSideBar: BehaviorSubject<boolean> = new BehaviorSubject<boolean>(
+    false
+  );
+
+  public switchSideMenuPosition(): void {
+    if (localStorage.getItem('sideBarPosition')) {
+      this.sideBarPosition.next('false');
+      this.expandSideBar.next(true);
+      localStorage.removeItem('sideBarPosition');
+    } else {
+      this.sideBarPosition.next('true');
+      this.expandSideBar.next(false);
+      localStorage.setItem('sideBarPosition', 'true');
+    }
+  }
+
+  public switchMobileSideBarPosition(): void {
+    if (localStorage.getItem('isMobileSidebar')) {
+      this.toggleMobileSideBar.next('false');
+      localStorage.removeItem('isMobileSidebar');
+    } else {
+      this.toggleMobileSideBar.next('true');
+      localStorage.setItem('isMobileSidebar', 'true');
+    }
+  }
+
+  // Menu simplifié avec uniquement les liens spécifiés
+  public sidebarData1 = [
+    {
+      tittle: 'Main',
+      showAsTab: false,
+      separateRoute: false,
+      hasSubRoute: false,
+      showSubRoute: true,
+      menu: [
+        {
+          menuValue: 'Dashboard',
+          hasSubRoute: true,
+          showSubRoute: true,
+          icon: 'grid',
+          base1: 'dashboard',
+          subMenus: [
+            {
+              menuValue: 'Admin Dashboard',
+              route: routes.adminDashboard,
+            },
+            {
+              menuValue: 'Sales Dashboard',
+              route: routes.salesDashboard,
+            },
+          ],
+        },
+      ],
+    },
+    {
+      tittle: 'Inventory',
+      showAsTab: true,
+      separateRoute: false,
+      menu: [
+        {
+          menuValue: 'Products',
+          icon: 'box',
+          route: routes.productList,
+          hasSubRoute: false,
+          showSubRoute: false,
+        },
+        {
+          menuValue: 'Create Products',
+          icon: 'plus-square',
+          route: routes.addProduct,
+          hasSubRoute: false,
+          showSubRoute: false,
+        },
+        {
+          menuValue: 'Expired Products',
+          icon: 'message-square',
+          hasSubRoute: false,
+          showSubRoute: false,
+          route: routes.expiredProduct,
+          subRoutes: [],
+        },
+        {
+          menuValue: 'Low Stocks',
+          icon: 'trending-down',
+          hasSubRoute: false,
+          showSubRoute: false,
+          route: routes.lowStock,
+          subRoutes: [],
+        },
+        {
+          menuValue: 'Category',
+          icon: 'codepen',
+          hasSubRoute: false,
+          showSubRoute: false,
+          route: routes.categoryList,
+          subRoutes: [],
+        },
+        {
+          menuValue: 'Units',
+          icon: 'speaker',
+          hasSubRoute: false,
+          showSubRoute: false,
+          route: routes.units,
+          subRoutes: [],
+        },
+        {
+          menuValue: 'Print Bar Code',
+          icon: 'align-justify',
+          hasSubRoute: false,
+          showSubRoute: false,
+          route: routes.barCode,
+          subRoutes: [],
+        },
+        {
+          menuValue: 'Print QR Code',
+          icon: 'maximize',
+          hasSubRoute: false,
+          showSubRoute: false,
+          route: routes.qrCode,
+          subRoutes: [],
+        },
+      ],
+    },
+    {
+      tittle: 'Stock',
+      showAsTab: true,
+      separateRoute: false,
+      menu: [
+        {
+          menuValue: 'Manage Stock',
+          icon: 'package',
+          route: routes.manageStocks,
+          hasSubRoute: false,
+          showSubRoute: false,
+        },
+        {
+          menuValue: 'Stock Adjustment',
+          icon: 'clipboard',
+          route: routes.stockAdjustment,
+          hasSubRoute: false,
+          showSubRoute: false,
+        },
+        {
+          menuValue: 'Stock Transfer',
+          icon: 'truck',
+          route: routes.stockTransfer,
+          hasSubRoute: false,
+          showSubRoute: false,
+        },
+      ],
+    },
+    {
+      tittle: 'Sales',
+      showAsTab: true,
+      separateRoute: false,
+      menu: [
+        {
+          menuValue: 'Sales',
+          icon: 'shopping-cart',
+          route: routes.salesList,
+          hasSubRoute: false,
+          showSubRoute: false,
+        },
+        {
+          menuValue: 'Sales Return',
+          icon: 'copy',
+          route: routes.salesReturn,
+          hasSubRoute: false,
+          showSubRoute: false,
+        },
+        {
+          menuValue: 'Quotation',
+          icon: 'save',
+          route: routes.quotationList,
+          hasSubRoute: false,
+          showSubRoute: false,
+        },
+        {
+          menuValue: 'POS',
+          icon: 'hard-drive',
+          route: routes.pos,
+          hasSubRoute: false,
+          showSubRoute: false,
+        },
+      ],
+    },
+    {
+      tittle: 'Purchases',
+      showAsTab: true,
+      separateRoute: false,
+      menu: [
+        {
+          menuValue: 'Purchases',
+          icon: 'shopping-bag',
+          route: routes.purchaseList,
+          hasSubRoute: false,
+          showSubRoute: false,
+        },
+        {
+          menuValue: 'Purchase Order',
+          icon: 'file-minus',
+          route: routes.purchaseOrderReport,
+          hasSubRoute: false,
+          showSubRoute: false,
+        },
+        {
+          menuValue: 'Purchase Return',
+          icon: 'refresh-cw',
+          route: routes.purchaseReturns,
+          hasSubRoute: false,
+          showSubRoute: false,
+        },
+      ],
+    },
+    {
+      tittle: 'Peoples',
+      showAsTab: true,
+      separateRoute: false,
+      menu: [
+        {
+          menuValue: 'Customers',
+          icon: 'user',
+          route: routes.customers,
+          hasSubRoute: false,
+          showSubRoute: false,
+        },
+        {
+          menuValue: 'Suppliers',
+          icon: 'users',
+          route: routes.suppliers,
+          hasSubRoute: false,
+          showSubRoute: false,
+        },
+        {
+          menuValue: 'Stores',
+          icon: 'home',
+          route: routes.storeList,
+          hasSubRoute: false,
+          showSubRoute: false,
+        },
+      ],
+    },
+    {
+      tittle: 'User Management',
+      showAsTab: true,
+      separateRoute: false,
+      menu: [
+        {
+          menuValue: 'Users',
+          icon: 'user-check',
+          route: routes.users,
+          hasSubRoute: false,
+          showSubRoute: false,
+        },
+        {
+          menuValue: 'Roles & Permissions',
+          icon: 'shield',
+          route: routes.rolesPermission,
+          hasSubRoute: false,
+          showSubRoute: false,
+        },
+        {
+          menuValue: 'Delete Account Request',
+          icon: 'lock',
+          route: routes.deleteaccount,
+          hasSubRoute: false,
+          showSubRoute: false,
+        },
+      ],
+    },
+    {
+      tittle: 'Pages',
+      showAsTab: true,
+      separateRoute: false,
+      menu: [
+        {
+          menuValue: 'Profile',
+          icon: 'user',
+          route: routes.profile,
+          hasSubRoute: false,
+          showSubRoute: false,
+        },
+      ],
+    },
+  ];
+
+  // Copie du sidebarData1 pour sidebarData2 pour maintenir la cohérence
+  public sidebarData2 = this.sidebarData1;
+  
+  // Copie du sidebarData1 pour sidebarData3 pour maintenir la cohérence
+  public sidebarData3 = this.sidebarData1;
+
+  // Structure vide pour videocall pour éviter les erreurs
+  public videocall = [
+    {
+      img: 'assets/img/users/user-01.jpg',
+      name: 'Barbara',
+    },
+    {
+      img: 'assets/img/users/user-02.jpg',
+      name: 'Linnea',
+    },
+    {
+      img: 'assets/img/users/user-05.jpg',
+      name: 'Richard',
+    },
+    {
+      img: 'assets/img/users/user-03.jpg',
+      name: 'Freda',
+    },
+  ];
+
+  // Structure vide pour settings_sidebar pour éviter les erreurs
+  public settings_sidebar = [
+    {
+      icon: 'feather icon-settings',
+      title: 'General Settings',
+      page: 'general-settings',
+      subMenu: [
+        { title: 'Profile', routes: routes.generalSettings },
+        { title: 'Security', routes: routes.securitySettings },
+        { title: 'Notifications', routes: routes.settingsNotification },
+        { title: 'Connected Apps', routes: routes.connectedApps },
+      ],
+    },
+    {
+      icon: 'feather icon-airplay',
+      title: 'Website Settings',
+      page: 'website-settings',
+      subMenu: [
+        { title: 'System Settings', routes: routes.systemSettings },
+        { title: 'Company Settings', routes: routes.companySettings },
+        { title: 'Localization', routes: routes.localizationSettings },
+        { title: 'Prefixes', routes: routes.prefixes },
+        { title: 'Preference', routes: routes.preference },
+        { title: 'Appearance', routes: routes.appearance },
+        {
+          title: 'Social Authentication',
+          routes: routes.socialAuthentication,
+        },
+        { title: 'Language', routes: routes.languageSettings },
+      ],
+    },
+    {
+      icon: 'feather icon-archive',
+      title: 'App Settings',
+      page: 'app-settings',
+      subMenu: [
+        { title: 'Invoice', routes: routes.invoiceSettings },
+        { title: 'Printer', routes: routes.printerSettings },
+        { title: 'POS', routes: routes.posSettings },
+        { title: 'Custom Fields', routes: routes.customFields },
+      ],
+    },
+    {
+      icon: 'feather icon-server',
+      title: 'System Settings',
+      page: 'system-settings',
+      subMenu: [
+        { title: 'Email', routes: routes.emailSettings },
+        { title: 'SMS Gateways', routes: routes.smsGateway },
+        { title: 'OTP', routes: routes.otpSettings },
+        { title: 'GDPR Cookies', routes: routes.gdprSettings },
+      ],
+    },
+    {
+      icon: 'feather icon-credit-card',
+      title: 'Financial Settings',
+      page: 'financial-settings',
+      subMenu: [
+        { title: 'Payment Gateway', routes: routes.paymentGatewaySettings },
+        { title: 'Bank Accounts', routes: routes.bankSettingsGrid },
+        { title: 'Tax Rates', routes: routes.taxRates },
+        { title: 'Currencies', routes: routes.currencySettings },
+      ],
+    },
+    {
+      icon: 'feather icon-layout',
+      title: 'Other Settings',
+      page: 'other-settings',
+      subMenu: [
+        { title: 'Storage', routes: routes.storageSettings },
+        { title: 'Ban IP Address', routes: routes.banIpAddress },
+      ],
+    },
+  ];
+}

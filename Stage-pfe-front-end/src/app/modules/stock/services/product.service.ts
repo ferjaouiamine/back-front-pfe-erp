@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
 import { Observable, of, throwError } from 'rxjs';
 import { map, catchError, delay } from 'rxjs/operators';
 import { AuthService } from '../../auth/services/auth.service';
@@ -26,6 +26,7 @@ export interface Product {
 export interface ProductCategory {
   id: number | string;
   name: string;
+  productCount?: number; // Nombre de produits associés à cette catégorie
 }
 
 @Injectable({
@@ -34,8 +35,11 @@ export interface ProductCategory {
 export class ProductService {
   // URL directe vers le backend Spring Boot
   private apiUrl = 'http://localhost:8082/api/products';
-  // URL alternative si le port 8082 ne fonctionne pas
-  private alternativeApiUrl = 'http://localhost:8083/api/products';
+  // URL alternative si le port principal ne fonctionne pas
+  private alternativeApiUrl = 'http://localhost:8080/api/products';
+  // URL pour les catégories
+  private categoriesUrl = 'http://localhost:8082/api/categories';
+  private alternativeCategoriesUrl = 'http://localhost:8080/api/categories';
   // Indicateur si le backend est disponible
   private backendAvailable = true;
   // Message pour informer l'utilisateur que le backend n'est pas disponible
@@ -61,11 +65,14 @@ export class ProductService {
    * @returns Observable contenant un tableau de produits
    */
   getProducts(useMockData: boolean = false): Observable<Product[]> {
-    // Si useMockData est true ou si le backend est déjà marqué comme indisponible, retourner directement des données fictives
-    if (useMockData || !this.backendAvailable) {
-      console.log('Utilisation de données fictives pour les produits');
-      const mockProducts = this.generateMockProductsFromMySQLStructure();
-      return of(mockProducts).pipe(delay(300)); // Simuler un délai de réseau
+    // Forcer l'utilisation des données réelles uniquement - Ne jamais utiliser de données fictives
+    useMockData = false;
+    console.log('Utilisation forcée des données réelles pour les produits');
+    
+    if (!this.backendAvailable) {
+      console.error('Le serveur de gestion de produits n\'est pas disponible');
+      // Retourner une erreur au lieu de données fictives
+      return throwError(() => new Error('Le serveur de gestion de produits n\'est pas disponible. Impossible de récupérer les produits.'));
     }
     
     console.log('Tentative de récupération des produits depuis le backend sur le port 8082');
@@ -131,8 +138,8 @@ export class ProductService {
       catchError(error => {
         console.error('Erreur lors de la récupération des produits sur le port 8082:', error);
         
-        // En cas d'échec, essayer avec le backend sur le port 8083
-        console.log('Tentative de récupération des produits depuis le backend sur le port 8083');
+        // En cas d'échec, essayer avec le backend sur le port 8082
+        console.log('Tentative de récupération des produits depuis le backend sur le port 8082');
         return this.http.get<any>(this.alternativeApiUrl, { headers: this.getAuthHeaders() }).pipe(
           map(response => {
             console.log('Réponse du backend alternatif pour les produits:', response);
@@ -155,15 +162,14 @@ export class ProductService {
             return products;
           }),
           catchError(alternativeError => {
-            console.error('Erreur lors de la récupération des produits sur le port 8083:', alternativeError);
+            console.error('Erreur lors de la récupération des produits sur le port 8082:', alternativeError);
             
             // Marquer le backend comme indisponible
             this.backendAvailable = false;
             
-            // En dernier recours, générer des données fictives
-            console.log('Génération de données fictives pour les produits');
-            const mockProducts = this.generateMockProductsFromMySQLStructure();
-            return of(mockProducts).pipe(delay(300)); // Simuler un délai de réseau
+            // Ne jamais utiliser de données fictives, retourner une erreur
+            console.error('Impossible de se connecter aux backends sur les ports 8080 et 8082');
+            return throwError(() => new Error('Impossible de récupérer les produits. Les serveurs ne sont pas disponibles.'))
           })
         );
       })
@@ -193,61 +199,28 @@ export class ProductService {
   }
   
   /**
-   * Récupère tous les produits, à la fois réels et fictifs
-   * @returns Observable contenant un tableau de produits réels et fictifs
+   * Récupère tous les produits réels uniquement
+   * @returns Observable contenant un tableau de produits réels
+   * @deprecated Cette méthode a été modifiée pour ne retourner que des données réelles. Utiliser getProducts() à la place.
    */
   getAllProductsRealAndMock(): Observable<{real: Product[], mock: Product[]}> {
-    // Récupérer les produits réels
-    const realProducts$ = this.getProducts(false).pipe(
+    // Si le backend est indisponible, retourner une erreur
+    if (!this.backendAvailable) {
+      return throwError(() => new Error('Le serveur de gestion de produits n\'est pas disponible. Impossible de récupérer les produits.'));
+    }
+    
+    // Récupérer uniquement les produits réels
+    return this.getProducts(false).pipe(
+      map(products => {
+        // Retourner les produits réels et un tableau vide pour les produits fictifs
+        return { real: products, mock: [] };
+      }),
       catchError(error => {
         console.error('Erreur lors de la récupération des produits réels:', error);
-        return of([]);
+        // Propager l'erreur
+        return throwError(() => new Error(`Impossible de récupérer les produits. Erreur: ${error.message}`));
       })
     );
-    
-    // Récupérer les produits fictifs
-    const mockProducts$ = of(this.generateMockProductsFromMySQLStructure()).pipe(delay(300));
-    
-    // Combiner les deux sources de données
-    return new Observable<{real: Product[], mock: Product[]}>(observer => {
-      let real: Product[] = [];
-      let mock: Product[] = [];
-      let realDone = false;
-      let mockDone = false;
-      
-      const checkComplete = () => {
-        if (realDone && mockDone) {
-          observer.next({ real, mock });
-          observer.complete();
-        }
-      };
-      
-      realProducts$.subscribe({
-        next: (products) => {
-          real = products;
-          realDone = true;
-          checkComplete();
-        },
-        error: (err) => {
-          console.error('Erreur lors de la récupération des produits réels:', err);
-          realDone = true;
-          checkComplete();
-        }
-      });
-      
-      mockProducts$.subscribe({
-        next: (products) => {
-          mock = products;
-          mockDone = true;
-          checkComplete();
-        },
-        error: (err) => {
-          console.error('Erreur lors de la récupération des produits fictifs:', err);
-          mockDone = true;
-          checkComplete();
-        }
-      });
-    });
   }
   
   // Récupérer des produits depuis une URL spécifique
@@ -593,8 +566,8 @@ export class ProductService {
       catchError(error => {
         console.error(`Erreur lors de la récupération du produit ${id} sur le port 8082:`, error);
         
-        // En cas d'échec, essayer avec le backend sur le port 8083
-        console.log(`Tentative de récupération du produit ${id} depuis le backend sur le port 8083`);
+        // En cas d'échec, essayer avec le backend sur le port 8082
+        console.log(`Tentative de récupération du produit ${id} depuis le backend sur le port 8082`);
         return this.http.get<Product>(`${this.alternativeApiUrl}/${id}`, { headers: this.getAuthHeaders() }).pipe(
           map(product => {
             // Marquer le backend comme disponible puisque la requête a réussi
@@ -603,7 +576,7 @@ export class ProductService {
             return product;
           }),
           catchError(alternativeError => {
-            console.error(`Erreur lors de la récupération du produit ${id} sur le port 8083:`, alternativeError);
+            console.error(`Erreur lors de la récupération du produit ${id} sur le port 8082:`, alternativeError);
             // Marquer le backend comme indisponible
             this.backendAvailable = false;
             // Propager l'erreur au composant
@@ -616,19 +589,13 @@ export class ProductService {
 
   // Rechercher des produits par nom ou catégorie
   searchProducts(query: string): Observable<Product[]> {
-    // Si le backend est indisponible, rechercher directement dans les données locales
+    // Toujours utiliser des données réelles
     if (!this.backendAvailable) {
-      console.log('Backend indisponible, recherche dans les données locales');
-      return this.getProducts(true).pipe(
-        map(products => {
-          const lowercaseQuery = query.toLowerCase();
-          return products.filter(product => 
-            product.name.toLowerCase().includes(lowercaseQuery) || 
-            (product.description && product.description.toLowerCase().includes(lowercaseQuery)) ||
-            (product.category && product.category.name && product.category.name.toLowerCase().includes(lowercaseQuery))
-          );
-        })
-      );
+      console.error('Backend indisponible, impossible de rechercher des produits');
+      return throwError(() => new Error('Le serveur de gestion de produits n\'est pas disponible. Impossible de rechercher des produits.'));
+    }
+    if (!query || query.trim() === '') {
+      return of([]);
     }
     
     // Essayer d'abord avec le backend sur le port 8082
@@ -643,7 +610,7 @@ export class ProductService {
       catchError(error => {
         console.error('Erreur lors de la recherche de produits sur le port 8082:', error);
         
-        // En cas d'échec, essayer avec le backend sur le port 8083
+        // En cas d'échec, essayer avec le backend sur le port 8082
         return this.http.get<Product[]>(`${this.alternativeApiUrl}/search?query=${encodeURIComponent(query)}`, 
           { headers: this.getAuthHeaders() }
         ).pipe(
@@ -653,50 +620,29 @@ export class ProductService {
             return products;
           }),
           catchError(alternativeError => {
-            console.error('Erreur lors de la recherche de produits sur le port 8083:', alternativeError);
+            console.error('Erreur lors de la recherche de produits sur le port 8082:', alternativeError);
             // Marquer le backend comme indisponible
             this.backendAvailable = false;
-            
-            // En cas d'erreur, rechercher dans les données locales
-            console.log('Aucun backend disponible, recherche dans les données locales');
-            return this.getProducts(true).pipe(
-              map(products => {
-                const lowercaseQuery = query.toLowerCase();
-                return products.filter(product => 
-                  product.name.toLowerCase().includes(lowercaseQuery) || 
-                  (product.description && product.description.toLowerCase().includes(lowercaseQuery)) ||
-                  (product.category && product.category.name && product.category.name.toLowerCase().includes(lowercaseQuery))
-                );
-              })
-            );
+            // Propager l'erreur au composant
+            return throwError(() => new Error(`Impossible de rechercher des produits. Aucun backend disponible.`));
           })
         );
       })
     );
   }
-
+    
   // Filtrer les produits par catégorie
   getProductsByCategory(category: string): Observable<Product[]> {
     if (category.toLowerCase() === 'toutes les catégories') {
-      return this.getProducts();
+      return this.getProducts(false); // Forcer l'utilisation des données réelles
     }
     
-    // Si le backend est indisponible, filtrer les données locales
+    // Si le backend est indisponible, retourner une erreur
     if (!this.backendAvailable) {
-      console.log('Backend indisponible, filtrage des produits par catégorie dans les données locales');
-      return this.getProducts(true).pipe(
-        map(products => {
-          const lowercaseCategory = category.toLowerCase();
-          return products.filter(product => 
-            product.category && 
-            product.category.name && 
-            product.category.name.toLowerCase() === lowercaseCategory
-          );
-        })
-      );
+      console.log('Backend indisponible, impossible de filtrer les produits par catégorie');
+      return throwError(() => new Error('Le serveur de gestion de produits n\'est pas disponible. Impossible de récupérer les produits par catégorie.'));
     }
     
-    // Essayer d'abord avec le backend sur le port 8082
     return this.http.get<any>(`${this.apiUrl}/category/name/${encodeURIComponent(category)}`, { headers: this.getAuthHeaders() }).pipe(
       map(response => {
         // Marquer le backend comme disponible puisque la requête a réussi
@@ -713,7 +659,7 @@ export class ProductService {
       catchError(error => {
         console.error('Erreur lors de la récupération des produits par catégorie sur le port 8082:', error);
         
-        // En cas d'échec, essayer avec le backend sur le port 8083
+        // En cas d'échec, essayer avec le backend sur le port 8080
         return this.http.get<any>(`${this.alternativeApiUrl}/category/name/${encodeURIComponent(category)}`, { headers: this.getAuthHeaders() }).pipe(
           map(response => {
             // Marquer le backend comme disponible puisque la requête a réussi
@@ -728,42 +674,27 @@ export class ProductService {
             return products;
           }),
           catchError(alternativeError => {
-            console.error('Erreur lors de la récupération des produits par catégorie sur le port 8083:', alternativeError);
+            console.error('Erreur lors de la récupération des produits par catégorie sur le port 8080:', alternativeError);
             // Marquer le backend comme indisponible
             this.backendAvailable = false;
             
-            // En cas d'erreur, filtrer les données locales
-            console.log('Aucun backend disponible, filtrage des produits par catégorie dans les données locales');
-            return this.getProducts(true).pipe(
-              map(products => {
-                const lowercaseCategory = category.toLowerCase();
-                return products.filter(product => 
-                  product.category && 
-                  product.category.name && 
-                  product.category.name.toLowerCase() === lowercaseCategory
-                );
-              })
-            );
+            // Propager l'erreur au composant
+            return throwError(() => new Error(`Impossible de récupérer les produits par catégorie. Aucun backend disponible.`));
           })
         );
       })
     );
   }
-
-  // Récupérer les produits avec un stock faible
-  getLowStockProducts(threshold: number = 10): Observable<Product[]> {
-    // Si le backend est indisponible, filtrer les données locales
+    
+    // Récupérer les produits avec un stock faible
+  getLowStockProducts(): Observable<Product[]> {
+    // Toujours utiliser des données réelles
     if (!this.backendAvailable) {
-      console.log('Backend indisponible, filtrage des produits à stock faible dans les données locales');
-      return this.getProducts(true).pipe(
-        map(products => {
-          return products.filter(product => product.quantity <= threshold);
-        })
-      );
+      return throwError(() => new Error('Le serveur de gestion de produits n\'est pas disponible. Impossible de récupérer les produits à stock faible.'));
     }
     
     // Essayer d'abord avec le backend sur le port 8082
-    return this.http.get<any>(`${this.apiUrl}/low-stock?threshold=${threshold}`, { headers: this.getAuthHeaders() }).pipe(
+    return this.http.get<any>(`${this.apiUrl}/low-stock`, { headers: this.getAuthHeaders() }).pipe(
       map(response => {
         // Marquer le backend comme disponible puisque la requête a réussi
         this.backendAvailable = true;
@@ -779,8 +710,8 @@ export class ProductService {
       catchError(error => {
         console.error('Erreur lors de la récupération des produits à stock faible sur le port 8082:', error);
         
-        // En cas d'échec, essayer avec le backend sur le port 8083
-        return this.http.get<any>(`${this.alternativeApiUrl}/low-stock?threshold=${threshold}`, { headers: this.getAuthHeaders() }).pipe(
+        // En cas d'échec, essayer avec le backend sur le port 8082
+        return this.http.get<any>(`${this.alternativeApiUrl}/low-stock`, { headers: this.getAuthHeaders() }).pipe(
           map(response => {
             // Marquer le backend comme disponible puisque la requête a réussi
             this.backendAvailable = true;
@@ -794,17 +725,11 @@ export class ProductService {
             return products;
           }),
           catchError(alternativeError => {
-            console.error('Erreur lors de la récupération des produits à stock faible sur le port 8083:', alternativeError);
+            console.error('Erreur lors de la récupération des produits à stock faible sur le port 8082:', alternativeError);
             // Marquer le backend comme indisponible
             this.backendAvailable = false;
-            
-            // En cas d'erreur, filtrer les données locales
-            console.log('Aucun backend disponible, filtrage des produits à stock faible dans les données locales');
-            return this.getProducts(true).pipe(
-              map(products => {
-                return products.filter(product => product.quantity <= threshold);
-              })
-            );
+            // Propager l'erreur au composant
+            return throwError(() => new Error(`Impossible de récupérer les produits à stock faible. Aucun backend disponible.`));
           })
         );
       })
@@ -821,28 +746,46 @@ export class ProductService {
     if (!this.backendAvailable) {
       return throwError(() => new Error('Le serveur de gestion de produits n\'est pas disponible. Impossible de créer le produit.'));
     }
+    console.log('Création du produit avec données réelles uniquement:', product);
     
     const headers = this.getAuthHeaders();
     
-    // Essayer d'abord avec le backend sur le port 8082
-    return this.http.post<Product>(`${this.apiUrl}`, product, { headers }).pipe(
+    // Log des données du produit avant envoi
+    console.log('Tentative de création du produit:', product);
+    
+    // Essayer d'abord avec le backend sur le port principal
+    return this.http.post<Product>(this.apiUrl, product, { headers }).pipe(
       map(response => {
         // Marquer le backend comme disponible puisque la requête a réussi
         this.backendAvailable = true;
+        console.log('Produit créé avec succès:', response);
+        
+        // Créer un mouvement de stock pour l'entrée initiale si la quantité > 0
+        if (response && response.id && response.quantity > 0) {
+          this.createStockMovement(response.id, response.quantity, 'ENTRY', 'Création initiale du produit');
+        }
+        
         return response;
       }),
       catchError(error => {
-        console.error('Erreur lors de la création du produit sur le port 8082:', error);
+        console.error('Erreur lors de la création du produit sur le port principal:', error);
         
-        // En cas d'échec, essayer avec le backend sur le port 8083
-        return this.http.post<Product>(`${this.alternativeApiUrl}`, product, { headers }).pipe(
+        // En cas d'échec, essayer avec le backend sur le port alternatif
+        return this.http.post<Product>(this.alternativeApiUrl, product, { headers }).pipe(
           map(response => {
             // Marquer le backend comme disponible puisque la requête a réussi
             this.backendAvailable = true;
+            console.log('Produit créé avec succès sur le port alternatif:', response);
+            
+            // Créer un mouvement de stock pour l'entrée initiale si la quantité > 0
+            if (response && response.id && response.quantity > 0) {
+              this.createStockMovement(response.id, response.quantity, 'ENTRY', 'Création initiale du produit');
+            }
+            
             return response;
           }),
           catchError(alternativeError => {
-            console.error('Erreur lors de la création du produit sur le port 8083:', alternativeError);
+            console.error('Erreur lors de la création du produit sur le port alternatif:', alternativeError);
             // Marquer le backend comme indisponible
             this.backendAvailable = false;
             return throwError(() => new Error(`Échec de la création du produit: ${alternativeError.message}`));
@@ -851,7 +794,7 @@ export class ProductService {
       })
     );
   }
-
+  
   /**
    * Met à jour un produit existant
    * @param product Les données du produit à mettre à jour
@@ -875,7 +818,7 @@ export class ProductService {
       catchError(error => {
         console.error('Erreur lors de la mise à jour du produit sur le port 8082:', error);
         
-        // En cas d'échec, essayer avec le backend sur le port 8083
+        // En cas d'échec, essayer avec le backend sur le port 8082
         return this.http.put<Product>(`${this.alternativeApiUrl}/${product.id}`, product, { headers }).pipe(
           map(response => {
             // Marquer le backend comme disponible puisque la requête a réussi
@@ -883,7 +826,7 @@ export class ProductService {
             return response;
           }),
           catchError(alternativeError => {
-            console.error('Erreur lors de la mise à jour du produit sur le port 8083:', alternativeError);
+            console.error('Erreur lors de la mise à jour du produit sur le port 8082:', alternativeError);
             // Marquer le backend comme indisponible
             this.backendAvailable = false;
             return throwError(() => new Error(`Échec de la mise à jour du produit: ${alternativeError.message}`));
@@ -916,7 +859,7 @@ export class ProductService {
       catchError(error => {
         console.error('Erreur lors de la suppression du produit sur le port 8082:', error);
         
-        // En cas d'échec, essayer avec le backend sur le port 8083
+        // En cas d'échec, essayer avec le backend sur le port 8082
         return this.http.delete(`${this.alternativeApiUrl}/${id}`, { headers }).pipe(
           map(response => {
             // Marquer le backend comme disponible puisque la requête a réussi
@@ -924,7 +867,7 @@ export class ProductService {
             return response;
           }),
           catchError(alternativeError => {
-            console.error('Erreur lors de la suppression du produit sur le port 8083:', alternativeError);
+            console.error('Erreur lors de la suppression du produit sur le port 8082:', alternativeError);
             // Marquer le backend comme indisponible
             this.backendAvailable = false;
             return throwError(() => new Error(`Échec de la suppression du produit: ${alternativeError.message}`));
@@ -939,41 +882,185 @@ export class ProductService {
    * @returns Observable des catégories
    */
   getCategories(): Observable<any[]> {
-    // Si le backend est déjà marqué comme indisponible, retourner directement des catégories fictives
+    // Si le backend est indisponible, retourner une erreur
     if (!this.backendAvailable) {
-      console.log('Backend indisponible, utilisation de catégories fictives');
-      return of(this.getMockCategories()).pipe(delay(300)); // Simuler un délai de réseau
+      return throwError(() => new Error('Le serveur de gestion de produits n\'est pas disponible. Impossible de récupérer les catégories.'));
+    }
+
+    console.log('Récupération des catégories avec données réelles uniquement');
+    const headers = this.getAuthHeaders();
+    
+    // Construction de l'URL de base pour les catégories (en retirant '/products' de l'URL des produits)
+    const categoriesUrl = this.apiUrl.replace(/\/products$/, '/categories');
+    console.log('URL des catégories:', categoriesUrl);
+    
+    // Tentative avec authentification sur le port principal (8082)
+    return this.http.get<any[]>(categoriesUrl, { headers }).pipe(
+      map(categories => {
+        this.backendAvailable = true;
+        console.log('Catégories récupérées avec succès:', categories);
+        return categories;
+      }),
+      catchError(error => {
+        console.error(`Erreur lors de la récupération des catégories depuis ${categoriesUrl} avec auth:`, error);
+        
+        // Tentative sans authentification sur le port principal (8082)
+        return this.http.get<any[]>(categoriesUrl).pipe(
+          map(categories => {
+            this.backendAvailable = true;
+            console.log('Catégories récupérées avec succès sans auth:', categories);
+            return categories;
+          }),
+          catchError(error2 => {
+            console.error(`Erreur lors de la récupération depuis ${categoriesUrl} sans auth:`, error2);
+            this.backendAvailable = false;
+            
+            // Ne pas essayer le port 8080 car nous savons qu'il ne fonctionne pas
+            // et cela génère des erreurs inutiles dans la console
+            return throwError(() => new Error(`Impossible de récupérer les catégories depuis le backend (${categoriesUrl}). Erreur: ${error.status} ${error.statusText}`));
+          })
+        );
+      })
+    );
+  }
+  /**
+   * Retourne des catégories fictives pour la démonstration
+   */
+  private getMockCategories(): any[] {
+    return [
+      { id: 'mock-1', name: '[FICTIF] Catégorie 1' },
+      { id: 'mock-2', name: '[FICTIF] Catégorie 2' },
+      { id: 'mock-3', name: '[FICTIF] Catégorie 3' },
+      { id: 'mock-4', name: '[FICTIF] Catégorie 4' },
+      { id: 'mock-5', name: '[FICTIF] Catégorie 5' }
+    ];
+  }
+  
+  /**
+   * Crée une nouvelle catégorie
+   * @param category Les données de la catégorie à créer
+   * @returns Observable de la catégorie créée
+   */
+  createCategory(category: ProductCategory): Observable<ProductCategory> {
+    // Si le backend est indisponible, retourner une erreur
+    if (!this.backendAvailable) {
+      return throwError(() => new Error('Le serveur de gestion de produits n\'est pas disponible. Impossible de créer la catégorie.'));
     }
     
     const headers = this.getAuthHeaders();
+    const categoriesUrl = this.categoriesUrl;
     
-    // URL correcte pour les catégories
-    const categoriesUrl = 'http://localhost:8082/api/categories';
-    const alternativeCategoriesUrl = 'http://localhost:8083/api/categories';
-    
-    // Essayer d'abord avec le backend sur le port 8082
-    return this.http.get<any[]>(categoriesUrl, { headers }).pipe(
+    return this.http.post<ProductCategory>(categoriesUrl, category, { headers }).pipe(
       map(response => {
-        // Marquer le backend comme disponible puisque la requête a réussi
-        this.backendAvailable = true;
+        console.log('Catégorie créée avec succès:', response);
         return response;
       }),
       catchError(error => {
-        console.error('Erreur lors de la récupération des catégories sur le port 8082:', error);
+        console.error(`Erreur lors de la création de la catégorie:`, error);
+        this.backendAvailable = false;
+        return throwError(() => new Error(`Impossible de créer la catégorie. Erreur: ${error.status} ${error.statusText}`));
+      })
+    );
+  }
+  
+  /**
+   * Met à jour une catégorie existante
+   * @param category Les données de la catégorie à mettre à jour
+   * @returns Observable de la catégorie mise à jour
+   */
+  updateCategory(category: ProductCategory): Observable<ProductCategory> {
+    // Si le backend est indisponible, retourner une erreur
+    if (!this.backendAvailable) {
+      return throwError(() => new Error('Le serveur de gestion de produits n\'est pas disponible. Impossible de mettre à jour la catégorie.'));
+    }
+    
+    const headers = this.getAuthHeaders();
+    const categoryUrl = `${this.categoriesUrl}/${category.id}`;
+    
+    return this.http.put<ProductCategory>(categoryUrl, category, { headers }).pipe(
+      map(response => {
+        console.log('Catégorie mise à jour avec succès:', response);
+        return response;
+      }),
+      catchError(error => {
+        console.error(`Erreur lors de la mise à jour de la catégorie:`, error);
+        this.backendAvailable = false;
+        return throwError(() => new Error(`Impossible de mettre à jour la catégorie. Erreur: ${error.status} ${error.statusText}`));
+      })
+    );
+  }
+  
+  /**
+   * Supprime une catégorie
+   * @param categoryId L'ID de la catégorie à supprimer
+   * @returns Observable de la réponse
+   */
+  deleteCategory(categoryId: number | string): Observable<any> {
+    // Si le backend est indisponible, retourner une erreur
+    if (!this.backendAvailable) {
+      return throwError(() => new Error('Le serveur de gestion de produits n\'est pas disponible. Impossible de supprimer la catégorie.'));
+    }
+    
+    const headers = this.getAuthHeaders();
+    const categoryUrl = `${this.categoriesUrl}/${categoryId}`;
+    
+    return this.http.delete<any>(categoryUrl, { headers }).pipe(
+      map(response => {
+        console.log('Catégorie supprimée avec succès:', response);
+        return response;
+      }),
+      catchError(error => {
+        console.error(`Erreur lors de la suppression de la catégorie:`, error);
+        this.backendAvailable = false;
+        return throwError(() => new Error(`Impossible de supprimer la catégorie. Erreur: ${error.status} ${error.statusText}`));
+      })
+    );
+  }
+  
+  /**
+   * Récupère le nombre de produits par catégorie
+   * @returns Observable avec un objet où les clés sont les IDs des catégories et les valeurs sont les nombres de produits
+   */
+  getCategoryProductCounts(): Observable<{[categoryId: string]: number}> {
+    // Si le backend est indisponible, retourner une erreur
+    if (!this.backendAvailable) {
+      return throwError(() => new Error('Le serveur de gestion de produits n\'est pas disponible. Impossible de récupérer le nombre de produits par catégorie.'));
+    }
+    
+    // URL pour récupérer le nombre de produits par catégorie
+    const countsUrl = `${this.categoriesUrl}/product-counts`;
+    const headers = this.getAuthHeaders();
+    
+    // Si l'endpoint spécifique n'existe pas sur le backend, nous allons récupérer tous les produits
+    // et calculer les comptages côté client
+    return this.http.get<{[categoryId: string]: number}>(countsUrl, { headers }).pipe(
+      map(response => {
+        console.log('Nombre de produits par catégorie récupéré avec succès:', response);
+        return response;
+      }),
+      catchError(error => {
+        console.log('L\'endpoint spécifique pour le comptage des produits n\'est pas disponible, calcul côté client...', error);
         
-        // En cas d'échec, essayer avec le backend sur le port 8083
-        return this.http.get<any[]>(alternativeCategoriesUrl, { headers }).pipe(
-          map(response => {
-            // Marquer le backend comme disponible puisque la requête a réussi
-            this.backendAvailable = true;
-            return response;
+        // Fallback: récupérer tous les produits et calculer les comptages
+        return this.getProducts().pipe(
+          map(products => {
+            const counts: {[categoryId: string]: number} = {};
+            
+            // Compter les produits par catégorie
+            products.forEach(product => {
+              if (product.category && product.category.id) {
+                const categoryId = product.category.id.toString();
+                counts[categoryId] = (counts[categoryId] || 0) + 1;
+              }
+            });
+            
+            console.log('Nombre de produits par catégorie calculé côté client:', counts);
+            return counts;
           }),
-          catchError(alternativeError => {
-            console.error('Erreur lors de la récupération des catégories sur le port 8083:', alternativeError);
-            // Marquer le backend comme indisponible
+          catchError(productsError => {
+            console.error('Erreur lors de la récupération des produits pour le comptage:', productsError);
             this.backendAvailable = false;
-            // Retourner des catégories fictives en cas d'erreur
-            return of(this.getMockCategories());
+            return throwError(() => new Error(`Impossible de calculer le nombre de produits par catégorie. Erreur: ${productsError.message}`));
           })
         );
       })
@@ -981,16 +1068,34 @@ export class ProductService {
   }
   
   /**
-   * Retourne des catégories fictives pour la démonstration
+   * Crée un mouvement de stock pour un produit
+   * @param productId ID du produit
+   * @param quantity Quantité du mouvement
+   * @param type Type de mouvement (ENTRY ou EXIT)
+   * @param reason Raison du mouvement
+   * @param referenceDocument Référence du document (optionnel)
    */
-  private getMockCategories(): any[] {
-    return [
-      { id: 1, name: 'Informatique' },
-      { id: 2, name: 'Périphériques' },
-      { id: 3, name: 'Stockage' },
-      { id: 4, name: 'Impression' },
-      { id: 5, name: 'Réseau' },
-      { id: 6, name: 'Audio' }
-    ];
+  private createStockMovement(productId: number, quantity: number, type: 'ENTRY' | 'EXIT', reason: string, referenceDocument?: string): void {
+    // Construction de l'URL selon la structure de l'API
+    const movementUrl = `http://localhost:8082/api/stock/movements/product/${productId}`;
+    
+    // Construction des paramètres de requête
+    let params = new HttpParams()
+      .set('type', type)
+      .set('quantity', quantity.toString())
+      .set('reason', reason);
+    
+    if (referenceDocument) {
+      params = params.set('referenceDocument', referenceDocument);
+    }
+    
+    // Envoi de la requête
+    this.http.post(movementUrl, null, { 
+      headers: this.getAuthHeaders(),
+      params: params
+    }).subscribe({
+      next: (response) => console.log(`Mouvement de stock ${type} créé avec succès:`, response),
+      error: (error) => console.error(`Erreur lors de la création du mouvement de stock ${type}:`, error)
+    });
   }
 }
