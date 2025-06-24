@@ -12,6 +12,8 @@ import { PurchaseOrderDetailComponent } from './components/purchase-order-detail
 import { PurchaseOrderDetailPlusComponent } from './components/purchase-order-detail-plus/purchase-order-detail-plus.component';
 import { LowStockComponent } from './components/low-stock/low-stock.component';
 import { CategoryManagementComponent } from './components/category-management/category-management.component';
+import { ProduitsCommandeComponent } from './components/produits-commande/produits-commande.component';
+import { ReceptionCommandeComponent } from './components/reception-commande/reception-commande.component';
 
 const routes: Routes = [
   { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
@@ -39,7 +41,11 @@ const routes: Routes = [
   { path: 'low-stocks', component: LowStockComponent },
   
   // Route pour la gestion des catégories
-  { path: 'categories', component: CategoryManagementComponent }
+  { path: 'categories', component: CategoryManagementComponent },
+  
+  // Routes pour la gestion des produits dans les commandes
+  { path: 'purchase-orders/:id/products', component: ProduitsCommandeComponent },
+  { path: 'purchase-orders/:id/reception', component: ReceptionCommandeComponent }
 ];
 
 @NgModule({

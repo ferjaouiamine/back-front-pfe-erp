@@ -1,0 +1,30 @@
+<h2 mat-dialog-title>Ajouter {{ data.produit.nom }} à la commande</h2>
+
+<mat-dialog-content>
+  <div class="product-info">
+    <div class="product-details">
+      <p><strong>Référence:</strong> {{ data.produit.reference }}</p>
+      <p><strong>Prix:</strong> {{ data.produit.prix | currency:'EUR' }}</p>
+      <p><strong>Stock disponible:</strong> {{ data.produit.stock }}</p>
+    </div>
+  </div>
+
+  <mat-form-field appearance="outline" class="full-width">
+    <mat-label>Quantité</mat-label>
+    <input matInput type="number" [formControl]="quantiteControl" min="1" [max]="data.produit.stock || 9999">
+    <mat-error *ngIf="quantiteControl.hasError('required')">
+      La quantité est requise
+    </mat-error>
+    <mat-error *ngIf="quantiteControl.hasError('min')">
+      La quantité doit être supérieure à 0
+    </mat-error>
+    <mat-error *ngIf="quantiteControl.hasError('max')">
+      La quantité ne peut pas dépasser le stock disponible ({{ data.produit.stock }})
+    </mat-error>
+  </mat-form-field>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button (click)="onNoClick()">Annuler</button>
+  <button mat-raised-button color="primary" [disabled]="!quantiteControl.valid" (click)="onSubmit()">Ajouter</button>
+</mat-dialog-actions>

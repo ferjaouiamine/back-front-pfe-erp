@@ -26,6 +26,7 @@
     "@ngrx/store": "^17.1.0",
     "@ngrx/store-devtools": "^17.1.0",
     "@stripe/stripe-js": "^2.1.7",
+    "@types/pdfmake": "^0.2.11",
     "aos": "^2.3.4",
     "chart.js": "^4.4.9",
     "file-saver": "^2.0.5",
@@ -34,6 +35,7 @@
     "jspdf-autotable": "^5.0.2",
     "ngx-stripe": "^17.0.1",
     "ngx-toastr": "^19.0.0",
+    "pdfmake": "^0.2.20",
     "rxjs": "~7.8.0",
     "tslib": "^2.3.0",
     "zone.js": "~0.14.0"

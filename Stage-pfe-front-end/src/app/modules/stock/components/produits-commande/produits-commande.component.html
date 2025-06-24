@@ -1,0 +1,110 @@
+<div class="produits-commande-container">
+  <!-- Section des articles fixes -->
+  <div class="articles-fixes-section">
+    <div class="section-header">
+      <h3>Articles fréquents</h3>
+      <button mat-button color="primary" (click)="toggleArticlesFixes()">
+        <mat-icon>{{ articlesFixesVisible ? 'expand_less' : 'expand_more' }}</mat-icon>
+        {{ articlesFixesVisible ? 'Masquer' : 'Afficher' }}
+      </button>
+    </div>
+    
+    <div class="articles-fixes-container" *ngIf="articlesFixesVisible">
+      <div class="articles-fixes-grid">
+        <mat-card *ngFor="let article of articlesFixesPredefinis" class="article-fixe-card">
+          <mat-card-header>
+            <mat-card-title>{{ article.nom }}</mat-card-title>
+          </mat-card-header>
+          <mat-card-content>
+            <p>{{ article.description }}</p>
+            <div class="article-price">{{ article.prix | currency:'EUR' }}</div>
+          </mat-card-content>
+          <mat-card-actions align="end">
+            <button 
+              mat-raised-button 
+              color="accent" 
+              [disabled]="readOnly"
+              (click)="ajouterArticleFixe(article)">
+              Ajouter
+            </button>
+          </mat-card-actions>
+        </mat-card>
+      </div>
+    </div>
+  </div>
+  
+  <div class="filters-container">
+    <mat-form-field appearance="outline" class="search-field">
+      <mat-label>Rechercher un produit</mat-label>
+      <input matInput [formControl]="recherche" placeholder="Nom, référence...">
+      <mat-icon matSuffix>search</mat-icon>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline" class="category-field">
+      <mat-label>Catégorie</mat-label>
+      <mat-select [formControl]="categorieSelectionnee">
+        <mat-option [value]="">Toutes les catégories</mat-option>
+        <mat-option *ngFor="let categorie of categories" [value]="categorie">
+          {{ categorie }}
+        </mat-option>
+      </mat-select>
+    </mat-form-field>
+  </div>
+
+  <div *ngIf="error" class="error-message">
+    <mat-icon>error</mat-icon>
+    <span>{{ error }}</span>
+    <button mat-button color="warn" (click)="retry()" *ngIf="!loading">
+      <mat-icon>refresh</mat-icon> Réessayer
+    </button>
+  </div>
+
+  <div *ngIf="loading" class="loading-container">
+    <mat-spinner diameter="40"></mat-spinner>
+  </div>
+
+  <div *ngIf="!loading && produits.length === 0" class="no-products">
+    <mat-icon>inventory_2</mat-icon>
+    <p>Aucun produit trouvé</p>
+  </div>
+
+  <div class="products-grid" *ngIf="!loading && produits.length > 0">
+    <mat-card *ngFor="let produit of produits" class="product-card" [ngClass]="getStockStatus(produit)">
+      <mat-card-header>
+        <mat-card-title>{{ produit.nom }}</mat-card-title>
+        <mat-card-subtitle>Réf: {{ produit.reference }}</mat-card-subtitle>
+      </mat-card-header>
+      <mat-card-content>
+        <p *ngIf="produit.description">{{ produit.description }}</p>
+        <div class="product-details">
+          <div class="price">{{ produit.prix | currency:'EUR' }}</div>
+          <div class="stock-info" [ngClass]="getStockStatus(produit)">
+            <mat-icon>{{ getStockIcon(produit) }}</mat-icon>
+            <span>Stock: {{ produit.stock }}</span>
+          </div>
+          <div class="category-tag">{{ produit.categorie }}</div>
+        </div>
+      </mat-card-content>
+      <mat-card-actions align="end">
+        <button 
+          mat-raised-button 
+          color="primary" 
+          [disabled]="!produit.disponible || produit.stock <= 0 || readOnly"
+          (click)="ajouterProduit(produit)">
+          Ajouter
+        </button>
+      </mat-card-actions>
+      <div *ngIf="!produit.disponible" class="unavailable-overlay">
+        <span>Indisponible</span>
+      </div>
+    </mat-card>
+  </div>
+
+  <mat-paginator 
+    *ngIf="totalElements > 0"
+    [length]="totalElements"
+    [pageSize]="pageSize"
+    [pageSizeOptions]="[5, 10, 25, 50]"
+    (page)="changePage($event)">
+  </mat-paginator>
+</div>

@@ -82,6 +82,11 @@ h1 {
   margin-bottom: 1.5rem;
   border-bottom: 1px solid #f0f0f0;
   padding-bottom: 0.75rem;
+  
+  .section-actions {
+    display: flex;
+    gap: 0.5rem;
+  }
 }
 
 .section-header h2 {

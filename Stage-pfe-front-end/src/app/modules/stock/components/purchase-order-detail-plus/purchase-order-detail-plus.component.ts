@@ -4,6 +4,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { forkJoin, Observable, of, Subscription } from 'rxjs';
 import { catchError, finalize, map, switchMap, delay } from 'rxjs/operators';
 import { PurchaseOrder, PurchaseOrderItem, PurchaseOrderStatus, Product as OrderProduct, Supplier } from '../../models/purchase-order.model';
+import { OrderItemForm } from '../../models/order-item-creation.model';
 import { PurchaseOrderService } from '../../services/purchase-order.service';
 import { ProductService, Product as CatalogProduct } from '../../services/product.service';
 
@@ -42,11 +43,12 @@ export class PurchaseOrderDetailPlusComponent implements OnInit, OnDestroy {
   // Produits disponibles pour le formulaire
   products: CatalogProduct[] = [];
   
-  // Variables pour la recherche de produits
-  productSearchTerm: string = '';
+  // Propriétés pour la recherche de produits
   filteredProducts: CatalogProduct[] = [];
+  productSearchTerm: string = '';
+  showProductSearch: boolean = false;
   suppliers: Supplier[] = [];
-  
+
   // Liste des commandes générée
   ordersList: {
     productId: string | number,
@@ -176,9 +178,10 @@ export class PurchaseOrderDetailPlusComponent implements OnInit, OnDestroy {
     this.filteredProducts = [];
     this.productSearchTerm = '';
     
-    // Désactiver les données fictives pour utiliser exclusivement les données réelles
-    // Le paramètre false force l'utilisation des données réelles uniquement
+    // Essayer d'abord avec les données réelles
     console.log('Chargement des produits réels depuis le backend pour le fournisseur ID:', supplierId);
+    
+    // Utiliser le paramètre false pour forcer l'utilisation des données réelles
     this.productService.getProducts(false).subscribe({
       next: (products) => {
         // Pour l'instant, nous récupérons tous les produits car l'API backend peut ne pas avoir
@@ -190,14 +193,15 @@ export class PurchaseOrderDetailPlusComponent implements OnInit, OnDestroy {
         
         console.log(`Produits chargés avec succès: ${products.length} produits disponibles`);
         
+        // Initialiser également les produits filtrés
+        this.filteredProducts = [...this.products];
+        
         if (products.length === 0) {
-          this.showWarningMessage('Aucun produit disponible pour ce fournisseur.');
+          this.showWarningMessage('Aucun produit disponible pour ce fournisseur. Essayez d\'activer les données fictives.');
         }
       },
       error: (error) => {
-        console.error('Erreur lors du chargement des produits:', error);
-        this.showErrorMessage(`Impossible de charger les produits: ${error.message || 'Erreur de connexion au serveur'}`);
-        this.mockDataWarningMessage = "Le serveur de produits n'est pas accessible. Impossible de charger les produits. Veuillez vérifier que le backend Spring Boot est en cours d'exécution sur les ports 8080 ou 8082.";
+        this.showErrorMessage('Erreur lors du chargement des produits: ' + error.message);
         
         // Afficher un message d'erreur plus détaillé dans la console pour faciliter le débogage
         console.error('Détails de l\'erreur:', {
@@ -205,6 +209,22 @@ export class PurchaseOrderDetailPlusComponent implements OnInit, OnDestroy {
           status: error.status,
           statusText: error.statusText,
           url: error.url
+        });
+        
+        // En cas d'erreur, essayer de récupérer les produits avec fallback sur les données fictives
+        this.productService.getProducts(true).subscribe({
+          next: (mockProducts) => {
+            this.products = mockProducts;
+            this.filteredProducts = [...this.products];
+            console.log(`Produits fictifs chargés avec succès: ${mockProducts.length} produits disponibles`);
+          },
+          error: (mockError) => {
+            console.error('Erreur lors du chargement des produits fictifs:', mockError);
+            // Activer automatiquement les données fictives en cas d'erreur
+            if (!this.useMockData) {
+              this.toggleMockData();
+            }
+          }
         });
       },
       complete: () => {
@@ -346,50 +366,120 @@ export class PurchaseOrderDetailPlusComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Ouvre la recherche de produits (non utilisé - remplacé par l'interface intégrée)
+   * Ouvre la recherche de produits
    */
   openProductSearch(): void {
-    // Vérifier si un fournisseur est sélectionné
+    // Vérifier d'abord si un fournisseur est sélectionné
     const supplierId = this.orderForm.get('supplierId')?.value;
     if (!supplierId) {
-      this.showWarningMessage('Veuillez d\'abord sélectionner un fournisseur avant d\'ajouter des articles.');
+      this.showErrorMessage('Veuillez sélectionner un fournisseur avant d\'ajouter des articles.');
       return;
     }
     
-    // Vérifier si des produits sont disponibles
+    // Afficher la section de recherche de produits
+    this.showProductSearch = true;
+    
+    // S'assurer que les produits sont chargés
     if (this.products.length === 0) {
-      this.showWarningMessage('Aucun produit disponible. Veuillez réessayer plus tard.');
-      this.loadSupplierProducts(supplierId); // Essayer de recharger les produits
+      this.loadSupplierProducts(supplierId);
+    }
+    
+    // Initialiser les produits filtrés
+    this.filteredProducts = [...this.products];
+  }
+
+  /**
+   * Ferme la recherche de produits
+   */
+  closeProductSearch(): void {
+    this.showProductSearch = false;
+  }
+
+  /**
+   * Gère l'ajout d'un article depuis le composant OrderItemCreation
+   * @param itemData Données de l'article à ajouter
+   */
+  handleItemAdded(itemData: OrderItemForm): void {
+    if (!itemData) {
+      this.showErrorMessage('Données d\'article invalides');
+      return;
+    }
+    
+    try {
+      console.log('Ajout d\'article depuis le composant de création:', itemData);
+      
+      // Vérifier si le produit est déjà dans la commande
+      const existingItemIndex = this.findExistingItemIndex(itemData.productId);
+      
+      if (existingItemIndex !== -1) {
+        // Si le produit existe déjà, mettre à jour sa quantité
+        const existingItem = this.items.at(existingItemIndex);
+        const currentQuantity = existingItem.get('quantity')?.value || 0;
+        const newQuantity = currentQuantity + itemData.quantity;
+        
+        existingItem.patchValue({ 
+          quantity: newQuantity,
+          unitPrice: itemData.unitPrice // Mettre à jour le prix unitaire avec le dernier prix
+        });
+        
+        this.showSuccessMessage(`Quantité de "${itemData.productName}" mise à jour à ${newQuantity}.`);
+      } else {
+        // Sinon, ajouter un nouvel article
+        this.addItem({
+          productId: itemData.productId,
+          productName: itemData.productName,
+          quantity: itemData.quantity,
+          unitPrice: itemData.unitPrice,
+          total: itemData.total
+        });
+        
+        this.showSuccessMessage(`"${itemData.productName}" ajouté à la commande.`);
+      }
+      
+      // Recalculer le total de la commande
+      this.calculateOrderTotal();
+      
+      // Mettre à jour la liste des commandes
+      this.updateOrdersList();
+      
+      // Fermer la recherche de produits
+      this.closeProductSearch();
+    } catch (error: any) {
+      console.error('Erreur lors de l\'ajout de l\'article:', error);
+      this.showErrorMessage(`Erreur lors de l'ajout de l'article: ${error.message || 'Erreur inconnue'}`);
     }
   }
-  
+
   /**
    * Filtre les produits en fonction du terme de recherche
    */
   filterProducts(): void {
-    if (!this.productSearchTerm || this.productSearchTerm.trim() === '') {
-      this.filteredProducts = [];
+    if (!this.productSearchTerm) {
+      this.filteredProducts = [...this.products];
       return;
     }
     
-    const searchTerm = this.productSearchTerm.toLowerCase().trim();
+    const searchTerm = this.productSearchTerm.toLowerCase();
     
     this.filteredProducts = this.products.filter(product => {
       return (
         (product.name && product.name.toLowerCase().includes(searchTerm)) ||
         (product.reference && product.reference.toLowerCase().includes(searchTerm))
       );
-    }).slice(0, 10); // Limiter à 10 résultats pour des performances optimales
+    });
+    
+    console.log(`Filtrage des produits avec le terme "${searchTerm}": ${this.filteredProducts.length} résultats trouvés`);
   }
-  
+
   /**
    * Efface la recherche de produits
    */
   clearProductSearch(): void {
     this.productSearchTerm = '';
-    this.filteredProducts = [];
+    // Réinitialiser les produits filtrés pour afficher tous les produits
+    this.filteredProducts = [...this.products];
   }
-  
+
   /**
    * Ajoute un article à partir d'un produit sélectionné dans la liste des produits réels
    */
@@ -399,29 +489,41 @@ export class PurchaseOrderDetailPlusComponent implements OnInit, OnDestroy {
       return;
     }
     
-    // Vérifier si le produit est déjà dans la commande
-    const existingItemIndex = this.findExistingItemIndex(product.id.toString());
-    
-    if (existingItemIndex !== -1) {
-      // Si le produit existe déjà, augmenter sa quantité de 1
-      const existingItem = this.items.at(existingItemIndex);
-      const currentQuantity = existingItem.get('quantity')?.value || 0;
-      existingItem.get('quantity')?.setValue(currentQuantity + 1);
-      this.calculateItemTotal(existingItem);
-      this.showSuccessMessage(`Quantité de "${product.name || 'Article'}" augmentée.`);
-    } else {
-      // Sinon, ajouter un nouvel article
-      this.addItem({
-        productId: product.id.toString(),
-        productName: product.name || 'Article sans nom',
-        quantity: 1,
-        unitPrice: product.price || 0
-      });
-      this.showSuccessMessage(`"${product.name || 'Article'}" ajouté à la commande.`);
+    try {
+      console.log('Ajout du produit à la commande:', product);
+      
+      // Vérifier si le produit est déjà dans la commande
+      const existingItemIndex = this.findExistingItemIndex(product.id.toString());
+      
+      if (existingItemIndex !== -1) {
+        // Si le produit existe déjà, augmenter sa quantité de 1
+        const existingItem = this.items.at(existingItemIndex);
+        const currentQuantity = existingItem.get('quantity')?.value || 0;
+        existingItem.patchValue({ quantity: currentQuantity + 1 });
+        this.showSuccessMessage(`Quantité de "${product.name || 'Article'}" augmentée à ${currentQuantity + 1}.`);
+      } else {
+        // Sinon, ajouter un nouvel article
+        this.addItem({
+          productId: product.id.toString(), // Convertir en string pour éviter les erreurs de type
+          productName: product.name,
+          quantity: 1,
+          unitPrice: product.price || 0
+        });
+        this.showSuccessMessage(`"${product.name || 'Article'}" ajouté à la commande.`);
+      }
+      
+      // Recalculer le total de la commande
+      this.calculateOrderTotal();
+      
+      // Mettre à jour la liste des commandes
+      this.updateOrdersList();
+      
+      // Effacer la recherche après avoir ajouté l'article
+      this.clearProductSearch();
+    } catch (error: any) {
+      console.error('Erreur lors de l\'ajout du produit:', error);
+      this.showErrorMessage(`Erreur lors de l'ajout du produit: ${error.message || 'Erreur inconnue'}`);
     }
-    
-    // Effacer la recherche après avoir ajouté l'article
-    this.clearProductSearch();
   }
   
   /**
@@ -537,30 +639,49 @@ export class PurchaseOrderDetailPlusComponent implements OnInit, OnDestroy {
    */
   generatePdf(): void {
     if (!this.orderId) {
-      this.showErrorMessage('Impossible de générer le PDF: ID de commande non disponible.');
+      this.showErrorMessage('Impossible de générer le PDF : identifiant de commande manquant');
       return;
     }
     
     this.isLoading = true;
+    this.showWarningMessage('Génération du PDF en cours...');
     
-    this.purchaseOrderService.generatePdf(this.orderId).subscribe({
-      next: (blob) => {
-        // Créer un URL pour le blob
-        const url = window.URL.createObjectURL(blob);
-        
-        // Ouvrir le PDF dans un nouvel onglet
-        window.open(url, '_blank');
-        
-        // Libérer l'URL
-        window.URL.revokeObjectURL(url);
-      },
-      error: (error) => {
-        this.showErrorMessage('Erreur lors de la génération du PDF: ' + error.message);
-      },
-      complete: () => {
-        this.isLoading = false;
-      }
-    });
+    this.purchaseOrderService.generatePdf(this.orderId)
+      .pipe(
+        finalize(() => {
+          this.isLoading = false;
+        })
+      )
+      .subscribe({
+        next: (blob: Blob) => {
+          // Créer une URL pour le blob
+          const url = window.URL.createObjectURL(blob);
+          
+          // Créer un lien pour télécharger le PDF
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = `commande_${this.orderForm.get('orderNumber')?.value || this.orderId}.pdf`;
+          
+          // Ajouter le lien au document, cliquer dessus, puis le supprimer
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          
+          // Ouvrir également dans un nouvel onglet pour prévisualisation
+          window.open(url, '_blank');
+          
+          // Libérer l'URL après un court délai pour permettre l'ouverture de l'onglet
+          setTimeout(() => {
+            window.URL.revokeObjectURL(url);
+          }, 1000);
+          
+          this.showSuccessMessage('PDF généré avec succès');
+        },
+        error: (error) => {
+          console.error('Erreur lors de la génération du PDF:', error);
+          this.showErrorMessage(`Erreur lors de la génération du PDF: ${error.message || 'Erreur inconnue'}`);
+        }
+      });
   }
 
   /**
@@ -690,6 +811,11 @@ export class PurchaseOrderDetailPlusComponent implements OnInit, OnDestroy {
     
     if (this.useMockData) {
       this.mockDataWarningMessage = this.purchaseOrderService.getBackendUnavailableMessage();
+      // Recharger les produits en mode données fictives
+      const supplierId = this.orderForm.get('supplierId')?.value;
+      if (supplierId) {
+        this.loadSupplierProducts(supplierId);
+      }
     } else {
       this.mockDataWarningMessage = null;
       this.loadReferenceData();
@@ -738,7 +864,7 @@ export class PurchaseOrderDetailPlusComponent implements OnInit, OnDestroy {
   updateSupplierEmail(): void {
     const supplierId = this.orderForm.get('supplierId')?.value;
     if (supplierId) {
-      const supplier = this.suppliers.find(s => s.id === supplierId);
+      const supplier = this.suppliers.find((s: Supplier) => s.id === supplierId);
       if (supplier) {
         this.orderForm.patchValue({ supplierEmail: supplier.email });
       }

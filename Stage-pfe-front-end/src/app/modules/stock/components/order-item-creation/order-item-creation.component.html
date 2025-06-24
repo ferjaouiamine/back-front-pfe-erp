@@ -1,0 +1,144 @@
+<div class="order-item-creation-container">
+  <div class="card">
+    <div class="card-header">
+      <h5>Ajouter un article à la commande</h5>
+    </div>
+    <div class="card-body">
+      <form [formGroup]="itemForm" (ngSubmit)="addItem()">
+        <!-- Recherche de produit -->
+        <div class="form-group mb-3">
+          <label for="searchTerm">Rechercher un produit</label>
+          <div class="input-group">
+            <input 
+              type="text" 
+              id="searchTerm" 
+              class="form-control" 
+              formControlName="searchTerm"
+              placeholder="Nom du produit, référence ou catégorie"
+              autocomplete="off"
+            >
+            <button 
+              type="button" 
+              class="btn btn-outline-secondary" 
+              (click)="resetForm()"
+              *ngIf="itemForm.get('searchTerm')?.value"
+            >
+              <i class="fas fa-times"></i>
+            </button>
+          </div>
+          
+          <!-- Liste des produits filtrés -->
+          <div class="product-list-dropdown" *ngIf="showProductList">
+            <div class="list-group">
+              <div *ngIf="isLoading" class="text-center p-2">
+                <div class="spinner-border spinner-border-sm" role="status">
+                  <span class="visually-hidden">Chargement...</span>
+                </div>
+              </div>
+              <a 
+                *ngFor="let product of filteredProducts" 
+                class="list-group-item list-group-item-action"
+                (click)="selectProduct(product)"
+              >
+                <div class="d-flex w-100 justify-content-between">
+                  <h6 class="mb-1">{{product.name}}</h6>
+                  <small>{{product.price | currency:'EUR'}}</small>
+                </div>
+                <p class="mb-1" *ngIf="product.description">{{product.description}}</p>
+                <small *ngIf="product.category">Catégorie: {{product.category.name}}</small>
+              </a>
+              <div *ngIf="filteredProducts.length === 0 && !isLoading" class="text-center p-2">
+                Aucun produit trouvé
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Produit sélectionné -->
+        <div class="selected-product mb-3" *ngIf="selectedProduct">
+          <div class="card">
+            <div class="card-body">
+              <h6>{{selectedProduct.name}}</h6>
+              <p *ngIf="selectedProduct.description" class="small mb-1">{{selectedProduct.description}}</p>
+              <div class="d-flex justify-content-between">
+                <span *ngIf="selectedProduct.category" class="badge bg-secondary">{{selectedProduct.category.name}}</span>
+                <span class="text-primary">{{selectedProduct.price | currency:'EUR'}}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Champs cachés pour stocker les informations du produit -->
+        <input type="hidden" formControlName="productId">
+        <input type="hidden" formControlName="productName">
+
+        <!-- Quantité et prix -->
+        <div class="row mb-3">
+          <div class="col-md-6">
+            <div class="form-group">
+              <label for="quantity">Quantité</label>
+              <input 
+                type="number" 
+                id="quantity" 
+                class="form-control" 
+                formControlName="quantity"
+                min="1"
+              >
+              <div *ngIf="itemForm.get('quantity')?.invalid && itemForm.get('quantity')?.touched" class="text-danger">
+                La quantité doit être supérieure à 0
+              </div>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="form-group">
+              <label for="unitPrice">Prix unitaire</label>
+              <div class="input-group">
+                <input 
+                  type="number" 
+                  id="unitPrice" 
+                  class="form-control" 
+                  formControlName="unitPrice"
+                  min="0"
+                  step="0.01"
+                >
+                <span class="input-group-text">€</span>
+              </div>
+              <div *ngIf="itemForm.get('unitPrice')?.invalid && itemForm.get('unitPrice')?.touched" class="text-danger">
+                Le prix doit être supérieur ou égal à 0
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Total -->
+        <div class="form-group mb-3">
+          <label for="total">Total</label>
+          <div class="input-group">
+            <input 
+              type="number" 
+              id="total" 
+              class="form-control" 
+              formControlName="total"
+              readonly
+            >
+            <span class="input-group-text">€</span>
+          </div>
+        </div>
+
+        <!-- Boutons d'action -->
+        <div class="d-flex justify-content-end">
+          <button type="button" class="btn btn-outline-secondary me-2" (click)="cancelAddItem()">
+            Annuler
+          </button>
+          <button 
+            type="submit" 
+            class="btn btn-primary" 
+            [disabled]="itemForm.invalid || !selectedProduct"
+          >
+            Ajouter à la commande
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>

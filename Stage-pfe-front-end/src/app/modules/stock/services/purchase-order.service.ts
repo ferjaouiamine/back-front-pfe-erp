@@ -1,9 +1,11 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
 import { Observable, Subject, throwError, of } from 'rxjs';
-import { catchError, tap, finalize, map, delay } from 'rxjs/operators';
+import { catchError, tap, finalize, map, delay, switchMap } from 'rxjs/operators';
 import { PurchaseOrder, PurchaseOrderItem, PurchaseOrderStatus, Supplier } from '../models/purchase-order.model';
 import { AuthService } from '../../auth/services/auth.service';
+import * as pdfMake from 'pdfmake/build/pdfmake';
+import * as pdfFonts from 'pdfmake/build/vfs_fonts';
 
 @Injectable({
   providedIn: 'root'
@@ -12,16 +14,21 @@ export class PurchaseOrderService {
   /* -------------------------------------------------------------------------- */
   /*                                 ENDPOINTS                                  */
   /* -------------------------------------------------------------------------- */
+  // Essayer différents ports pour trouver le bon endpoint
   private apiUrl = 'http://localhost:8080/api/commandes';
-  private backupApiUrl = 'http://localhost:8082/api/commandes';
+  private backupApiUrl = 'http://localhost:8088/api/commandes';
+  
+  // Autres URLs à essayer si nécessaire
+  private alternativeUrls = [
+    'http://localhost:8082/api/commandes',
+    'http://localhost:8085/api/commandes',
+    'http://localhost:8081/api/commandes'
+  ];
 
   private suppliersBaseUrls = [
-    'http://localhost:8088/api/suppliers',
     'http://localhost:8088/api/fournisseurs',
-    'http://localhost:8088/api/vendors',
-    'http://localhost:8080/api/suppliers',
-    'http://localhost:8080/api/fournisseurs',
-    'http://localhost:8080/api/vendors'
+    'http://localhost:8088/api/suppliers',
+    'http://localhost:8088/api/vendors'
   ];
 
   /* -------------------------------------------------------------------------- */
@@ -38,7 +45,7 @@ export class PurchaseOrderService {
 
   private backendAvailable = true;
   // Forcer l'utilisation des données réelles uniquement - Ne jamais utiliser de données fictives
-  private forceMockData = false; // Cette valeur ne sera jamais changée
+  private forceMockData = false; // Toujours maintenir à false pour utiliser les données réelles
 
   private mockDataWarningShown = false;
 
@@ -77,6 +84,7 @@ export class PurchaseOrderService {
     searchTerm?: string;
   }): Observable<PurchaseOrder[]> {
     this.loading.next(true);
+    this.backendAvailable = false; // Par défaut, supposer que le backend n'est pas disponible
 
     /* ----------------------------- Query params ----------------------------- */
     let httpParams = new HttpParams();
@@ -85,21 +93,63 @@ export class PurchaseOrderService {
       if (params.startDate) httpParams = httpParams.set('startDate', params.startDate.toISOString());
       if (params.endDate) httpParams = httpParams.set('endDate', params.endDate.toISOString());
       if (params.supplierId) httpParams = httpParams.set('supplierId', params.supplierId);
-      if (params.searchTerm) httpParams = httpParams.set('searchTerm', params.searchTerm);
+      if (params.searchTerm) httpParams = httpParams.set('search', params.searchTerm);
     }
 
-    return this.http
-      .get<any[]>(this.apiUrl, { headers: this.getAuthHeaders(), params: httpParams })
-      .pipe(
-        map((orders) => orders.map((o) => this.mapApiOrderToModel(o))),
-        tap((orders) => console.log(`${orders.length} commandes d'achat récupérées`)),
-        catchError((error) => {
-          console.error('Erreur lors de la récupération des commandes d\'achat:', error);
-          this.backendAvailable = false;
-          return of(this.getMockPurchaseOrders());
-        }),
-        finalize(() => this.loading.next(false))
-      );
+    console.log(`Tentative de récupération des commandes depuis ${this.apiUrl}`);
+    
+    // Essayer d'abord l'URL principale
+    return this.tryGetOrdersFromUrl(this.apiUrl, httpParams).pipe(
+      catchError(error => {
+        console.warn(`Échec avec l'URL principale ${this.apiUrl}:`, error);
+        console.log(`Tentative avec l'URL de secours ${this.backupApiUrl}`);
+        
+        // Essayer l'URL de secours
+        return this.tryGetOrdersFromUrl(this.backupApiUrl, httpParams).pipe(
+          catchError(backupError => {
+            console.warn(`Échec avec l'URL de secours ${this.backupApiUrl}:`, backupError);
+            
+            // Essayer les URLs alternatives une par une
+            return this.tryAlternativeUrls(httpParams, 0);
+          })
+        );
+      }),
+      finalize(() => this.loading.next(false))
+    );
+  }
+  
+  /**
+   * Essaie de récupérer les commandes depuis une URL spécifique
+   */
+  private tryGetOrdersFromUrl(url: string, params: HttpParams): Observable<PurchaseOrder[]> {
+    return this.http.get<any[]>(url, { headers: this.getAuthHeaders(), params }).pipe(
+      map(orders => {
+        console.log(`Données reçues depuis ${url}:`, orders);
+        this.backendAvailable = true;
+        return orders.map(o => this.mapApiOrderToModel(o));
+      }),
+      tap(orders => console.log(`${orders.length} commandes récupérées avec succès depuis ${url}`))
+    );
+  }
+  
+  /**
+   * Essaie les URLs alternatives une par une
+   */
+  private tryAlternativeUrls(params: HttpParams, index: number): Observable<PurchaseOrder[]> {
+    if (index >= this.alternativeUrls.length) {
+      console.error('Toutes les URLs ont échoué, utilisation des données fictives');
+      return of(this.getMockPurchaseOrders());
+    }
+    
+    const url = this.alternativeUrls[index];
+    console.log(`Tentative avec l'URL alternative ${index + 1}/${this.alternativeUrls.length}: ${url}`);
+    
+    return this.tryGetOrdersFromUrl(url, params).pipe(
+      catchError(error => {
+        console.warn(`Échec avec l'URL alternative ${url}:`, error);
+        return this.tryAlternativeUrls(params, index + 1);
+      })
+    );
   }
 
   /* -------------------------------------------------------------------------- */
@@ -108,6 +158,7 @@ export class PurchaseOrderService {
 
   getPurchaseOrderById(id: string): Observable<PurchaseOrder> {
     this.loading.next(true);
+    this.backendAvailable = false; // Par défaut, supposer que le backend n'est pas disponible
 
     /* ----------- Si on force les mocks ou qu'on est déjà en dégradé ---------- */
     if (this.forceMockData) {
@@ -117,35 +168,62 @@ export class PurchaseOrderService {
       return of(order);
     }
 
-    return this.http
-      .get<any>(`${this.apiUrl}/${id}`, { headers: this.getAuthHeaders() })
-      .pipe(
-        map((o) => this.mapApiOrderToModel(o)),
-        tap(() => {
-          this.backendAvailable = true;
-          this.backendUnavailableMessage = '';
-        }),
-        catchError((primaryError) => {
-          console.error(`Erreur de récupération (primary) ${id}:`, primaryError);
-          return this.http
-            .get<any>(`${this.backupApiUrl}/${id}`, { headers: this.getAuthHeaders() })
-            .pipe(
-              map((o) => this.mapApiOrderToModel(o)),
-              tap(() => {
-                this.backendAvailable = true;
-                this.backendUnavailableMessage = 'Utilisation du backend de secours';
-              }),
-              catchError((secondError) => {
-                console.error(`Erreur de récupération (backup) ${id}:`, secondError);
-                this.backendAvailable = false;
-                const local = this.mockOrders.find((o) => o.id === id);
-                const order = local ?? this.getMockPurchaseOrders().find((o) => o.id === id) ?? this.createEmptyPurchaseOrder();
-                return of(order);
-              })
-            );
-        }),
-        finalize(() => this.loading.next(false))
-      );
+    console.log(`Tentative de récupération de la commande ${id} depuis ${this.apiUrl}`);
+    
+    // Essayer d'abord l'URL principale
+    return this.tryGetOrderById(this.apiUrl, id).pipe(
+      catchError(error => {
+        console.warn(`Échec avec l'URL principale pour la commande ${id}:`, error);
+        console.log(`Tentative avec l'URL de secours pour la commande ${id}`);
+        
+        // Essayer l'URL de secours
+        return this.tryGetOrderById(this.backupApiUrl, id).pipe(
+          catchError(backupError => {
+            console.warn(`Échec avec l'URL de secours pour la commande ${id}:`, backupError);
+            
+            // Essayer les URLs alternatives une par une
+            return this.tryAlternativeUrlsForOrder(id, 0);
+          })
+        );
+      }),
+      finalize(() => this.loading.next(false))
+    );
+  }
+  
+  /**
+   * Essaie de récupérer une commande spécifique depuis une URL
+   */
+  private tryGetOrderById(baseUrl: string, id: string): Observable<PurchaseOrder> {
+    return this.http.get<any>(`${baseUrl}/${id}`, { headers: this.getAuthHeaders() }).pipe(
+      map(order => {
+        console.log(`Données de la commande ${id} reçues depuis ${baseUrl}:`, order);
+        this.backendAvailable = true;
+        return this.mapApiOrderToModel(order);
+      }),
+      tap(order => console.log(`Commande ${id} récupérée avec succès depuis ${baseUrl}`))
+    );
+  }
+  
+  /**
+   * Essaie les URLs alternatives une par une pour récupérer une commande spécifique
+   */
+  private tryAlternativeUrlsForOrder(id: string, index: number): Observable<PurchaseOrder> {
+    if (index >= this.alternativeUrls.length) {
+      console.error(`Toutes les URLs ont échoué pour la commande ${id}, utilisation des données fictives`);
+      const local = this.mockOrders.find((o) => o.id === id);
+      const order = local ?? this.getMockPurchaseOrders().find((o) => o.id === id) ?? this.createEmptyPurchaseOrder();
+      return of(order);
+    }
+    
+    const url = this.alternativeUrls[index];
+    console.log(`Tentative avec l'URL alternative ${index + 1}/${this.alternativeUrls.length} pour la commande ${id}: ${url}`);
+    
+    return this.tryGetOrderById(url, id).pipe(
+      catchError(error => {
+        console.warn(`Échec avec l'URL alternative ${url} pour la commande ${id}:`, error);
+        return this.tryAlternativeUrlsForOrder(id, index + 1);
+      })
+    );
   }
 
   /* -------------------------------------------------------------------------- */
@@ -303,21 +381,182 @@ export class PurchaseOrderService {
   /*                                  PDF & MAIL                                */
   /* -------------------------------------------------------------------------- */
 
+  /**
+   * Génère un PDF pour la commande spécifiée
+   * @param id Identifiant de la commande
+   * @returns Observable contenant le blob du PDF généré
+   */
   generatePdf(id: string): Observable<Blob> {
     this.loading.next(true);
+    
+    // Essayer d'abord avec l'URL principale
     return this.http
       .get(`${this.apiUrl}/${id}/pdf`, {
         headers: this.getAuthHeaders(),
         responseType: 'blob'
       })
       .pipe(
-        tap(() => console.log(`PDF généré pour la commande ${id}`)),
+        tap(() => console.log(`PDF généré pour la commande ${id} via l'API principale`)),
         catchError((error) => {
-          console.error(`Erreur PDF ${id}:`, error);
-          return throwError(() => new Error(`Impossible de générer le PDF: ${error.message}`));
+          console.warn(`Erreur avec l'API principale pour le PDF ${id}:`, error);
+          
+          // En cas d'échec, essayer avec l'URL de secours
+          console.log(`Tentative avec l'API de secours pour le PDF de la commande ${id}`);
+          return this.http
+            .get(`${this.backupApiUrl}/${id}/pdf`, {
+              headers: this.getAuthHeaders(),
+              responseType: 'blob'
+            })
+            .pipe(
+              tap(() => console.log(`PDF généré pour la commande ${id} via l'API de secours`)),
+              catchError((backupError) => {
+                console.error(`Échec de la génération PDF pour ${id} sur les deux API:`, backupError);
+                // Générer un PDF côté client comme solution de secours
+                return this.generateClientSidePdf(id);
+              })
+            );
         }),
         finalize(() => this.loading.next(false))
       );
+  }
+  
+  /**
+   * Génère un PDF côté client en utilisant pdfmake comme solution de secours
+   * @param id Identifiant de la commande
+   * @returns Observable contenant le blob du PDF généré
+   */
+  private generateClientSidePdf(id: string): Observable<Blob> {
+    console.log(`Génération de PDF côté client pour la commande ${id}`);
+    
+    // Configurer les polices pour pdfMake
+    // Utiliser pdfMake.vfs = ... n'est pas possible car les imports sont immuables
+    // On utilise donc une autre approche pour configurer les polices
+    try {
+      // Utiliser la méthode setFonts de pdfmake si disponible
+      if (typeof (pdfMake as any).fonts === 'object') {
+        Object.assign((pdfMake as any).fonts, (pdfFonts as any).pdfMake?.vfs || {});
+        console.log('Polices pdfMake configurées via fonts');
+      } else {
+        // Sinon, utiliser une autre approche pour les versions plus récentes
+        console.log('Configuration des polices pdfMake ignorée - utilisation des polices par défaut');
+      }
+    } catch (e) {
+      console.error('Erreur lors de la configuration des polices pdfMake:', e);
+    }
+    
+    // Récupérer les détails de la commande pour générer le PDF
+    return this.getPurchaseOrderById(id).pipe(
+      map(order => {
+        // Définir le contenu du document PDF
+        // Utiliser 'as any' pour contourner les erreurs TypeScript
+        const documentDefinition: any = {
+          content: [
+            { text: 'BON DE COMMANDE', style: 'header' },
+            { text: `N° ${order.orderNumber || id}`, style: 'subheader' },
+            { text: `Date: ${new Date(order.orderDate).toLocaleDateString()}`, style: 'date' },
+            
+            { text: 'Fournisseur', style: 'sectionHeader' },
+            {
+              columns: [
+                [
+                  { text: order.supplierName || 'Non spécifié' },
+                  { text: order.supplierAddress || '' },
+                  { text: order.supplierEmail || '' }
+                ]
+              ]
+            },
+            
+            { text: 'Articles', style: 'sectionHeader', margin: [0, 20, 0, 10] },
+            {
+              table: {
+                headerRows: 1,
+                widths: ['*', 'auto', 'auto', 'auto'],
+                body: [
+                  // En-tête du tableau
+                  [{ text: 'Produit', style: 'tableHeader' }, 
+                   { text: 'Quantité', style: 'tableHeader' }, 
+                   { text: 'Prix unitaire', style: 'tableHeader' }, 
+                   { text: 'Total', style: 'tableHeader' }],
+                  // Lignes d'articles
+                  ...order.items.map(item => [
+                    item.productName,
+                    item.quantity.toString(),
+                    `${item.unitPrice.toFixed(2)} €`,
+                    `${item.total.toFixed(2)} €`
+                  ])
+                ]
+              }
+            },
+            
+            { text: `Total: ${order.total.toFixed(2)} €`, style: 'total', margin: [0, 20, 0, 0] },
+            
+            { text: `Statut: ${this.getStatusLabel(order.status)}`, style: 'status' },
+            
+            // Utiliser une condition ternaire pour éviter les objets vides qui causent des erreurs de type
+            ...(order.notes ? [{ text: `Notes: ${order.notes}`, style: 'notes', margin: [0, 20, 0, 0] }] : [])
+          ],
+          styles: {
+            header: { fontSize: 18, bold: true, alignment: 'center', margin: [0, 0, 0, 10] },
+            subheader: { fontSize: 14, bold: true, alignment: 'center', margin: [0, 0, 0, 20] },
+            date: { fontSize: 12, alignment: 'right', margin: [0, 0, 0, 20] },
+            sectionHeader: { fontSize: 14, bold: true, margin: [0, 10, 0, 5] },
+            tableHeader: { bold: true, fillColor: '#eeeeee' },
+            total: { fontSize: 14, bold: true, alignment: 'right' },
+            status: { fontSize: 12, alignment: 'right', margin: [0, 5, 0, 0] },
+            notes: { fontSize: 12, italics: true }
+          },
+          defaultStyle: {
+            fontSize: 10
+          },
+          footer: function(currentPage: number, pageCount: number) {
+            return { text: `Page ${currentPage} sur ${pageCount}`, alignment: 'center', fontSize: 8 };
+          }
+        };
+        
+        // Générer le PDF
+        const pdfDocGenerator = pdfMake.createPdf(documentDefinition);
+        
+        return new Promise<Blob>((resolve) => {
+          pdfDocGenerator.getBlob((blob: Blob) => {
+            resolve(blob);
+          });
+        });
+      }),
+      switchMap((blobPromise: Promise<Blob>) => {
+        return new Observable<Blob>(observer => {
+          blobPromise.then(
+            blob => {
+              observer.next(blob);
+              observer.complete();
+            },
+            error => {
+              console.error('Erreur lors de la génération du PDF côté client:', error);
+              observer.error(new Error('Erreur lors de la génération du PDF côté client'));
+            }
+          );
+        });
+      }),
+      catchError(error => {
+        console.error('Erreur lors de la récupération des données pour le PDF:', error);
+        return throwError(() => new Error(`Impossible de générer le PDF: ${error.message || 'Erreur inconnue'}`));
+      })
+    );
+  }
+  
+  /**
+   * Retourne le libellé correspondant au statut de la commande
+   * @param status Statut de la commande
+   * @returns Libellé du statut
+   */
+  private getStatusLabel(status: PurchaseOrderStatus): string {
+    switch (status) {
+      case 'DRAFT': return 'Brouillon';
+      case 'SENT': return 'Envoyée';
+      case 'CONFIRMED': return 'Confirmée';
+      case 'DELIVERED': return 'Livrée';
+      case 'CANCELLED': return 'Annulée';
+      default: return status;
+    }
   }
 
   sendPurchaseOrderByEmail(id: string, email: string, subject: string, message: string): Observable<any> {

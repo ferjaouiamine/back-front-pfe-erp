@@ -44,6 +44,12 @@
       <button *ngIf="!isReadOnly && !isNewOrder && orderId" class="btn btn-outline-primary me-2" (click)="sendByEmail()">
         <i class="fas fa-envelope"></i> Envoyer au fournisseur
       </button>
+      <button *ngIf="!isNewOrder && orderId && orderForm.get('status')?.value === STATUS_CONFIRMED" class="btn btn-outline-success me-2" [routerLink]="['/stock/purchase-orders', orderId, 'reception']">
+        <i class="fas fa-truck-loading"></i> Réceptionner
+      </button>
+      <button *ngIf="!isNewOrder && orderId" class="btn btn-outline-info me-2" [routerLink]="['/stock/purchase-orders', orderId, 'products']">
+        <i class="fas fa-boxes"></i> Gérer les produits
+      </button>
       <button class="btn btn-outline-secondary me-2" (click)="cancel()">
         <i class="fas fa-times"></i> {{ isReadOnly ? 'Retour' : 'Annuler' }}
       </button>
@@ -148,79 +154,33 @@
     <div class="form-section">
       <div class="section-header">
         <h2>Articles</h2>
-        <button 
-          type="button" 
-          class="btn btn-sm btn-outline-primary" 
-          (click)="openProductSearch()"
-          *ngIf="!isReadOnly"
-        >
-          <i class="fas fa-plus"></i> Ajouter un article
-        </button>
+        <div class="section-actions">
+          <button 
+            type="button" 
+            class="btn btn-sm btn-outline-primary me-2" 
+            (click)="openProductSearch()"
+            *ngIf="!isReadOnly"
+          >
+            <i class="fas fa-plus"></i> Ajouter un article
+          </button>
+          <button 
+            type="button" 
+            class="btn btn-sm btn-outline-info" 
+            [routerLink]="['/stock/purchase-orders', orderId, 'products']"
+            *ngIf="!isNewOrder && orderId"
+          >
+            <i class="fas fa-boxes"></i> Catalogue produits
+          </button>
+        </div>
       </div>
 
-      <!-- Recherche de produits -->
-      <div class="product-search-container" *ngIf="!isReadOnly && orderForm.get('supplierId')?.value">
-        <div class="row">
-          <div class="col-md-6">
-            <div class="form-group">
-              <label for="productSearch">Rechercher un produit</label>
-              <div class="input-group">
-                <input 
-                  type="text" 
-                  id="productSearch" 
-                  class="form-control" 
-                  placeholder="Nom ou référence du produit" 
-                  [(ngModel)]="productSearchTerm" 
-                  [ngModelOptions]="{standalone: true}"
-                  (input)="filterProducts()">
-                <button 
-                  class="btn btn-outline-secondary" 
-                  type="button" 
-                  [disabled]="!productSearchTerm"
-                  (click)="clearProductSearch()">
-                  <i class="fas fa-times"></i>
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-        
-        <!-- Liste des produits filtrés -->
-        <div class="product-search-results" *ngIf="filteredProducts.length > 0">
-          <table class="table table-hover">
-            <thead>
-              <tr>
-                <th>Produit</th>
-                <th>Référence</th>
-                <th class="text-right">Prix</th>
-                <th class="text-right">Stock</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr *ngFor="let product of filteredProducts">
-                <td>{{ product.name || 'Sans nom' }}</td>
-                <td>{{ product.reference || 'N/A' }}</td>
-                <td class="text-right">{{ (product.price || 0) | currency:'EUR':'symbol':'1.2-2' }}</td>
-                <td class="text-right" [ngClass]="{'stock-low': (product.quantity || 0) < (product.alertThreshold || 5), 'stock-ok': (product.quantity || 0) >= (product.alertThreshold || 5)}">
-                  {{ product.quantity || 0 }}
-                </td>
-                <td>
-                  <button 
-                    type="button" 
-                    class="btn btn-sm btn-primary" 
-                    (click)="addItemFromProduct(product)">
-                    <i class="fas fa-plus"></i> Ajouter
-                  </button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        
-        <div class="no-results" *ngIf="productSearchTerm && filteredProducts.length === 0">
-          <p class="text-muted">Aucun produit ne correspond à votre recherche.</p>
-        </div>
+      <!-- Composant d'ajout d'articles -->
+      <div *ngIf="!isReadOnly && orderForm.get('supplierId')?.value && showProductSearch">
+        <app-order-item-creation
+          [supplierId]="orderForm.get('supplierId')?.value"
+          (itemAdded)="handleItemAdded($event)"
+          (cancel)="closeProductSearch()"
+        ></app-order-item-creation>
       </div>
       
       <!-- Tableau des articles de commande -->

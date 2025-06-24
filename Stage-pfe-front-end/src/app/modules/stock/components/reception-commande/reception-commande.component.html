@@ -1,0 +1,99 @@
+<div class="reception-commande-container">
+  <h2>Réception de la commande {{ commande.orderNumber }}</h2>
+  
+  <div *ngIf="error" class="error-message">
+    <mat-icon>error</mat-icon>
+    <span>{{ error }}</span>
+  </div>
+
+  <div *ngIf="loading" class="loading-container">
+    <mat-spinner diameter="40"></mat-spinner>
+  </div>
+
+  <form [formGroup]="receptionForm" (ngSubmit)="onSubmit()" *ngIf="!loading && commande">
+    <div class="commande-info">
+      <div class="info-item">
+        <span class="label">Fournisseur:</span>
+        <span class="value">{{ commande.supplierName }}</span>
+      </div>
+      <div class="info-item">
+        <span class="label">Date de commande:</span>
+        <span class="value">{{ commande.orderDate | date:'dd/MM/yyyy' }}</span>
+      </div>
+      <div class="info-item">
+        <span class="label">Statut:</span>
+        <span class="value status-badge" [ngClass]="commande.status.toLowerCase()">
+          {{ commande.status }}
+        </span>
+      </div>
+    </div>
+
+    <mat-divider></mat-divider>
+
+    <div class="items-table-container">
+      <table mat-table [dataSource]="commande.items" class="items-table">
+        <!-- Produit Column -->
+        <ng-container matColumnDef="produit">
+          <th mat-header-cell *matHeaderCellDef>Produit</th>
+          <td mat-cell *matCellDef="let item">
+            <div class="product-info">
+              <span class="product-name">{{ item.productName }}</span>
+              <span class="product-id">ID: {{ item.productId }}</span>
+            </div>
+          </td>
+        </ng-container>
+
+        <!-- Quantité commandée Column -->
+        <ng-container matColumnDef="quantiteCommandee">
+          <th mat-header-cell *matHeaderCellDef>Quantité commandée</th>
+          <td mat-cell *matCellDef="let item">{{ item.quantity }}</td>
+        </ng-container>
+
+        <!-- Disponibilité Column -->
+        <ng-container matColumnDef="disponibilite">
+          <th mat-header-cell *matHeaderCellDef>Disponibilité</th>
+          <td mat-cell *matCellDef="let item" class="disponibilite-cell" [ngClass]="getItemStatus(item)">
+            <mat-icon>{{ getStatusIcon(item) }}</mat-icon>
+            <span>{{ getItemStatus(item) === 'available' ? 'Disponible' : 'Indisponible' }}</span>
+          </td>
+        </ng-container>
+
+        <!-- Quantité reçue Column -->
+        <ng-container matColumnDef="quantiteRecue">
+          <th mat-header-cell *matHeaderCellDef>Quantité à réceptionner</th>
+          <td mat-cell *matCellDef="let item">
+            <mat-form-field appearance="outline" class="quantity-field">
+              <input matInput type="number" [formControlName]="item.id" 
+                     [max]="item.quantity" min="0" 
+                     [disabled]="getItemStatus(item) === 'unavailable'">
+              <mat-error *ngIf="receptionForm.get(item.id)?.hasError('required')">
+                Requis
+              </mat-error>
+              <mat-error *ngIf="receptionForm.get(item.id)?.hasError('min')">
+                Min: 0
+              </mat-error>
+              <mat-error *ngIf="receptionForm.get(item.id)?.hasError('max')">
+                Max: {{ item.quantity }}
+              </mat-error>
+            </mat-form-field>
+          </td>
+        </ng-container>
+
+        <tr mat-header-row *matHeaderRowDef="['produit', 'quantiteCommandee', 'disponibilite', 'quantiteRecue']"></tr>
+        <tr mat-row *matRowDef="let row; columns: ['produit', 'quantiteCommandee', 'disponibilite', 'quantiteRecue'];"></tr>
+      </table>
+    </div>
+
+    <div class="actions-container">
+      <button mat-button type="button" [routerLink]="['/stock/commandes', commande.id]">Annuler</button>
+      <button mat-raised-button color="primary" type="submit" [disabled]="receptionForm.invalid">
+        Confirmer la réception
+      </button>
+    </div>
+  </form>
+
+  <div *ngIf="!loading && !commande" class="no-commande">
+    <mat-icon>error_outline</mat-icon>
+    <p>Commande non trouvée</p>
+  </div>
+</div>
