@@ -22,7 +22,9 @@ import { MatExpansionModule } from '@angular/material/expansion';
 
 import { CommandeService, Commande, LigneCommande, StatutCommande, StatutLigne } from '../../services/commande.service';
 import { AchatService, Fournisseur } from '../../services/achat.service';
+import { ProduitService, Produit } from '../../services/produit.service';
 import { saveAs } from 'file-saver';
+import { ConfirmDialogComponent } from '../../../shared/components/confirm-dialog/confirm-dialog.component';
 
 @Component({
   selector: 'app-commande-detail',
@@ -49,7 +51,8 @@ import { saveAs } from 'file-saver';
     MatDialogModule,
     MatStepperModule,
     MatExpansionModule,
-    MatDividerModule
+    MatDividerModule,
+    ConfirmDialogComponent
   ],
   templateUrl: './commande-detail.component.html',
   styleUrls: ['./commande-detail.component.scss']
@@ -63,9 +66,10 @@ export class CommandeDetailComponent implements OnInit {
   commande: Commande | null = null;
   commandeForm: FormGroup;
   fournisseurs: Fournisseur[] = [];
-  loading = false;
+  produitsLowStock: Produit[] = [];
+  loading = true;
   saving = false;
-  error = '';
+  error: string | null = null;
   mode: 'view' | 'edit' | 'create' = 'view';
   
   // Colonnes pour le tableau des lignes de commande
@@ -90,6 +94,7 @@ export class CommandeDetailComponent implements OnInit {
     private formBuilder: FormBuilder,
     private commandeService: CommandeService,
     private achatService: AchatService,
+    private produitService: ProduitService,
     private snackBar: MatSnackBar,
     private dialog: MatDialog
   ) {
@@ -104,6 +109,7 @@ export class CommandeDetailComponent implements OnInit {
     if (url.includes('/new')) {
       this.mode = 'create';
       this.initializeNewCommande();
+      this.loadProduitsLowStock(); // Charger les produits en stock faible pour une nouvelle commande
     } else if (url.includes('/edit')) {
       this.mode = 'edit';
       this.loadCommande();
@@ -190,6 +196,61 @@ export class CommandeDetailComponent implements OnInit {
       statut: StatutCommande.BROUILLON,
       lignes: []
     };
+  }
+
+  loadProduitsLowStock(): void {
+    this.produitService.getProductsInLowStock().subscribe(
+      (produits) => {
+        this.produitsLowStock = produits;
+        console.log('Produits en stock faible chargés:', produits);
+        
+        // Si des produits en stock faible sont trouvés, proposer de les ajouter à la commande
+        if (produits && produits.length > 0) {
+          this.snackBar.open(
+            `${produits.length} produit(s) en stock faible détecté(s). Ils ont été ajoutés à votre commande.`, 
+            'OK', 
+            { duration: 5000 }
+          );
+          this.ajouterProduitsLowStockACommande();
+        }
+      },
+      (error) => {
+        console.error('Erreur lors du chargement des produits en stock faible:', error);
+        this.snackBar.open(
+          'Impossible de charger les produits en stock faible.', 
+          'OK', 
+          { duration: 3000 }
+        );
+      }
+    );
+  }
+
+  ajouterProduitsLowStockACommande(): void {
+    if (!this.produitsLowStock || this.produitsLowStock.length === 0) {
+      return;
+    }
+
+    const lignesArray = this.commandeForm.get('lignes') as FormArray;
+    
+    // Ajouter chaque produit en stock faible comme ligne de commande
+    this.produitsLowStock.forEach(produit => {
+      // Créer une nouvelle ligne de commande
+      const ligneForm = this.formBuilder.group({
+        reference: [produit.reference || ''],
+        designation: [produit.nom, Validators.required],
+        description: [produit.description || ''],
+        quantite: [10, [Validators.required, Validators.min(1)]], // Quantité par défaut à 10
+        prixUnitaireHT: [produit.prix, [Validators.required, Validators.min(0)]],
+        tauxTVA: [20, [Validators.required, Validators.min(0)]], // TVA par défaut à 20%
+        produitId: [produit.id]
+      });
+      
+      // Ajouter la ligne au formulaire
+      lignesArray.push(ligneForm);
+    });
+    
+    // Les totaux seront automatiquement calculés lors de l'affichage
+    // via les méthodes calculerTotalHT(), calculerTotalTVA() et calculerTotalTTC()
   }
 
   patchCommandeForm(commande: Commande): void {
@@ -459,5 +520,70 @@ export class CommandeDetailComponent implements OnInit {
 
   peutGenererBonCommande(commande: Commande): boolean {
     return commande && commande.statut !== StatutCommande.BROUILLON;
+  }
+
+  // Méthode pour charger tous les articles disponibles
+  chargerArticles(): void {
+    this.produitService.getAllProducts().subscribe({
+      next: (produits) => {
+        if (produits && produits.length > 0) {
+          // Si nous avons déjà des lignes, demander confirmation avant de remplacer
+          if (this.lignesFormArray.length > 0) {
+            const dialogRef = this.dialog.open(ConfirmDialogComponent, {
+              data: {
+                title: 'Confirmation',
+                message: 'Voulez-vous remplacer les lignes existantes ou ajouter à la suite?',
+                confirmText: 'Remplacer',
+                cancelText: 'Ajouter'
+              }
+            });
+
+            dialogRef.afterClosed().subscribe(result => {
+              if (result === true) {
+                // Remplacer les lignes existantes
+                while (this.lignesFormArray.length !== 0) {
+                  this.lignesFormArray.removeAt(0);
+                }
+                this.ajouterProduitsAuFormulaire(produits);
+              } else if (result === false) {
+                // Ajouter à la suite
+                this.ajouterProduitsAuFormulaire(produits);
+              }
+              // Si undefined, l'utilisateur a annulé
+            });
+          } else {
+            // Pas de lignes existantes, ajouter directement
+            this.ajouterProduitsAuFormulaire(produits);
+          }
+        } else {
+          this.snackBar.open('Aucun produit disponible', 'Fermer', { duration: 3000 });
+        }
+      },
+      error: (err) => {
+        console.error('Erreur lors du chargement des produits', err);
+        this.snackBar.open('Erreur lors du chargement des produits', 'Fermer', { duration: 3000 });
+      }
+    });
+  }
+
+  // Méthode pour ajouter les produits au formulaire
+  ajouterProduitsAuFormulaire(produits: Produit[]): void {
+    const lignesArray = this.lignesFormArray;
+    
+    produits.forEach(produit => {
+      const ligneForm = this.formBuilder.group({
+        reference: [produit.reference || produit.id.toString(), Validators.required],
+        designation: [produit.nom, Validators.required],
+        quantite: [1, [Validators.required, Validators.min(1)]], // Quantité par défaut à 1
+        prixUnitaireHT: [produit.prix, [Validators.required, Validators.min(0)]],
+        tauxTVA: [20, [Validators.required, Validators.min(0)]], // TVA par défaut à 20%
+        produitId: [produit.id]
+      });
+      
+      // Ajouter la ligne au formulaire
+      lignesArray.push(ligneForm);
+    });
+    
+    this.snackBar.open(`${produits.length} produit(s) ajouté(s) à la commande`, 'Fermer', { duration: 3000 });
   }
 }

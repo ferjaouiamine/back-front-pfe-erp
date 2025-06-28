@@ -1,8 +1,9 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
-import { FormBuilder, FormGroup, FormArray, Validators, AbstractControl } from '@angular/forms';
+import { FormBuilder, FormGroup, FormArray, AbstractControl, Validators, ValidatorFn, ValidationErrors } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
-import { forkJoin, Observable, of, Subscription } from 'rxjs';
+import { Subscription, forkJoin, Observable, of } from 'rxjs';
 import { catchError, finalize, map, switchMap, delay } from 'rxjs/operators';
+import { HttpClient } from '@angular/common/http';
 import { PurchaseOrder, PurchaseOrderItem, PurchaseOrderStatus, Product as OrderProduct, Supplier } from '../../models/purchase-order.model';
 import { OrderItemForm } from '../../models/order-item-creation.model';
 import { PurchaseOrderService } from '../../services/purchase-order.service';
@@ -73,7 +74,8 @@ export class PurchaseOrderDetailPlusComponent implements OnInit, OnDestroy {
     private route: ActivatedRoute,
     private router: Router,
     private purchaseOrderService: PurchaseOrderService,
-    private productService: ProductService
+    private productService: ProductService,
+    private http: HttpClient
   ) { }
 
   ngOnInit(): void {
@@ -125,8 +127,8 @@ export class PurchaseOrderDetailPlusComponent implements OnInit, OnDestroy {
     this.orderForm = this.fb.group({
       id: [null],
       orderNumber: [''],
-      supplierId: ['', Validators.required],
-      supplierEmail: ['', [Validators.email]],
+      supplierId: [''], // Suppression du validateur required
+      supplierEmail: ['', [Validators.email]], // Email reste optionnel mais doit être valide si fourni
       status: [this.STATUS_DRAFT, Validators.required],
       orderDate: [new Date().toISOString().split('T')[0], Validators.required],
       expectedDeliveryDate: [''],
@@ -134,6 +136,35 @@ export class PurchaseOrderDetailPlusComponent implements OnInit, OnDestroy {
       notes: [''],
       items: this.fb.array([])
     });
+    
+    // Ajout d'un validateur personnalisé pour s'assurer qu'au moins un supplierId ou un supplierEmail est fourni
+    this.orderForm.setValidators(this.supplierValidator);
+  }
+  
+  /**
+   * Validateur personnalisé pour s'assurer qu'au moins un supplierId ou un supplierEmail est fourni
+   */
+  supplierValidator: ValidatorFn = (control: AbstractControl): ValidationErrors | null => {
+    const formGroup = control as FormGroup;
+    const supplierId = formGroup.get('supplierId')?.value;
+    const supplierEmail = formGroup.get('supplierEmail')?.value;
+    
+    if (!supplierId && !supplierEmail) {
+      // Si aucun fournisseur n'est sélectionné et aucun email n'est fourni
+      formGroup.get('supplierEmail')?.setErrors({ supplierRequired: true });
+      return { supplierRequired: true };
+    } else {
+      // Si au moins l'un des deux est fourni, on supprime cette erreur spécifique
+      const emailControl = formGroup.get('supplierEmail');
+      if (emailControl?.errors) {
+        const errors = { ...emailControl.errors };
+        if (errors['supplierRequired']) {
+          delete errors['supplierRequired'];
+          emailControl.setErrors(Object.keys(errors).length ? errors : null);
+        }
+      }
+      return null;
+    }
   }
 
   /**
@@ -170,6 +201,73 @@ export class PurchaseOrderDetailPlusComponent implements OnInit, OnDestroy {
   }
   
   /**
+   * Gère le changement de fournisseur dans le formulaire
+   * @param event Événement de changement du select
+   */
+  onSupplierChange(event: any): void {
+    const supplierId = event.target.value;
+    console.log('Fournisseur sélectionné:', supplierId);
+    
+    if (supplierId) {
+      // Trouver le fournisseur sélectionné
+      const selectedSupplier = this.suppliers.find(s => s.id.toString() === supplierId.toString());
+      
+      if (selectedSupplier) {
+        // Mettre à jour l'email du fournisseur dans le formulaire
+        this.orderForm.patchValue({
+          supplierEmail: selectedSupplier.email
+        });
+      }
+      
+      // Charger les produits associés à ce fournisseur
+      this.loadSupplierProducts(supplierId);
+    } else {
+      // Si aucun fournisseur n'est sélectionné, vider l'email
+      this.orderForm.patchValue({
+        supplierEmail: ''
+      });
+      
+      // Réinitialiser les produits
+      this.products = [];
+      this.filteredProducts = [];
+    }
+  }
+
+  /**
+   * Charge tous les produits disponibles
+   */
+  loadAllProducts(): void {
+    this.isLoading = true;
+    this.products = [];
+    this.filteredProducts = [];
+    this.productSearchTerm = '';
+    
+    console.log('Chargement de tous les produits disponibles depuis le backend');
+    
+    // Utiliser le paramètre false pour forcer l'utilisation des données réelles
+    this.productService.getProducts(false).subscribe({
+      next: (products) => {
+        this.products = products;
+        console.log(`Produits chargés avec succès: ${products.length} produits disponibles`);
+        
+        // Initialiser également les produits filtrés
+        this.filteredProducts = [...this.products];
+        
+        if (products.length === 0) {
+          this.showWarningMessage('Aucun produit disponible. Essayez d\'activer les données fictives.');
+        }
+      },
+      error: (error) => {
+        console.error('Erreur lors du chargement des produits:', error);
+        this.showErrorMessage('Erreur lors du chargement des produits: ' + error.message);
+      },
+      complete: () => {
+        this.isLoading = false;
+      }
+    });
+  }
+
+  /**
    * Charge les produits associés à un fournisseur
    */
   loadSupplierProducts(supplierId: string): void {
@@ -178,7 +276,6 @@ export class PurchaseOrderDetailPlusComponent implements OnInit, OnDestroy {
     this.filteredProducts = [];
     this.productSearchTerm = '';
     
-    // Essayer d'abord avec les données réelles
     console.log('Chargement des produits réels depuis le backend pour le fournisseur ID:', supplierId);
     
     // Utiliser le paramètre false pour forcer l'utilisation des données réelles
@@ -238,12 +335,171 @@ export class PurchaseOrderDetailPlusComponent implements OnInit, OnDestroy {
    */
   loadOrderById(id: string): void {
     this.isLoading = true;
+    console.log('Chargement de la commande avec ID:', id);
     
+    // Récupérer directement les données brutes du backend pour les examiner
+    this.http.get(`http://localhost:8088/api/commandes/${id}`).subscribe({
+      next: (rawData: any) => {
+        console.log('DONNÉES BRUTES du backend pour la commande', id, ':', rawData);
+        console.log('STRUCTURE JSON COMPLÈTE:', JSON.stringify(rawData, null, 2));
+        
+        // Examiner la structure des données pour trouver les articles
+        console.log(`Type de données reçues:`, typeof rawData);
+        const keys = Object.keys(rawData);
+        console.log(`Clés disponibles dans la réponse:`, keys);
+        
+        // Vérifier les propriétés qui pourraient contenir des articles
+        this.debugArticlesProperty(rawData, 'lignes');
+        this.debugArticlesProperty(rawData, 'lignesCommande');
+        this.debugArticlesProperty(rawData, 'articles');
+        
+        // Continuer avec le traitement normal
+        this.purchaseOrderService.getPurchaseOrderById(id).subscribe({
+          next: (order) => {
+            console.log('Commande récupérée via le service:', order);
+            console.log('Nombre de produits dans la commande:', order.items?.length || 0);
+            
+            // Vérifier si les articles sont présents et leur structure
+            if (order.items && order.items.length > 0) {
+              console.log('Articles trouvés dans la commande:');
+              order.items.forEach((item, index) => {
+                console.log(`Article ${index + 1}:`, item);
+              });
+            } else {
+              console.warn('Aucun article trouvé dans la commande!');
+              
+              // Vérifier si la commande contient d'autres propriétés qui pourraient contenir les articles
+              const orderKeys = Object.keys(order);
+              console.log('Propriétés disponibles dans la commande:', orderKeys);
+              
+              // Récupérer les articles depuis les propriétés non mappées si nécessaire
+              let articlesRecuperes = false;
+              
+              // Vérifier si la commande a des propriétés non mappées
+              if ((order as any).lignes && Array.isArray((order as any).lignes) && (order as any).lignes.length > 0) {
+                console.log('Propriété "lignes" trouvée avec', (order as any).lignes.length, 'éléments');
+                // Convertir les lignes en articles pour le modèle
+                order.items = (order as any).lignes.map((ligne: any) => ({
+                  id: ligne.id?.toString(),
+                  productId: ligne.produit?.id?.toString(),
+                  productName: ligne.produit?.nom ?? ligne.designation,
+                  quantity: ligne.quantite ?? 0,
+                  unitPrice: ligne.prixUnitaire ?? 0,
+                  total: ligne.montantHT ?? (ligne.quantite * ligne.prixUnitaire) ?? 0
+                }));
+                articlesRecuperes = true;
+                console.log('Articles récupérés depuis la propriété "lignes":', order.items);
+              } else if ((order as any).lignesCommande && Array.isArray((order as any).lignesCommande) && (order as any).lignesCommande.length > 0) {
+                console.log('Propriété "lignesCommande" trouvée avec', (order as any).lignesCommande.length, 'éléments');
+                // Convertir les lignesCommande en articles pour le modèle
+                order.items = (order as any).lignesCommande.map((ligne: any) => ({
+                  id: ligne.id?.toString(),
+                  productId: ligne.produit?.id?.toString(),
+                  productName: ligne.produit?.nom ?? ligne.designation,
+                  quantity: ligne.quantite ?? 0,
+                  unitPrice: ligne.prixUnitaire ?? 0,
+                  total: ligne.montantHT ?? (ligne.quantite * ligne.prixUnitaire) ?? 0
+                }));
+                articlesRecuperes = true;
+                console.log('Articles récupérés depuis la propriété "lignesCommande":', order.items);
+              } else {
+                // Essayer de récupérer les articles directement depuis les données brutes
+                if (rawData) {
+                  if (Array.isArray(rawData.lignes) && rawData.lignes.length > 0) {
+                    console.log('Récupération des articles depuis les données brutes (lignes)');
+                    order.items = rawData.lignes.map((ligne: any) => ({
+                      id: ligne.id?.toString(),
+                      productId: ligne.produit?.id?.toString(),
+                      productName: ligne.produit?.nom ?? ligne.designation,
+                      quantity: ligne.quantite ?? 0,
+                      unitPrice: ligne.prixUnitaire ?? 0,
+                      total: ligne.montantHT ?? (ligne.quantite * ligne.prixUnitaire) ?? 0
+                    }));
+                    articlesRecuperes = true;
+                  } else if (Array.isArray(rawData.lignesCommande) && rawData.lignesCommande.length > 0) {
+                    console.log('Récupération des articles depuis les données brutes (lignesCommande)');
+                    order.items = rawData.lignesCommande.map((ligne: any) => ({
+                      id: ligne.id?.toString(),
+                      productId: ligne.produit?.id?.toString(),
+                      productName: ligne.produit?.nom ?? ligne.designation,
+                      quantity: ligne.quantite ?? 0,
+                      unitPrice: ligne.prixUnitaire ?? 0,
+                      total: ligne.montantHT ?? (ligne.quantite * ligne.prixUnitaire) ?? 0
+                    }));
+                    articlesRecuperes = true;
+                  } else if (Array.isArray(rawData.articles) && rawData.articles.length > 0) {
+                    console.log('Récupération des articles depuis les données brutes (articles)');
+                    order.items = rawData.articles.map((article: any) => ({
+                      id: article.id?.toString(),
+                      productId: article.produit?.id?.toString() || article.productId?.toString(),
+                      productName: article.produit?.nom ?? article.designation ?? article.productName,
+                      quantity: article.quantite ?? article.quantity ?? 0,
+                      unitPrice: article.prixUnitaire ?? article.unitPrice ?? 0,
+                      total: article.montantHT ?? article.total ?? (article.quantite * article.prixUnitaire) ?? 0
+                    }));
+                    articlesRecuperes = true;
+                  }
+                }
+              }
+              
+              if (articlesRecuperes) {
+                console.log('Nombre d\'articles récupérés après correction:', order.items.length);
+              } else {
+                console.warn('Aucune propriété alternative contenant des articles n\'a été trouvée');
+                // Initialiser un tableau vide si aucun article n'a été trouvé
+                order.items = [];
+              }
+            }
+            
+            this.patchFormWithOrder(order);
+          },
+          error: (error: any) => {
+            console.error('Erreur détaillée lors du chargement de la commande via le service:', error);
+            this.showErrorMessage('Erreur lors du chargement de la commande: ' + error.message);
+            this.isLoading = false;
+          }
+        });
+      },
+      error: (error: any) => {
+        console.error('Erreur lors de la récupération des données brutes:', error);
+        // Continuer avec le service normal en cas d'erreur
+        this.continueWithNormalService(id);
+      }
+    });
+  }
+  
+  /**
+   * Méthode de débogage pour examiner une propriété qui pourrait contenir des articles
+   */
+  private debugArticlesProperty(data: any, propertyName: string): void {
+    if (data[propertyName]) {
+      console.log(`La propriété '${propertyName}' contient:`, data[propertyName]);
+      console.log(`Type de '${propertyName}':`, typeof data[propertyName]);
+      if (Array.isArray(data[propertyName])) {
+        console.log(`Nombre d'éléments dans '${propertyName}':`, data[propertyName].length);
+        if (data[propertyName].length > 0) {
+          console.log(`Premier élément de '${propertyName}':`, data[propertyName][0]);
+          if (data[propertyName][0].produit) {
+            console.log(`Détails du produit dans le premier élément:`, data[propertyName][0].produit);
+          }
+        }
+      }
+    } else {
+      console.log(`La propriété '${propertyName}' n'existe pas dans les données.`);
+    }
+  }
+  
+  /**
+   * Continuer avec le service normal en cas d'erreur lors de la récupération des données brutes
+   */
+  private continueWithNormalService(id: string): void {
     this.purchaseOrderService.getPurchaseOrderById(id).subscribe({
       next: (order) => {
+        console.log('Commande récupérée via le service:', order);
         this.patchFormWithOrder(order);
       },
-      error: (error) => {
+      error: (error: any) => {
+        console.error('Erreur détaillée lors du chargement de la commande:', error);
         this.showErrorMessage('Erreur lors du chargement de la commande: ' + error.message);
       },
       complete: () => {
@@ -256,15 +512,25 @@ export class PurchaseOrderDetailPlusComponent implements OnInit, OnDestroy {
    * Met à jour le formulaire avec les données d'une commande
    */
   patchFormWithOrder(order: PurchaseOrder): void {
+    console.log('Mise à jour du formulaire avec les données de la commande:', order);
+    
     // Vider le tableau d'articles existant
     while (this.items.length > 0) {
       this.items.removeAt(0);
     }
     
-    // Ajouter les articles de la commande
-    order.items.forEach(item => {
-      this.addItem(item);
-    });
+    // Vérifier si la commande contient des articles
+    if (!order.items || order.items.length === 0) {
+      console.warn('La commande ne contient aucun article!');
+    } else {
+      console.log('Nombre d\'articles dans la commande:', order.items.length);
+      
+      // Ajouter les articles de la commande
+      order.items.forEach((item, index) => {
+        console.log(`Ajout de l'article ${index + 1}:`, item);
+        this.addItem(item);
+      });
+    }
     
     // Mettre à jour les autres champs du formulaire
     this.orderForm.patchValue({
@@ -369,19 +635,19 @@ export class PurchaseOrderDetailPlusComponent implements OnInit, OnDestroy {
    * Ouvre la recherche de produits
    */
   openProductSearch(): void {
-    // Vérifier d'abord si un fournisseur est sélectionné
-    const supplierId = this.orderForm.get('supplierId')?.value;
-    if (!supplierId) {
-      this.showErrorMessage('Veuillez sélectionner un fournisseur avant d\'ajouter des articles.');
-      return;
-    }
-    
     // Afficher la section de recherche de produits
     this.showProductSearch = true;
     
     // S'assurer que les produits sont chargés
+    const supplierId = this.orderForm.get('supplierId')?.value;
     if (this.products.length === 0) {
-      this.loadSupplierProducts(supplierId);
+      if (supplierId) {
+        // Si un fournisseur est sélectionné, charger ses produits spécifiques
+        this.loadSupplierProducts(supplierId);
+      } else {
+        // Sinon, charger tous les produits disponibles
+        this.loadAllProducts();
+      }
     }
     
     // Initialiser les produits filtrés
@@ -842,21 +1108,7 @@ export class PurchaseOrderDetailPlusComponent implements OnInit, OnDestroy {
     return statusMap[status] || status;
   }
 
-  /**
-   * Gère le changement de fournisseur dans le formulaire
-   */
-  onSupplierChange(event: Event): void {
-    const select = event.target as HTMLSelectElement;
-    const supplierId = select.value;
-    
-    // Mettre à jour l'email du fournisseur
-    this.updateSupplierEmail();
-    
-    // Charger les produits du fournisseur
-    if (supplierId) {
-      this.loadSupplierProducts(supplierId);
-    }
-  }
+  // La fonction onSupplierChange a été déplacée plus haut dans le code
 
   /**
    * Met à jour l'email du fournisseur lorsque le fournisseur est sélectionné

@@ -4,6 +4,7 @@ import { AuthHomeComponent } from './components/auth-home/auth-home.component';
 import { LoginComponent } from './components/login/login.component';
 import { RegisterComponent } from './components/register/register.component';
 import { AuthDebugComponent } from './components/auth-debug/auth-debug.component';
+import { InactiveAccountComponent } from './components/inactive-account/inactive-account.component';
 import { AuthRoutingModule } from './auth-routing.module';
 
 @NgModule({
@@ -11,7 +12,8 @@ import { AuthRoutingModule } from './auth-routing.module';
     AuthHomeComponent, 
     LoginComponent, 
     RegisterComponent,
-    AuthDebugComponent
+    AuthDebugComponent,
+    InactiveAccountComponent
   ],
   imports: [
     SharedModule,

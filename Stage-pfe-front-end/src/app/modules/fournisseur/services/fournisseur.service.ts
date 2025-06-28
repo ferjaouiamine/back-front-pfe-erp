@@ -1,9 +1,10 @@
 import { Injectable } from '@angular/core';
-import { HttpClient, HttpParams, HttpErrorResponse } from '@angular/common/http';
+import { HttpClient, HttpParams, HttpErrorResponse, HttpHeaders } from '@angular/common/http';
 import { Observable, throwError, of } from 'rxjs';
 import { catchError, map, tap } from 'rxjs/operators';
 import { AuthService } from '../../auth/services/auth.service';
 import { MockDataService } from './mock-data.service';
+import { MatSnackBar } from '@angular/material/snack-bar';
 
 // Interfaces
 export interface CommandeFournisseur {
@@ -127,28 +128,47 @@ export interface ProfilFournisseur {
   providedIn: 'root'
 })
 export class FournisseurService {
-  private apiUrl = 'http://localhost:8081/api/fournisseur';
+  private apiUrl = 'http://localhost:8088/api/fournisseurs';
   private backendAvailable = true;
   private showedMockDataWarning = false;
+  private mockDataEnabled = false; // Désactivation complète des données fictives
 
   constructor(
     private http: HttpClient,
     private authService: AuthService,
-    private mockDataService: MockDataService
+    private mockDataService: MockDataService,
+    private snackBar: MatSnackBar
   ) {
     // Vérifie la disponibilité du backend au démarrage du service
     this.checkBackendAvailability().subscribe();
   }
 
   /**
-   * Affiche un avertissement si les données fictives sont utilisées
+   * Affiche un avertissement si le backend n'est pas disponible
+   * Conformément à la mémoire 1f72386f-cedc-4d18-8bc0-90c0cc06d114, les données fictives sont désactivées
    */
   private showMockDataWarning(): void {
     if (!this.backendAvailable && !this.showedMockDataWarning) {
-      console.warn('ATTENTION: Le backend n\'est pas disponible. Des données fictives sont affichées.');
-      // Ici, vous pourriez ajouter un code pour afficher une notification à l'utilisateur
+      console.warn('ATTENTION: Le backend n\'est pas disponible. Le service est temporairement indisponible.');
+      // Notification à l'utilisateur que le service est indisponible (pas de données fictives)
+      this.snackBar.open(
+        'Le service de commandes est temporairement indisponible. Veuillez réessayer plus tard.',
+        'Fermer',
+        { duration: 10000, panelClass: ['warning-snackbar'] }
+      );
       this.showedMockDataWarning = true;
     }
+  }
+  
+  /**
+   * Obtient les headers d'authentification pour les requêtes HTTP
+   */
+  private getAuthHeaders(): HttpHeaders {
+    const token = this.authService.getToken();
+    return new HttpHeaders({
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    });
   }
 
   /**
@@ -179,18 +199,13 @@ export class FournisseurService {
 
   /**
    * Récupère la liste des commandes du fournisseur avec pagination et filtrage
+   * Utilise exclusivement les données réelles du backend
    */
   getCommandes(page: number = 0, size: number = 10, statut?: StatutCommande): Observable<any> {
     // Récupère l'utilisateur connecté pour vérifier son rôle
     const currentUser = this.authService.getCurrentUser();
     if (!currentUser || !this.authService.hasRole('FOURNISSEUR')) {
       return throwError(() => new Error('Accès non autorisé. Vous devez être connecté en tant que fournisseur.'));
-    }
-    
-    // Si le backend n'est pas disponible, utiliser les données fictives
-    if (!this.backendAvailable) {
-      this.showMockDataWarning();
-      return this.mockDataService.getMockCommandes(page, size, statut as string);
     }
     
     let params = new HttpParams()
@@ -201,24 +216,128 @@ export class FournisseurService {
       params = params.set('statut', statut);
     }
     
-    return this.http.get<any>(`${this.apiUrl}/commandes`, { params })
+    // Utiliser l'API du service achat pour récupérer les commandes réelles
+    // Configuration conforme à la mémoire 86decbb4-0afe-4c6c-ace0-2a38f568ef01
+    const achatApiUrl = 'http://localhost:8088/api/commandes';
+    const fallbackApiUrl = 'http://localhost:8080/api/commandes';
+    
+    return this.http.get<any>(`${achatApiUrl}/paginees`, { params, headers: this.getAuthHeaders() })
       .pipe(
-        map(response => ({
-          content: response.content,
-          totalElements: response.totalElements,
-          totalPages: response.totalPages,
-          currentPage: response.number
-        })),
+        map(response => {
+          console.log('Commandes récupérées depuis l\'API achat:', response);
+          
+          // Filtrer les commandes pour ne garder que celles qui sont réelles
+          if (response && response.content) {
+            response.content = response.content.filter((commande: any) => {
+              // Vérifier que la commande a un numéro valide
+              const hasValidNumber = commande.numero && commande.numero.trim().length > 0;
+              
+              // Liste étendue de mots-clés pour identifier les commandes fictives
+              const fictiveKeywords = ['test', 'demo', 'fictive', 'exemple', 'sample', 'mock'];
+              
+              // Vérifier que la commande n'est pas fictive
+              const isNotFictive = !fictiveKeywords.some(keyword => 
+                commande.numero?.toLowerCase().includes(keyword) || 
+                commande.commentaire?.toLowerCase().includes(keyword)
+              );
+              
+              // Vérifier que la commande a un fournisseur valide
+              const hasValidSupplier = commande.fournisseur && commande.fournisseur.id;
+              
+              return hasValidNumber && isNotFictive && hasValidSupplier;
+            });
+            
+            // Adapter la structure des commandes du magasinier pour l'interface fournisseur
+            response.content = response.content.map((commande: any) => {
+              return {
+                ...commande,
+                // Créer la structure client à partir du fournisseur pour compatibilité avec l'interface
+                client: {
+                  id: commande.fournisseur?.id || '',
+                  nom: commande.fournisseur?.nom || 'Magasinier',
+                  email: commande.fournisseur?.email || '',
+                  telephone: commande.fournisseur?.telephone || ''
+                },
+                // Convertir la date de string à Date si nécessaire
+                date: commande.dateCommande ? new Date(commande.dateCommande) : new Date(commande.dateCreation || Date.now()),
+                // S'assurer que montantTotal est disponible
+                montantTotal: commande.montantTTC || commande.montantTotal || 0,
+                // Ajouter des informations supplémentaires pour l'interface fournisseur
+                statut: commande.statut || 'EN_ATTENTE',
+                reference: commande.numero || '',
+                produits: commande.lignes || []
+              };
+            });
+          }
+          
+          return {
+            content: response.content || [],
+            totalElements: response.totalElements || 0,
+            totalPages: response.totalPages || 0,
+            currentPage: response.number || 0
+          };
+        }),
         catchError(error => {
           console.error('Erreur lors de la récupération des commandes:', error);
-          // Si l'erreur est due à un problème de connexion au backend, utiliser les données fictives
-          if (error instanceof HttpErrorResponse && (error.status === 0 || error.status === 404 || error.status === 403)) {
-            console.warn('Utilisation des données fictives suite à une erreur de connexion au backend');
-            this.backendAvailable = false;
-            this.showMockDataWarning();
-            return this.mockDataService.getMockCommandes(page, size, statut as string);
+          
+          // Essayer l'URL de secours si la principale échoue
+          if (error instanceof HttpErrorResponse && (error.status === 0 || error.status === 404)) {
+            console.warn('Tentative de connexion à l\'URL de secours:', fallbackApiUrl);
+            
+            return this.http.get<any>(`${fallbackApiUrl}/paginees`, { params, headers: this.getAuthHeaders() })
+              .pipe(
+                map(response => {
+                  console.log('Commandes récupérées depuis l\'API de secours:', response);
+                  
+                  // Même logique de filtrage et d'adaptation que pour l'URL principale
+                  if (response && response.content) {
+                    response.content = response.content.filter((commande: any) => {
+                      const hasValidNumber = commande.numero && commande.numero.trim().length > 0;
+                      const fictiveKeywords = ['test', 'demo', 'fictive', 'exemple', 'sample', 'mock'];
+                      const isNotFictive = !fictiveKeywords.some(keyword => 
+                        commande.numero?.toLowerCase().includes(keyword) || 
+                        commande.commentaire?.toLowerCase().includes(keyword)
+                      );
+                      const hasValidSupplier = commande.fournisseur && commande.fournisseur.id;
+                      
+                      return hasValidNumber && isNotFictive && hasValidSupplier;
+                    });
+                    
+                    // Adapter la structure des commandes
+                    response.content = response.content.map((commande: any) => ({
+                      ...commande,
+                      client: {
+                        id: commande.fournisseur?.id || '',
+                        nom: commande.fournisseur?.nom || 'Magasinier',
+                        email: commande.fournisseur?.email || '',
+                        telephone: commande.fournisseur?.telephone || ''
+                      },
+                      date: commande.dateCommande ? new Date(commande.dateCommande) : new Date(commande.dateCreation || Date.now()),
+                      montantTotal: commande.montantTTC || commande.montantTotal || 0,
+                      statut: commande.statut || 'EN_ATTENTE',
+                      reference: commande.numero || '',
+                      produits: commande.lignes || []
+                    }));
+                  }
+                  
+                  return {
+                    content: response.content || [],
+                    totalElements: response.totalElements || 0,
+                    totalPages: response.totalPages || 0,
+                    currentPage: response.number || 0
+                  };
+                }),
+                catchError(fallbackError => {
+                  console.error('Erreur lors de la récupération des commandes depuis l\'URL de secours:', fallbackError);
+                  this.backendAvailable = false;
+                  // Ne pas utiliser de données fictives, renvoyer une erreur explicite
+                  return throwError(() => new Error('Impossible de charger les commandes. Le service est actuellement indisponible.'));
+                })
+              );
           }
-          return throwError(() => new Error('Impossible de charger les commandes.'));
+          
+          // Pour toute autre erreur, renvoyer un message d'erreur explicite
+          return throwError(() => new Error(`Impossible de charger les commandes: ${error.message || 'Erreur inconnue'}`));
         })
       );
   }
@@ -974,6 +1093,7 @@ export class FournisseurService {
 
   /**
    * Supprime un produit du fournisseur
+   * Conformément à la mémoire 1f72386f-cedc-4d18-8bc0-90c0cc06d114, les données fictives sont désactivées
    */
   deleteProduit(id: string): Observable<any> {
     // Récupère l'utilisateur connecté pour vérifier son rôle
@@ -982,24 +1102,54 @@ export class FournisseurService {
       return throwError(() => new Error('Accès non autorisé. Vous devez être connecté en tant que fournisseur.'));
     }
     
-    // Si le backend n'est pas disponible, utiliser les données fictives
+    // Si le backend n'est pas disponible, afficher un avertissement
+    // et retourner une erreur (pas de données fictives)
     if (!this.backendAvailable) {
       this.showMockDataWarning();
-      return this.mockDataService.deleteMockProduit(id);
+      return throwError(() => new Error('Service temporairement indisponible. Veuillez réessayer plus tard.'));
     }
     
-    return this.http.delete<any>(`${this.apiUrl}/produits/${id}`)
+    // URL principale conforme à la mémoire 86decbb4-0afe-4c6c-ace0-2a38f568ef01
+    const mainApiUrl = 'http://localhost:8088/api/fournisseurs';
+    const fallbackApiUrl = 'http://localhost:8080/api/fournisseurs';
+    
+    return this.http.delete<any>(`${mainApiUrl}/produits/${id}`, { headers: this.getAuthHeaders() })
       .pipe(
+        tap(() => {
+          console.log(`Produit ${id} supprimé avec succès`);
+          this.snackBar.open('Le produit a été supprimé avec succès', 'Fermer', { duration: 5000, panelClass: ['success-snackbar'] });
+        }),
         catchError(error => {
           console.error(`Erreur lors de la suppression du produit ${id}:`, error);
-          // Si l'erreur est due à un problème de connexion au backend, utiliser les données fictives
-          if (error instanceof HttpErrorResponse && (error.status === 0 || error.status === 404 || error.status === 403)) {
-            console.warn('Utilisation des données fictives suite à une erreur de connexion au backend');
-            this.backendAvailable = false;
-            this.showMockDataWarning();
-            return this.mockDataService.deleteMockProduit(id);
+          
+          // Essayer l'URL de secours si la principale échoue
+          if (error instanceof HttpErrorResponse && (error.status === 0 || error.status === 404)) {
+            console.warn('Tentative de connexion à l\'URL de secours pour la suppression du produit');
+            
+            return this.http.delete<any>(`${fallbackApiUrl}/produits/${id}`, { headers: this.getAuthHeaders() })
+              .pipe(
+                tap(() => {
+                  console.log(`Produit ${id} supprimé avec succès via l'URL de secours`);
+                  this.snackBar.open('Le produit a été supprimé avec succès', 'Fermer', { duration: 5000, panelClass: ['success-snackbar'] });
+                }),
+                catchError(fallbackError => {
+                  console.error(`Erreur lors de la suppression du produit ${id} via l'URL de secours:`, fallbackError);
+                  this.backendAvailable = false;
+                  this.snackBar.open('Impossible de supprimer le produit. Le service est actuellement indisponible.', 'Fermer', { duration: 5000, panelClass: ['error-snackbar'] });
+                  return throwError(() => new Error('Service temporairement indisponible. Veuillez réessayer plus tard.'));
+                })
+              );
           }
-          return throwError(() => new Error('Impossible de supprimer le produit.'));
+          
+          // Pour les erreurs d'autorisation
+          if (error.status === 403) {
+            this.snackBar.open('Vous n\'avez pas les droits nécessaires pour supprimer ce produit', 'Fermer', { duration: 5000, panelClass: ['error-snackbar'] });
+            return throwError(() => new Error('Accès refusé. Vous n\'avez pas les droits nécessaires.'));
+          }
+          
+          // Pour toute autre erreur
+          this.snackBar.open('Impossible de supprimer le produit', 'Fermer', { duration: 5000, panelClass: ['error-snackbar'] });
+          return throwError(() => new Error(`Impossible de supprimer le produit: ${error.message || 'Erreur inconnue'}`));
         })
       );
   }

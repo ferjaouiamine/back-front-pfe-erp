@@ -25,7 +25,7 @@ import { ProductDetailsDialogComponent } from '../product-details-dialog/product
 @Component({
   selector: 'app-pos-new',
   templateUrl: './pos-new.component.html',
-  styleUrls: ['./pos-new.component.scss', './pos-new-improvements.scss']
+  styleUrls: ['./pos-new.component.scss', './pos-enhanced-design.css', './pos-cart-enhanced.css', './pos-scroll-fix.css', './pos-main-scroll-fix.css', './pos-responsive.css', './pos-fullscreen.css', './pos-new-improvements.scss']
 })
 export class PosNewComponent implements OnInit, OnDestroy {
   // Propriétés de la session de caisse
@@ -680,5 +680,35 @@ export class PosNewComponent implements OnInit, OnDestroy {
       duration: duration,
       panelClass: [classes[type]]
     });
+  }
+  
+  /**
+   * Génère une image pour un produit
+   * @param product Le produit pour lequel générer une image
+   * @returns URL de l'image (SVG en base64)
+   */
+  getProductImage(product: any): string {
+    // Si le produit a déjà une URL d'image, l'utiliser
+    if (product.imageUrl && product.imageUrl.length > 0) {
+      // Si c'est une URL relative, ajouter le chemin de base
+      if (!product.imageUrl.startsWith('http') && !product.imageUrl.startsWith('data:') && !product.imageUrl.startsWith('/assets/')) {
+        return '/assets/images/products/' + product.imageUrl;
+      }
+      return product.imageUrl;
+    }
+    
+    // Générer une image SVG avec le nom du produit
+    return this.generateSVGPlaceholder(product.name || 'Produit');
+  }
+  
+  /**
+   * Génère une image SVG en base64 avec le texte spécifié
+   * @param text Texte à afficher dans l'image
+   * @param bgColor Couleur de fond (par défaut: #eee)
+   * @returns URL de données de l'image SVG en base64
+   */
+  private generateSVGPlaceholder(text: string, bgColor: string = '#eee'): string {
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" viewBox="0 0 300 300"><rect width="300" height="300" fill="${bgColor}"/><text x="50%" y="50%" font-size="18" text-anchor="middle" alignment-baseline="middle" font-family="monospace, sans-serif" fill="#333">${text}</text></svg>`;
+    return `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(svg)))}`;
   }
 }

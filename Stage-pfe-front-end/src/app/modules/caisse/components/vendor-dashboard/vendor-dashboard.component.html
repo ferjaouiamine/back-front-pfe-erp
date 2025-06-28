@@ -21,24 +21,40 @@
 
   <div class="dashboard-content">
     <!-- Panneau de gauche: Catalogue de produits -->
-    <div class="product-catalog">
+    <div id="catalog" class="product-catalog">
       <div class="catalog-header">
         <h2>Catalogue de produits</h2>
         <div class="search-filters">
-          <div class="input-group">
-            <input type="text" class="form-control" placeholder="Rechercher un produit..." 
-                  [(ngModel)]="searchTerm" (keyup)="searchProducts()">
-            <div class="input-group-append">
-              <button class="btn btn-outline-secondary" type="button" (click)="searchProducts()">
-                <i class="fas fa-search"></i>
-              </button>
-            </div>
+          <div class="search-input">
+            <input id="searchInput" type="text" placeholder="Rechercher un produit..." [(ngModel)]="searchTerm" (input)="searchProducts()">
+            <i class="fas fa-search"></i>
           </div>
           <div class="category-filter">
-            <select class="form-control" [(ngModel)]="selectedCategory" (change)="searchProducts()">
-              <option value="">Toutes les catégories</option>
-              <option *ngFor="let category of categories" [value]="category">{{ category }}</option>
-            </select>
+            <div class="category-buttons">
+              <button class="category-btn" [ngClass]="{'active': !selectedCategory}" (click)="selectedCategory = ''; searchProducts()">
+                <i class="fas fa-th-large"></i> Tous
+              </button>
+              <button class="category-btn" [ngClass]="{'active': selectedCategory === 'Électronique' || selectedCategory === 'Electronique'}" 
+                      (click)="selectedCategory = 'Électronique'; searchProducts()">
+                <i class="fas fa-microchip"></i> Électronique
+              </button>
+              <button class="category-btn" [ngClass]="{'active': selectedCategory === 'Informatique'}" 
+                      (click)="selectedCategory = 'Informatique'; searchProducts()">
+                <i class="fas fa-laptop"></i> Informatique
+              </button>
+              <button class="category-btn" [ngClass]="{'active': selectedCategory === 'Téléphone' || selectedCategory === 'Telephone'}" 
+                      (click)="selectedCategory = 'Téléphone'; searchProducts()">
+                <i class="fas fa-mobile-alt"></i> Téléphones
+              </button>
+              <button class="category-btn" [ngClass]="{'active': selectedCategory === 'Accessoire' || selectedCategory === 'Accessoires'}" 
+                      (click)="selectedCategory = 'Accessoire'; searchProducts()">
+                <i class="fas fa-headphones"></i> Accessoires
+              </button>
+              <button class="category-btn" [ngClass]="{'active': selectedCategory === 'Périphérique' || selectedCategory === 'Peripherique'}" 
+                      (click)="selectedCategory = 'Périphérique'; searchProducts()">
+                <i class="fas fa-keyboard"></i> Périphériques
+              </button>
+            </div>
           </div>
           <button class="btn btn-sm btn-outline-secondary" (click)="resetFilters()">
             <i class="fas fa-sync-alt"></i> Réinitialiser
@@ -48,22 +64,31 @@
 
       <div class="product-list" *ngIf="!isLoading; else loadingProducts">
         <div class="product-card" *ngFor="let product of filteredProducts">
+          <div class="product-image">
+            <img [src]="getProductImage(product.id)" [alt]="product.name" onerror="this.src='https://via.placeholder.com/300x300?text=Produit'">
+            <span class="product-stock-badge" [ngClass]="{'low-stock': product.quantity < 5, 'out-of-stock': product.quantity <= 0}">
+              <i class="fas" [ngClass]="{'fa-check-circle': product.quantity > 10, 'fa-exclamation-circle': product.quantity > 0 && product.quantity <= 10, 'fa-times-circle': product.quantity <= 0}"></i>
+              {{ product.quantity > 0 ? product.quantity + ' en stock' : 'Rupture de stock' }}
+            </span>
+          </div>
           <div class="product-info">
-            <h3>{{ product.name }}</h3>
+            <h3 class="product-title">{{ product.name }}</h3>
             <p class="product-description">{{ product.description }}</p>
-            <div class="product-details">
-              <span class="product-price">{{ product.price | currency:'EUR' }}</span>
-              <span class="product-stock" [ngClass]="{'low-stock': product.quantity < 5}">
-                Stock: {{ product.quantity }}
-              </span>
+            <div class="product-meta">
               <span class="product-category" *ngIf="product.category">
-                {{ product.category }}
+                <i class="fas fa-tag"></i> {{ product.category.name || product.category }}
               </span>
+              <span class="product-reference" *ngIf="product.reference">
+                <i class="fas fa-barcode"></i> {{ product.reference }}
+              </span>
+            </div>
+            <div class="product-footer">
+              <span class="product-price">{{ product.price | currency:'EUR' }}</span>
             </div>
           </div>
           <div class="product-actions">
             <button class="btn btn-primary" (click)="addToCart(product)" [disabled]="product.quantity <= 0">
-              <i class="fas fa-cart-plus"></i> Ajouter
+              <i class="fas fa-cart-plus"></i> Ajouter au panier
             </button>
           </div>
         </div>
@@ -85,37 +110,52 @@
     <!-- Panneau de droite: Panier et création de facture -->
     <div class="cart-invoice">
       <div class="cart-section">
-        <h2>Panier</h2>
+        <div class="cart-header">
+          <h2><i class="fas fa-shopping-cart"></i> Panier</h2>
+          <span class="cart-count" *ngIf="cartItems.length > 0">{{ cartItems.length }} article(s)</span>
+        </div>
         
         <div class="cart-items" *ngIf="cartItems.length > 0; else emptyCart">
           <div class="cart-item" *ngFor="let item of cartItems; let i = index">
+            <div class="item-image" *ngIf="getProductImage(item.productId)">
+              <img [src]="getProductImage(item.productId)" [alt]="item.productName" onerror="this.src='assets/images/products/default-placeholder.jpg'">
+            </div>
             <div class="item-details">
-              <h4>{{ item.productName }}</h4>
-              <span class="item-price">{{ item.unitPrice | currency:'EUR' }}</span>
+              <h4 class="item-name">{{ item.productName }}</h4>
+              <div class="item-meta">
+                <span class="item-sku" *ngIf="item.sku"><i class="fas fa-tag"></i> Réf: {{ item.sku }}</span>
+                <span class="item-price"><i class="fas fa-euro-sign"></i> {{ item.unitPrice | currency:'EUR':'symbol':'1.2-2':'fr' }}</span>
+              </div>
             </div>
-            <div class="item-quantity">
-              <button class="btn btn-sm btn-outline-secondary" (click)="updateItemQuantity(i, item.quantity - 1)">
-                <i class="fas fa-minus"></i>
-              </button>
-              <input type="number" min="1" [(ngModel)]="item.quantity" 
-                    (change)="updateItemQuantity(i, item.quantity)">
-              <button class="btn btn-sm btn-outline-secondary" (click)="updateItemQuantity(i, item.quantity + 1)">
-                <i class="fas fa-plus"></i>
-              </button>
-            </div>
-            <div class="item-total">
-              {{ item.quantity * item.unitPrice | currency:'EUR' }}
-              <button class="btn btn-sm btn-danger" (click)="removeFromCart(i)">
-                <i class="fas fa-trash"></i>
-              </button>
+            <div class="item-actions">
+              <div class="item-quantity">
+                <button class="quantity-btn minus" (click)="updateItemQuantity(i, item.quantity - 1)" [disabled]="item.quantity <= 1">
+                  <i class="fas fa-minus"></i>
+                </button>
+                <input type="number" min="1" class="quantity-input" [(ngModel)]="item.quantity" 
+                      (change)="updateItemQuantity(i, item.quantity)">
+                <button class="quantity-btn plus" (click)="updateItemQuantity(i, item.quantity + 1)">
+                  <i class="fas fa-plus"></i>
+                </button>
+              </div>
+              <div class="item-total">
+                <span class="total-price">{{ item.quantity * item.unitPrice | currency:'EUR':'symbol':'1.2-2':'fr' }}</span>
+                <button class="remove-btn" (click)="removeFromCart(i)" title="Supprimer du panier">
+                  <i class="fas fa-trash-alt"></i>
+                </button>
+              </div>
             </div>
           </div>
         </div>
         
         <ng-template #emptyCart>
           <div class="empty-cart">
-            <i class="fas fa-shopping-cart fa-3x"></i>
+            <i class="fas fa-shopping-cart"></i>
             <p>Votre panier est vide</p>
+            <p class="empty-cart-hint">Ajoutez des produits depuis le catalogue pour créer une facture</p>
+            <button class="btn btn-outline-primary" (click)="scrollToCatalog()">
+              <i class="fas fa-search"></i> Parcourir le catalogue
+            </button>
           </div>
         </ng-template>
         
@@ -139,6 +179,12 @@
           <div class="summary-line total">
             <span>Total:</span>
             <span>{{ total | currency:'EUR' }}</span>
+          </div>
+          
+          <div class="cart-actions">
+            <button class="btn btn-warning btn-sm" (click)="printTicket()">
+              <i class="fas fa-receipt"></i> Imprimer ticket
+            </button>
           </div>
         </div>
       </div>
@@ -164,12 +210,108 @@
           <button class="btn btn-secondary" (click)="resetForm()">
             <i class="fas fa-times"></i> Annuler
           </button>
+          <button class="btn btn-primary" (click)="printTicket()">
+            <i class="fas fa-print"></i> Imprimer reçu
+          </button>
+          <button class="btn btn-info" (click)="printOrderList()">
+            <i class="fas fa-list"></i> Imprimer commande
+          </button>
+          <button class="btn btn-warning" (click)="printTicket()">
+            <i class="fas fa-receipt"></i> Imprimer ticket
+          </button>
           <button class="btn btn-success" (click)="createFacture()" [disabled]="isLoading">
             <i class="fas fa-file-invoice"></i> Créer la facture
             <i class="fas fa-spinner fa-spin" *ngIf="isLoading"></i>
           </button>
         </div>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- Sections pour l'impression (invisibles à l'affichage normal) -->
+<div class="print-only" style="display: none;">
+  <!-- Reçu pour impression -->
+  <div #receiptContent class="receipt-content">
+    <div class="receipt-header">
+      <h2>Reçu de vente</h2>
+      <p>Date: {{ getFormattedDate() }}</p>
+    </div>
+    
+    <div class="receipt-info">
+      <p><strong>Client:</strong> {{ clientName || 'Client occasionnel' }}</p>
+      <p *ngIf="clientEmail"><strong>Email:</strong> {{ clientEmail }}</p>
+      <p *ngIf="clientPhone"><strong>Téléphone:</strong> {{ clientPhone }}</p>
+    </div>
+    
+    <div class="receipt-items">
+      <table>
+        <thead>
+          <tr>
+            <th>Produit</th>
+            <th>Prix unitaire</th>
+            <th>Quantité</th>
+            <th>Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let item of cartItems">
+            <td>{{ item.productName }}</td>
+            <td>{{ item.unitPrice | currency:'EUR' }}</td>
+            <td>{{ item.quantity }}</td>
+            <td>{{ item.total | currency:'EUR' }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    
+    <div class="receipt-summary">
+      <p><strong>Sous-total:</strong> {{ subtotal | currency:'EUR' }}</p>
+      <p><strong>TVA ({{ taxRate }}%):</strong> {{ taxAmount | currency:'EUR' }}</p>
+      <p *ngIf="discount > 0"><strong>Remise:</strong> {{ discount | currency:'EUR' }}</p>
+      <p class="total"><strong>Total:</strong> {{ total | currency:'EUR' }}</p>
+    </div>
+    
+    <div class="receipt-footer">
+      <p>Merci pour votre achat!</p>
+    </div>
+  </div>
+  
+  <!-- Liste de commande pour impression -->
+  <div #orderListContent class="order-list-content">
+    <div class="order-header">
+      <h2>Liste de commande</h2>
+      <p>Date: {{ getFormattedDate() }}</p>
+    </div>
+    
+    <div class="order-info">
+      <p><strong>Client:</strong> {{ clientName || 'Client occasionnel' }}</p>
+    </div>
+    
+    <div class="order-items">
+      <table>
+        <thead>
+          <tr>
+            <th>Produit</th>
+            <th>Référence</th>
+            <th>Catégorie</th>
+            <th>Quantité</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let item of cartItems">
+            <td>{{ item.productName }}</td>
+            <td>{{ item.sku || 'N/A' }}</td>
+            <td>{{ item.category?.name || 'Non catégorisé' }}</td>
+            <td>{{ item.quantity }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    
+    <div class="order-footer">
+      <p>Total articles: {{ cartItems.length }}</p>
+      <p>Total quantité: {{ getTotalQuantity() }}</p>
     </div>
   </div>
 </div>

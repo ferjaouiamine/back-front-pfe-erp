@@ -98,12 +98,29 @@ export class CommandeService {
     });
   }
 
-  // Récupérer toutes les commandes
+  // Récupérer toutes les commandes (uniquement les commandes réelles)
   getCommandes(): Observable<Commande[]> {
     return this.http.get<Commande[]>(this.apiUrl, { headers: this.getAuthHeaders() }).pipe(
       map(commandes => {
         console.log('Commandes récupérées depuis l\'API:', commandes);
-        return commandes;
+        
+        // Filtrer pour ne garder que les commandes réelles
+        // Une commande est considérée comme réelle si elle a un numéro de commande valide
+        // et si elle n'est pas marquée comme test ou fictive
+        const commandesReelles = commandes.filter(commande => {
+          // Vérifier si la commande a un numéro valide (pas null, undefined ou vide)
+          const hasValidNumber = commande.numero && commande.numero.trim().length > 0;
+          
+          // Vérifier si le numéro de commande ne contient pas de mots-clés indiquant qu'il s'agit d'un test
+          const isNotTest = !commande.numero?.toLowerCase().includes('test') && 
+                           !commande.numero?.toLowerCase().includes('demo') && 
+                           !commande.numero?.toLowerCase().includes('fictive');
+          
+          return hasValidNumber && isNotTest;
+        });
+        
+        console.log('Commandes réelles après filtrage:', commandesReelles);
+        return commandesReelles;
       }),
       catchError(error => {
         console.error('Erreur lors de la récupération des commandes:', error);

@@ -69,7 +69,7 @@
       <div class="row">
         <div class="col-md-6">
           <div class="form-group">
-            <label for="supplierId">Fournisseur <span class="required">*</span></label>
+            <label for="supplierId">Fournisseur</label>
             <select 
               id="supplierId" 
               formControlName="supplierId" 
@@ -82,8 +82,9 @@
                 {{ supplier.name }} - {{ supplier.email }}
               </option>
             </select>
+            <small class="form-text text-muted">Sélectionnez un fournisseur existant ou saisissez un email ci-dessous</small>
             <div class="invalid-feedback" *ngIf="isInvalid('supplierId')">
-              Veuillez sélectionner un fournisseur
+              Veuillez sélectionner un fournisseur valide
             </div>
           </div>
           
@@ -97,9 +98,10 @@
               [class.is-invalid]="isInvalid('supplierEmail')"
               placeholder="email@fournisseur.com"
             >
-            <small class="form-text text-muted">Cet email sera utilisé pour envoyer la commande</small>
+            <small class="form-text text-muted">Pour un nouveau fournisseur, saisissez son email</small>
             <div class="invalid-feedback" *ngIf="isInvalid('supplierEmail')">
-              Veuillez entrer une adresse email valide
+              <span *ngIf="orderForm.get('supplierEmail')?.errors?.['email']">Veuillez entrer une adresse email valide</span>
+              <span *ngIf="orderForm.get('supplierEmail')?.errors?.['supplierRequired']">Veuillez sélectionner un fournisseur existant ou saisir un email</span>
             </div>
           </div>
         </div>

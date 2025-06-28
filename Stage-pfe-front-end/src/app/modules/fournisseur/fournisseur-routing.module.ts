@@ -67,10 +67,6 @@ const routes: Routes = [
         component: FactureFormComponent
       },
       {
-        path: 'produits',
-        component: ProduitListComponent
-      },
-      {
         path: 'profil',
         component: ProfilFournisseurComponent
       },

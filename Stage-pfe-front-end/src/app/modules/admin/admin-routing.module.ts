@@ -7,6 +7,7 @@ import { ProductManagementComponent } from './components/product-management/prod
 import { CategoryManagementComponent } from './components/category-management/category-management.component';
 import { AdminLayoutComponent } from './components/admin-layout/admin-layout.component';
 import { ProfileComponent } from './components/profile/profile.component';
+import { UserApprovalComponent } from './components/user-approval/user-approval.component';
 import { AuthGuard } from '../../core/guards/auth.guard';
 import { RoleGuard } from '../../core/guards/role.guard';
 
@@ -20,6 +21,7 @@ const routes: Routes = [
       { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
       { path: 'dashboard', component: AdminDashboardComponent },
       { path: 'users', component: UserManagementComponent },
+      { path: 'users/approval', component: UserApprovalComponent },
       { path: 'factures', component: FactureManagementComponent },
       { path: 'products', component: ProductManagementComponent },
       { path: 'categories', component: CategoryManagementComponent },

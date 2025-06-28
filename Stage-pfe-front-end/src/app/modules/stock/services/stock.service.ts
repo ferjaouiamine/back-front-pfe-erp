@@ -31,7 +31,7 @@ export class StockService {
   // URL principale du backend Spring Boot pour le stock
   private apiUrl = 'http://localhost:8082/api/stock/movements';
   // URL alternative si le port 8082 ne fonctionne pas
-  private alternativeApiUrl = 'http://localhost:8082/api/stock/movements';
+  private alternativeApiUrl = 'http://localhost:8086/api/stock/movements';
   // URL pour les produits
   private productsApiUrl = 'http://localhost:8082/api/products';
   // URL alternative pour les produits
@@ -284,7 +284,7 @@ export class StockService {
   removeStockEntry(productId: string, quantity: number, reason?: string, reference?: string): Observable<StockMovement> {
     const headers = this.getAuthHeaders();
     
-    // Construire les paramètres de requête
+    // Construire les paramètres de requête selon la structure d'API du backend Spring Boot
     let params = new HttpParams()
       .set('type', 'EXIT')
       .set('quantity', quantity.toString())
@@ -295,48 +295,79 @@ export class StockService {
       params = params.set('referenceDocument', reference);
     }
     
-    console.log(`Tentative de sortie de stock sur le port 8082 pour le produit ${productId}`);
+    console.log(`Tentative de sortie de stock pour le produit ${productId} avec les paramètres:`, {
+      type: 'EXIT',
+      quantity: quantity,
+      reason: reason || 'Sortie de stock',
+      referenceDocument: reference
+    });
     
-    // Essayer d'abord avec l'URL principale (port 8082)
-    return this.http.post<StockMovement>(`${this.apiUrl}/product/${productId}`, null, { headers, params }).pipe(
-      map(response => {
-        // Le backend est disponible
-        this.backendAvailable = true;
-        console.log('Sortie de stock effectuée avec succès sur le port 8082:', response);
-        return response;
-      }),
+    // Tableau des ports à essayer dans l'ordre
+    const ports = [8082, 8086, 8080];
+    
+    // Fonction pour créer une requête pour un port spécifique
+    const createRequest = (port: number) => {
+      const url = `http://localhost:${port}/api/stock/movements/product/${productId}`;
+      console.log(`Tentative de sortie de stock sur le port ${port} pour le produit ${productId}`);
+      
+      return this.http.post<StockMovement>(url, null, { headers, params }).pipe(
+        map(response => {
+          this.backendAvailable = true;
+          console.log(`Sortie de stock effectuée avec succès sur le port ${port}:`, response);
+          return response;
+        }),
+        catchError(error => {
+          console.error(`Erreur lors de la sortie de stock sur le port ${port}:`, error);
+          throw error;
+        })
+      );
+    };
+    
+    // Essayer d'abord avec le port principal, puis les alternatives
+    return createRequest(ports[0]).pipe(
       catchError(error => {
-        console.error('Erreur lors de la sortie de stock sur le port 8082:', error);
-        
-        // En cas d'échec, essayer avec l'URL alternative (port 8082)
-        console.log(`Tentative de sortie de stock sur le port 8082 pour le produit ${productId}`);
-        return this.http.post<StockMovement>(`${this.alternativeApiUrl}/product/${productId}`, null, { headers, params }).pipe(
-          map(response => {
-            // Le backend est disponible
-            this.backendAvailable = true;
-            console.log('Sortie de stock effectuée avec succès sur le port 8082:', response);
-            return response;
-          }),
-          catchError(alternativeError => {
-            console.error('Erreur lors de la sortie de stock sur le port 8082:', alternativeError);
-            
-            // Si c'est une erreur de connexion, marquer le backend comme indisponible
-            this.backendAvailable = false;
-            return throwError(() => new Error(
-              'Le serveur de gestion de stock n\'est pas disponible. Impossible d\'effectuer une sortie de stock.'
-            ));
+        // En cas d'échec, essayer avec le deuxième port
+        return createRequest(ports[1]).pipe(
+          catchError(error2 => {
+            // En cas d'échec, essayer avec le troisième port
+            return createRequest(ports[2]).pipe(
+              catchError(error3 => {
+                // Si tous les ports échouent, essayer l'endpoint de test direct
+                console.log(`Tentative de sortie de stock via l'endpoint de test pour le produit ${productId}`);
+                
+                return this.http.get<any>(`http://localhost:8086/api/stock/test-stock-update/${productId}?quantity=${quantity}&invoiceNumber=${reference || 'DIRECT-CALL'}`).pipe(
+                  map(response => {
+                    this.backendAvailable = true;
+                    console.log(`Sortie de stock effectuée avec succès via l'endpoint de test:`, response);
+                    
+                    // Convertir la réponse au format StockMovement
+                    return {
+                      id: 'generated',
+                      date: new Date().toISOString(),
+                      productId: productId,
+                      productName: 'Produit',
+                      type: 'EXIT',
+                      quantity: quantity,
+                      reference: reference,
+                      reason: reason || 'Sortie de stock'
+                    } as StockMovement;
+                  }),
+                  catchError(finalError => {
+                    console.error(`Échec de toutes les tentatives de sortie de stock pour le produit ${productId}`);
+                    this.backendAvailable = false;
+                    return throwError(() => new Error(
+                      'Le serveur de gestion de stock n\'est pas disponible. Impossible d\'effectuer une sortie de stock.'
+                    ));
+                  })
+                );
+              })
+            );
           })
         );
       })
     );
   }
 
-  /**
-   * Vérifie si un produit a suffisamment de stock disponible
-   * @param productId ID du produit
-   * @param quantity Quantité requise
-   * @returns Observable indiquant si le stock est suffisant
-   */
   checkAvailability(productId: string, quantity: number): Observable<boolean> {
     const headers = this.getAuthHeaders();
     const params = new HttpParams()

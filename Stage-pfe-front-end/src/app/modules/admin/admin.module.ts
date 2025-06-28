@@ -10,6 +10,7 @@ import { UserManagementComponent } from './components/user-management/user-manag
 import { FactureManagementComponent } from './components/facture-management/facture-management.component';
 import { ProductManagementComponent } from './components/product-management/product-management.component';
 import { CategoryManagementComponent } from './components/category-management/category-management.component';
+import { UserApprovalComponent } from './components/user-approval/user-approval.component';
 
 @NgModule({
   declarations: [
@@ -18,7 +19,8 @@ import { CategoryManagementComponent } from './components/category-management/ca
     UserManagementComponent,
     FactureManagementComponent,
     ProductManagementComponent,
-    CategoryManagementComponent
+    CategoryManagementComponent,
+    UserApprovalComponent
   ],
   imports: [
     CommonModule,

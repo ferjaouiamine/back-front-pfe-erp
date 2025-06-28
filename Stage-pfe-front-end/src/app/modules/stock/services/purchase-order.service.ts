@@ -14,9 +14,9 @@ export class PurchaseOrderService {
   /* -------------------------------------------------------------------------- */
   /*                                 ENDPOINTS                                  */
   /* -------------------------------------------------------------------------- */
-  // Essayer différents ports pour trouver le bon endpoint
-  private apiUrl = 'http://localhost:8080/api/commandes';
-  private backupApiUrl = 'http://localhost:8088/api/commandes';
+  // URL principale du service d'achat (port 8088 selon application.properties)
+  private apiUrl = 'http://localhost:8088/api/commandes';
+  private backupApiUrl = 'http://localhost:8080/api/commandes';
   
   // Autres URLs à essayer si nécessaire
   private alternativeUrls = [
@@ -170,21 +170,111 @@ export class PurchaseOrderService {
 
     console.log(`Tentative de récupération de la commande ${id} depuis ${this.apiUrl}`);
     
-    // Essayer d'abord l'URL principale
-    return this.tryGetOrderById(this.apiUrl, id).pipe(
+    // Récupérer directement les données brutes pour les examiner
+    return this.http.get<any>(`${this.apiUrl}/${id}`, { headers: this.getAuthHeaders() }).pipe(
+      tap(rawData => {
+        console.log(`DONNÉES BRUTES de la commande ${id}:`, rawData);
+        console.log(`STRUCTURE JSON COMPLÈTE:`, JSON.stringify(rawData, null, 2));
+        
+        // Examiner la structure des données pour trouver les articles
+        console.log(`Type de données reçues:`, typeof rawData);
+        const keys = Object.keys(rawData);
+        console.log(`Clés disponibles dans la réponse:`, keys);
+        
+        // Vérifier les propriétés qui pourraient contenir des articles
+        if (rawData.lignes) {
+          console.log(`La propriété 'lignes' contient:`, rawData.lignes);
+          console.log(`Type de 'lignes':`, typeof rawData.lignes);
+          if (Array.isArray(rawData.lignes)) {
+            console.log(`Nombre d'éléments dans 'lignes':`, rawData.lignes.length);
+            if (rawData.lignes.length > 0) {
+              console.log(`Premier élément de 'lignes':`, rawData.lignes[0]);
+            }
+          }
+        }
+        
+        if (rawData.lignesCommande) {
+          console.log(`La propriété 'lignesCommande' contient:`, rawData.lignesCommande);
+          console.log(`Type de 'lignesCommande':`, typeof rawData.lignesCommande);
+          if (Array.isArray(rawData.lignesCommande)) {
+            console.log(`Nombre d'éléments dans 'lignesCommande':`, rawData.lignesCommande.length);
+            if (rawData.lignesCommande.length > 0) {
+              console.log(`Premier élément de 'lignesCommande':`, rawData.lignesCommande[0]);
+            }
+          }
+        }
+        
+        // Vérifier si la propriété 'articles' existe
+        if (rawData.articles) {
+          console.log(`La propriété 'articles' contient:`, rawData.articles);
+          console.log(`Type de 'articles':`, typeof rawData.articles);
+          if (Array.isArray(rawData.articles)) {
+            console.log(`Nombre d'éléments dans 'articles':`, rawData.articles.length);
+            if (rawData.articles.length > 0) {
+              console.log(`Premier élément de 'articles':`, rawData.articles[0]);
+            }
+          }
+        }
+      }),
+      map(rawData => {
+        console.log(`Conversion des données brutes en modèle...`);
+        this.backendAvailable = true;
+        
+        // Créer une copie des données brutes pour les manipuler
+        const orderData = { ...rawData };
+        
+        // Vérifier si les articles sont présents sous différentes propriétés
+        let items = [];
+        
+        if (Array.isArray(orderData.lignes) && orderData.lignes.length > 0) {
+          console.log(`Utilisation de la propriété 'lignes' pour les articles`);
+          items = orderData.lignes.map((ligne: any) => ({
+            id: ligne.id?.toString(),
+            productId: ligne.produit?.id?.toString(),
+            productName: ligne.produit?.nom ?? ligne.designation,
+            quantity: ligne.quantite ?? 0,
+            unitPrice: ligne.prixUnitaire ?? 0,
+            total: ligne.montantHT ?? (ligne.quantite * ligne.prixUnitaire) ?? 0
+          }));
+        } else if (Array.isArray(orderData.lignesCommande) && orderData.lignesCommande.length > 0) {
+          console.log(`Utilisation de la propriété 'lignesCommande' pour les articles`);
+          items = orderData.lignesCommande.map((ligne: any) => ({
+            id: ligne.id?.toString(),
+            productId: ligne.produit?.id?.toString(),
+            productName: ligne.produit?.nom ?? ligne.designation,
+            quantity: ligne.quantite ?? 0,
+            unitPrice: ligne.prixUnitaire ?? 0,
+            total: ligne.montantHT ?? (ligne.quantite * ligne.prixUnitaire) ?? 0
+          }));
+        } else if (Array.isArray(orderData.articles) && orderData.articles.length > 0) {
+          console.log(`Utilisation de la propriété 'articles' pour les articles`);
+          items = orderData.articles.map((article: any) => ({
+            id: article.id?.toString(),
+            productId: article.produit?.id?.toString() || article.productId?.toString(),
+            productName: article.produit?.nom ?? article.designation ?? article.productName,
+            quantity: article.quantite ?? article.quantity ?? 0,
+            unitPrice: article.prixUnitaire ?? article.unitPrice ?? 0,
+            total: article.montantHT ?? article.total ?? (article.quantite * article.prixUnitaire) ?? 0
+          }));
+        } else {
+          console.warn(`Aucune propriété contenant des articles n'a été trouvée`);
+        }
+        
+        console.log(`Nombre d'articles trouvés: ${items.length}`);
+        
+        // Créer l'objet commande avec les articles récupérés
+        const mappedOrder = this.mapApiOrderToModel(orderData);
+        mappedOrder.items = items;
+        
+        console.log(`Commande mappée avec articles:`, mappedOrder);
+        return mappedOrder;
+      }),
       catchError(error => {
         console.warn(`Échec avec l'URL principale pour la commande ${id}:`, error);
         console.log(`Tentative avec l'URL de secours pour la commande ${id}`);
         
         // Essayer l'URL de secours
-        return this.tryGetOrderById(this.backupApiUrl, id).pipe(
-          catchError(backupError => {
-            console.warn(`Échec avec l'URL de secours pour la commande ${id}:`, backupError);
-            
-            // Essayer les URLs alternatives une par une
-            return this.tryAlternativeUrlsForOrder(id, 0);
-          })
-        );
+        return this.tryGetOrderById(this.backupApiUrl, id);
       }),
       finalize(() => this.loading.next(false))
     );
@@ -195,12 +285,30 @@ export class PurchaseOrderService {
    */
   private tryGetOrderById(baseUrl: string, id: string): Observable<PurchaseOrder> {
     return this.http.get<any>(`${baseUrl}/${id}`, { headers: this.getAuthHeaders() }).pipe(
-      map(order => {
-        console.log(`Données de la commande ${id} reçues depuis ${baseUrl}:`, order);
-        this.backendAvailable = true;
-        return this.mapApiOrderToModel(order);
+      tap(rawData => {
+        console.log(`Données brutes de la commande ${id} reçues depuis ${baseUrl}:`, rawData);
+        console.log(`Type de données reçues:`, typeof rawData);
+        
+        // Vérifier si les données contiennent des lignes de commande
+        if (rawData.lignes) {
+          console.log(`La réponse contient ${rawData.lignes.length} lignes de commande`);
+        } else if (rawData.lignesCommande) {
+          console.log(`La réponse contient ${rawData.lignesCommande.length} lignesCommande`);
+        } else {
+          console.warn(`La réponse ne contient pas de lignes de commande identifiables`);
+        }
       }),
-      tap(order => console.log(`Commande ${id} récupérée avec succès depuis ${baseUrl}`))
+      map(order => {
+        console.log(`Conversion des données de la commande ${id} en modèle...`);
+        this.backendAvailable = true;
+        const mappedOrder = this.mapApiOrderToModel(order);
+        console.log(`Commande mappée:`, mappedOrder);
+        return mappedOrder;
+      }),
+      tap(order => {
+        console.log(`Commande ${id} récupérée avec succès depuis ${baseUrl}`);
+        console.log(`Nombre d'articles après mapping:`, order.items?.length || 0);
+      })
     );
   }
   
@@ -232,6 +340,15 @@ export class PurchaseOrderService {
 
   createPurchaseOrder(order: Partial<PurchaseOrder>): Observable<PurchaseOrder> {
     this.loading.next(true);
+    
+    console.log('Création d\'une nouvelle commande avec les données suivantes:', order);
+    console.log('Nombre d\'articles dans la commande à créer:', order.items?.length || 0);
+    
+    if (order.items && order.items.length > 0) {
+      console.log('Articles à enregistrer:', order.items);
+    } else {
+      console.warn('Aucun article trouvé dans la commande à créer!');
+    }
 
     /* ------------------------------ Mode mock ------------------------------- */
     if (this.forceMockData) {
@@ -249,42 +366,157 @@ export class PurchaseOrderService {
       return of(mockOrder);
     }
 
+    // Convertir la commande au format API
     const payload = this.mapModelToApiOrder(order as PurchaseOrder);
+    console.log('Payload envoyé au backend:', payload);
+    console.log('Nombre d\'articles dans le payload:', 
+      (payload.lignes?.length || 0) + ' lignes, ' + 
+      (payload.lignesCommande?.length || 0) + ' lignesCommande, ' + 
+      (payload.articles?.length || 0) + ' articles');
 
+    // Envoyer la commande au backend
     return this.http
       .post<any>(this.apiUrl, payload, { headers: this.getAuthHeaders() })
       .pipe(
-        map((o) => this.mapApiOrderToModel(o)),
-        tap((created) => {
+        tap(rawResponse => {
+          console.log('Réponse brute du backend après création:', rawResponse);
+          if (rawResponse.lignes) {
+            console.log(`La réponse contient ${rawResponse.lignes.length} lignes`);
+          }
+        }),
+        map(rawData => {
+          // Créer un modèle de commande de base
+          const order: PurchaseOrder = {
+            id: rawData.id?.toString(),
+            orderNumber: rawData.numero,
+            supplierId: rawData.fournisseur?.id?.toString(),
+            supplierName: rawData.fournisseur?.nom,
+            supplierEmail: rawData.fournisseur?.email || rawData.emailFournisseur,
+            supplierAddress: rawData.fournisseur?.adresse,
+            status: this.mapApiStatus(rawData.statut),
+            orderDate: rawData.dateCommande,
+            expectedDeliveryDate: rawData.dateLivraisonPrevue,
+            deliveryDate: rawData.dateLivraisonEffective,
+            total: rawData.montantTTC || rawData.montantTotal || 0,
+            notes: rawData.notes,
+            createdAt: rawData.dateCreation,
+            updatedAt: rawData.dateModification,
+            items: []
+          };
+          
+          // Récupérer les articles depuis les différentes propriétés possibles
+          if (Array.isArray(rawData.lignes) && rawData.lignes.length > 0) {
+            console.log('Récupération des articles depuis la propriété "lignes"');
+            order.items = rawData.lignes.map((ligne: any) => ({
+              id: ligne.id?.toString(),
+              productId: ligne.produit?.id?.toString(),
+              productName: ligne.produit?.nom ?? ligne.designation,
+              quantity: ligne.quantite ?? 0,
+              unitPrice: ligne.prixUnitaire ?? 0,
+              total: ligne.montantHT ?? (ligne.quantite * ligne.prixUnitaire) ?? 0
+            }));
+          } else if (Array.isArray(rawData.lignesCommande) && rawData.lignesCommande.length > 0) {
+            console.log('Récupération des articles depuis la propriété "lignesCommande"');
+            order.items = rawData.lignesCommande.map((ligne: any) => ({
+              id: ligne.id?.toString(),
+              productId: ligne.produit?.id?.toString(),
+              productName: ligne.produit?.nom ?? ligne.designation,
+              quantity: ligne.quantite ?? 0,
+              unitPrice: ligne.prixUnitaire ?? 0,
+              total: ligne.montantHT ?? (ligne.quantite * ligne.prixUnitaire) ?? 0
+            }));
+          } else if (Array.isArray(rawData.articles) && rawData.articles.length > 0) {
+            console.log('Récupération des articles depuis la propriété "articles"');
+            order.items = rawData.articles.map((article: any) => ({
+              id: article.id?.toString(),
+              productId: article.produit?.id?.toString() || article.productId?.toString(),
+              productName: article.produit?.nom ?? article.designation ?? article.productName,
+              quantity: article.quantite ?? article.quantity ?? 0,
+              unitPrice: article.prixUnitaire ?? article.unitPrice ?? 0,
+              total: article.montantHT ?? article.total ?? (article.quantite * article.prixUnitaire) ?? 0
+            }));
+          }
+          
+          console.log('Commande mappée avec', order.items?.length || 0, 'articles:', order);
+          return order;
+        }),
+        tap((order) => {
           this.backendAvailable = true;
           this.backendUnavailableMessage = '';
-          this.orderCreated.next(created);
-          console.log('Commande d\'achat créée :', created);
+          console.log('Commande récupérée avec succès:', order);
         }),
-        catchError((primaryError) => {
-          console.error('Erreur de création (primary):', primaryError);
-          return this.http.post<any>(this.backupApiUrl, payload, { headers: this.getAuthHeaders() }).pipe(
-            map((o) => this.mapApiOrderToModel(o)),
-            tap((created) => {
+        catchError((primaryError, caught) => {
+          console.error('Erreur de récupération (primary):', primaryError);
+          // Extraire l'ID de l'URL originale dans le flux capturé
+          const urlParts = this.apiUrl.split('/');
+          const id = urlParts[urlParts.length - 1];
+          return this.http.get<any>(`${this.backupApiUrl}/${id}`, { headers: this.getAuthHeaders() }).pipe(
+            map(rawData => {
+              // Même logique de mapping pour l'URL de secours
+              const order: PurchaseOrder = {
+                id: rawData.id?.toString(),
+                orderNumber: rawData.numero,
+                supplierId: rawData.fournisseur?.id?.toString(),
+                supplierName: rawData.fournisseur?.nom,
+                supplierEmail: rawData.fournisseur?.email || rawData.emailFournisseur,
+                supplierAddress: rawData.fournisseur?.adresse,
+                status: this.mapApiStatus(rawData.statut),
+                orderDate: rawData.dateCommande,
+                expectedDeliveryDate: rawData.dateLivraisonPrevue,
+                deliveryDate: rawData.dateLivraisonEffective,
+                total: rawData.montantTTC || rawData.montantTotal || 0,
+                notes: rawData.notes,
+                createdAt: rawData.dateCreation,
+                updatedAt: rawData.dateModification,
+                items: []
+              };
+              
+              // Récupérer les articles depuis les différentes propriétés possibles
+              if (Array.isArray(rawData.lignes) && rawData.lignes.length > 0) {
+                order.items = rawData.lignes.map((ligne: any) => ({
+                  id: ligne.id?.toString(),
+                  productId: ligne.produit?.id?.toString(),
+                  productName: ligne.produit?.nom ?? ligne.designation,
+                  quantity: ligne.quantite ?? 0,
+                  unitPrice: ligne.prixUnitaire ?? 0,
+                  total: ligne.montantHT ?? (ligne.quantite * ligne.prixUnitaire) ?? 0
+                }));
+              } else if (Array.isArray(rawData.lignesCommande) && rawData.lignesCommande.length > 0) {
+                order.items = rawData.lignesCommande.map((ligne: any) => ({
+                  id: ligne.id?.toString(),
+                  productId: ligne.produit?.id?.toString(),
+                  productName: ligne.produit?.nom ?? ligne.designation,
+                  quantity: ligne.quantite ?? 0,
+                  unitPrice: ligne.prixUnitaire ?? 0,
+                  total: ligne.montantHT ?? (ligne.quantite * ligne.prixUnitaire) ?? 0
+                }));
+              } else if (Array.isArray(rawData.articles) && rawData.articles.length > 0) {
+                order.items = rawData.articles.map((article: any) => ({
+                  id: article.id?.toString(),
+                  productId: article.produit?.id?.toString() || article.productId?.toString(),
+                  productName: article.produit?.nom ?? article.designation ?? article.productName,
+                  quantity: article.quantite ?? article.quantity ?? 0,
+                  unitPrice: article.prixUnitaire ?? article.unitPrice ?? 0,
+                  total: article.montantHT ?? article.total ?? (article.quantite * article.prixUnitaire) ?? 0
+                }));
+              }
+              
+              return order;
+            }),
+            tap((order) => {
               this.backendAvailable = true;
               this.backendUnavailableMessage = 'Utilisation du backend de secours';
-              this.orderCreated.next(created);
-              console.log('Commande d\'achat créée via backup :', created);
+              console.log('Commande récupérée via backup:', order);
             }),
             catchError((secondError) => {
-              console.error('Erreur de création (backup):', secondError);
+              console.error('Erreur de récupération (backup):', secondError);
               this.backendAvailable = false;
-              const mockOrder: PurchaseOrder = {
-                ...order,
-                id: `order-${Date.now()}`,
-                orderNumber: `CMD-${new Date().getFullYear()}-${Math.floor(Math.random() * 900) + 100}`,
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString(),
-                status: order.status ?? 'DRAFT'
-              } as PurchaseOrder;
-              this.mockOrders.push(mockOrder);
-              this.orderCreated.next(mockOrder);
-              return of(mockOrder);
+              this.backendUnavailableMessage = 'Backend indisponible, utilisation de données fictives';
+              const mockOrder = this.mockOrders.find((o) => o.id === id);
+              if (mockOrder) {
+                return of(mockOrder);
+              }
+              return throwError(() => new Error('Commande non trouvée'));
             })
           );
         }),
@@ -621,62 +853,118 @@ export class PurchaseOrderService {
   }
 
   private mapApiOrderToModel(apiOrder: any): PurchaseOrder {
-    return {
+    console.log('Données brutes reçues du backend:', apiOrder);
+    
+    // Vérifier si les lignes de commande existent et sont accessibles
+    let items = [];
+    if (Array.isArray(apiOrder.lignes)) {
+      console.log(`La commande contient ${apiOrder.lignes.length} lignes`);
+      items = apiOrder.lignes.map((l: any, index: number) => {
+        console.log(`Traitement de la ligne ${index}:`, l);
+        return {
+          id: l.id?.toString(),
+          productId: l.produit?.id?.toString(),
+          productName: l.produit?.nom ?? l.designation,
+          quantity: l.quantite ?? 0,
+          unitPrice: l.prixUnitaire ?? 0,
+          total: l.montantHT ?? (l.quantite * l.prixUnitaire) ?? 0
+        };
+      });
+    } else if (apiOrder.lignesCommande && Array.isArray(apiOrder.lignesCommande)) {
+      // Alternative si le backend utilise un nom de propriété différent
+      console.log(`La commande contient ${apiOrder.lignesCommande.length} lignesCommande`);
+      items = apiOrder.lignesCommande.map((l: any, index: number) => {
+        console.log(`Traitement de la ligneCommande ${index}:`, l);
+        return {
+          id: l.id?.toString(),
+          productId: l.produit?.id?.toString(),
+          productName: l.produit?.nom ?? l.designation,
+          quantity: l.quantite ?? 0,
+          unitPrice: l.prixUnitaire ?? 0,
+          total: l.montantHT ?? (l.quantite * l.prixUnitaire) ?? 0
+        };
+      });
+    } else {
+      console.warn('Aucune ligne de commande trouvée dans la réponse API');
+    }
+    
+    const mappedOrder = {
       id: apiOrder.id?.toString(),
       orderNumber: apiOrder.numero,
       supplierId: apiOrder.fournisseur?.id?.toString(),
       supplierName: apiOrder.fournisseur?.nom,
-      supplierEmail: apiOrder.fournisseur?.email,
+      supplierEmail: apiOrder.fournisseur?.email || apiOrder.emailFournisseur,
       supplierAddress: apiOrder.fournisseur?.adresse,
       status: this.mapApiStatus(apiOrder.statut),
       orderDate: apiOrder.dateCommande ?? new Date().toISOString(),
       expectedDeliveryDate: apiOrder.dateLivraisonPrevue,
       deliveryDate: apiOrder.dateLivraisonEffective,
-      items: Array.isArray(apiOrder.lignes)
-        ? apiOrder.lignes.map((l: any) => ({
-            id: l.id?.toString(),
-            productId: l.produit?.id?.toString(),
-            productName: l.produit?.nom ?? l.designation,
-            quantity: l.quantite ?? 0,
-            unitPrice: l.prixUnitaire ?? 0,
-            total: l.montantHT ?? (l.quantite * l.prixUnitaire) ?? 0
-          }))
-        : [],
-      total: apiOrder.montantTTC ?? 0,
+      items: items,
+      total: apiOrder.montantTTC ?? apiOrder.montantTotal ?? 0,
       notes: apiOrder.notes,
       createdAt: apiOrder.dateCreation,
       updatedAt: apiOrder.dateModification
     } as PurchaseOrder;
+    
+    console.log('Commande mappée vers le modèle frontend:', mappedOrder);
+    return mappedOrder;
   }
 
   private mapModelToApiOrder(order: PurchaseOrder): any {
-    return {
+    console.log('Mapping de la commande frontend vers le format API:', order);
+    
+    // Vérifier si les articles existent
+    const lignes = order.items && order.items.length > 0 
+      ? order.items.map((item, index) => {
+          console.log(`Mapping de l'article ${index}:`, item);
+          return {
+            id: item.id,
+            produit: {
+              id: item.productId,
+              nom: item.productName
+            },
+            designation: item.productName,
+            quantite: item.quantity,
+            prixUnitaire: item.unitPrice,
+            montantHT: item.total
+          };
+        })
+      : [];
+    
+    console.log(`Nombre d'articles mappés: ${lignes.length}`);
+    
+    // Créer l'objet de commande au format API
+    const apiOrder = {
       id: order.id,
       numero: order.orderNumber,
-      fournisseur: {
+      fournisseur: order.supplierId ? {
         id: order.supplierId,
         nom: order.supplierName,
         email: order.supplierEmail,
         adresse: order.supplierAddress
-      },
+      } : null,
+      emailFournisseur: order.supplierEmail, // Ajouter l'email du fournisseur directement dans la commande
       statut: this.mapModelStatus(order.status),
       dateCommande: order.orderDate,
       dateLivraisonPrevue: order.expectedDeliveryDate,
       dateLivraisonEffective: order.deliveryDate,
-      lignes: order.items?.map((item) => ({
-        id: item.id,
-        produit: {
-          id: item.productId,
-          nom: item.productName
-        },
-        designation: item.productName,
-        quantite: item.quantity,
-        prixUnitaire: item.unitPrice,
-        montantHT: item.total
-      })) ?? [],
+      lignes: lignes,
+      lignesCommande: lignes, // Ajouter également sous ce nom alternatif
+      articles: lignes.map(ligne => ({ // Ajouter également sous le nom 'articles'
+        id: ligne.id,
+        productId: ligne.produit.id,
+        productName: ligne.produit.nom,
+        quantity: ligne.quantite,
+        unitPrice: ligne.prixUnitaire,
+        total: ligne.montantHT
+      })),
       montantTTC: order.total,
+      montantTotal: order.total, // Ajouter également sous ce nom alternatif
       notes: order.notes
     };
+    
+    console.log('Commande mappée vers le format API:', apiOrder);
+    return apiOrder;
   }
 
   private mapApiStatus(apiStatus: string): PurchaseOrderStatus {

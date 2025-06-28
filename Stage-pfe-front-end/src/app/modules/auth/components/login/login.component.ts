@@ -2,6 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
 import * as AOS from 'aos';
+import Swal from 'sweetalert2';
 import { AuthService, LoginRequest } from '../../services/auth.service';
 
 @Component({
@@ -126,31 +127,86 @@ export class LoginComponent implements OnInit {
         },
         error: (error: any) => {
           this.isLoading = false;
-          console.error('Erreur de connexion détaillée:', {
-            status: error.status,
-            statusText: error.statusText,
-            error: error.error,
-            message: error.message,
-            url: error.url
-          });
+          console.error('Erreur de connexion:', error);
           
-          // Afficher des informations de débogage dans la console
-          console.log('Détails supplémentaires de l\'erreur:', error);
+          // Traiter les différents types d'erreurs
+          if (error.message) {
+            this.errorMessage = error.message;
+          } else if (error.error && error.error.message) {
+            this.errorMessage = error.error.message;
+          } else {
+            this.errorMessage = 'Une erreur est survenue lors de la connexion. Veuillez réessayer.';
+          }
           
-          // Le service d'authentification renvoie déjà un message d'erreur formaté
-          this.errorMessage = error.message;
+          // Si l'erreur est de type 403 (Forbidden) ou contient des mots liés à l'activation
+          if (error.status === 403 || 
+              (this.errorMessage && this.errorMessage.toLowerCase().includes('activ')) ||
+              (this.errorMessage && this.errorMessage.toLowerCase().includes('approuv'))) {
+            
+            console.log('Erreur liée à l\'activation du compte détectée');
+            
+            // Message d'erreur plus visible et explicite
+            this.errorMessage = 'ATTENTION: Votre compte n\'a pas encore été approuvé par un administrateur.';
+            
+            // Afficher un popup élégant avec SweetAlert2
+            Swal.fire({
+              title: 'Compte en attente d\'approbation',
+              html: `
+                <div class="approval-message">
+                  <p class="alert-text"><i class="fas fa-exclamation-circle"></i> <strong>Votre compte est actuellement en attente d'approbation par un administrateur.</strong></p>
+                  
+                  <div class="info-section">
+                    <h3>Que faire maintenant ?</h3>
+                    <ul>
+                      <li><i class="fas fa-clock"></i> Veuillez patienter jusqu'à ce qu'un administrateur approuve votre compte</li>
+                      <li><i class="fas fa-calendar-check"></i> Ce processus peut prendre jusqu'à 24 heures ouvrables</li>
+                      <li><i class="fas fa-envelope"></i> Vous serez notifié par email une fois votre compte activé</li>
+                    </ul>
+                  </div>
+                  
+                  <div class="contact-section">
+                    <p><strong>Pour toute question, contactez notre équipe support :</strong></p>
+                    <p><i class="fas fa-envelope"></i> support@company.com</p>
+                    <p><i class="fas fa-phone"></i> +216 71 123 456</p>
+                  </div>
+                </div>
+              `,
+              imageUrl: 'assets/img/waiting-approval.svg',
+              imageWidth: 120,
+              imageHeight: 120,
+              imageAlt: 'Compte en attente',
+              showConfirmButton: true,
+              confirmButtonText: '<i class="fas fa-check"></i> Compris',
+              confirmButtonColor: '#3b82f6',
+              showClass: {
+                popup: 'animate__animated animate__fadeIn'
+              },
+              hideClass: {
+                popup: 'animate__animated animate__fadeOut'
+              },
+              allowOutsideClick: false,
+              customClass: {
+                title: 'swal-title',
+                htmlContainer: 'swal-html-container',
+                confirmButton: 'swal-confirm-button',
+                image: 'swal-image'
+              }
+            }).then((result) => {
+              // Rediriger vers la page d'attente d'activation
+              this.router.navigate(['/auth/inactive-account']);
+            });
+            
+            return;
+          }
           
-          // Ajouter des informations spécifiques pour certains cas
-          if (error.status === 403) {
-            this.errorMessage = 'Votre compte n\'a pas encore été activé par un administrateur. Veuillez patienter ou contacter l\'administrateur.';
-          } else if (error.status === 401) {
-            this.errorMessage = 'Identifiants incorrects. Vérifiez votre nom d\'utilisateur/email et votre mot de passe.';
-          } else if (error.status === 0) {
-            this.errorMessage = 'Impossible de se connecter au serveur d\'authentification. Vérifiez que le service est démarré et accessible.';
-          } else if (error.status === 404) {
-            this.errorMessage = 'Le service d\'authentification est introuvable. Vérifiez l\'URL du service.';
-          } else if (error.status === 500) {
-            this.errorMessage = 'Erreur interne du serveur. Veuillez réessayer plus tard ou contacter l\'administrateur.';
+          // Si l'erreur contient "mot de passe", mettre en évidence le champ de mot de passe
+          if (this.errorMessage && this.errorMessage.toLowerCase().includes('mot de passe')) {
+            this.loginForm.get('password')?.setErrors({incorrect: true});
+          }
+          
+          // Si l'erreur contient "utilisateur", mettre en évidence le champ d'utilisateur
+          if (this.errorMessage && this.errorMessage.toLowerCase().includes('utilisateur')) {
+            this.loginForm.get('usernameOrEmail')?.setErrors({incorrect: true});
           } else if (!this.errorMessage) {
             // Message par défaut si aucun message spécifique n'est disponible
             this.errorMessage = 'Une erreur s\'est produite lors de la connexion. Veuillez réessayer.';
@@ -174,9 +230,15 @@ export class LoginComponent implements OnInit {
       return '/auth/login';
     }
     
-    // Vérifier si l'utilisateur est actif
+    // Vérifier si l'utilisateur est actif - pour TOUS les utilisateurs
     if (currentUser.active === false) {
       console.log('Utilisateur inactif, redirection vers page d\'information');
+      return '/auth/inactive-account';
+    }
+    
+    // Si l'utilisateur n'a pas la propriété active explicitement définie à true, le considérer comme inactif
+    if (currentUser.active !== true) {
+      console.log('État d\'activation de l\'utilisateur non confirmé, redirection vers page d\'information');
       return '/auth/inactive-account';
     }
     

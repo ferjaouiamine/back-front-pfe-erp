@@ -21,6 +21,7 @@ export interface Product {
     name?: string;
   };
   categoryId?: number | string;
+  imageUrl?: string; // URL de l'image du produit
 }
 
 export interface ProductCategory {
@@ -42,6 +43,8 @@ export class ProductService {
   private alternativeCategoriesUrl = 'http://localhost:8080/api/categories';
   // Indicateur si le backend est disponible
   private backendAvailable = true;
+  // Flag pour forcer le rechargement des données sans utiliser de cache
+  private forceReload = false;
   // Message pour informer l'utilisateur que le backend n'est pas disponible
   private backendUnavailableMessage = 'Le serveur de gestion de produits n\'est pas disponible. Les données affichées sont fictives à des fins de démonstration.';
 
@@ -74,11 +77,17 @@ export class ProductService {
     }
     
     // Si le backend est déjà marqué comme indisponible, utiliser des données fictives
-    if (!this.backendAvailable) {
+    if (!this.backendAvailable && !this.forceReload) {
       console.log('Le backend est indisponible, utilisation des données fictives');
       return of(this.generateMockProductsFromMySQLStructure()).pipe(
         delay(300) // Simuler un délai réseau
       );
+    }
+    
+    // Réinitialiser le flag forceReload après utilisation
+    if (this.forceReload) {
+      console.log('Rechargement forcé des produits depuis le backend');
+      this.forceReload = false;
     }
     
     console.log('Tentative de récupération des produits depuis le backend sur le port 8082');
@@ -811,6 +820,29 @@ export class ProductService {
         );
       })
     );
+  }
+  
+  /**
+   * Force le rechargement des produits sans utiliser de cache
+   * Cette méthode est utilisée pour s'assurer que les données sont fraîches
+   * après une opération qui modifie le stock
+   */
+  clearCache(): void {
+    console.log('Effacement du cache des produits pour forcer un rechargement');
+    this.forceReload = true;
+  }
+  
+  /**
+   * Met à jour directement la liste des produits dans le service
+   * Utilisé pour mettre à jour les données après une opération de stock
+   * @param products Liste des produits à mettre en cache
+   */
+  setProducts(products: any): void {
+    console.log('Mise à jour directe des produits dans le service:', products);
+    // Stocker les produits dans un cache local pour une utilisation ultérieure
+    localStorage.setItem('cachedProducts', JSON.stringify(products));
+    // Marquer le backend comme disponible puisque nous avons des données fraîches
+    this.backendAvailable = true;
   }
   
   /**

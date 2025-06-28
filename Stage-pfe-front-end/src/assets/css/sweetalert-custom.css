@@ -1,0 +1,155 @@
+/* Styles personnalisés pour SweetAlert2 */
+
+.swal2-popup {
+  border-radius: 15px;
+  padding: 2rem;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+  max-width: 500px;
+  background: linear-gradient(to bottom, #ffffff, #f9fafb);
+}
+
+.swal-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #1f2937;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid #e5e7eb;
+  margin-bottom: 1rem !important;
+  text-align: center;
+}
+
+.swal-html-container {
+  text-align: left;
+  font-size: 1rem;
+  color: #4b5563;
+  padding: 0 0.5rem;
+}
+
+.swal-confirm-button {
+  font-weight: 500 !important;
+  padding: 0.75rem 2rem !important;
+  border-radius: 8px !important;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  transition: all 0.2s ease;
+}
+
+.swal-confirm-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(59, 130, 246, 0.3) !important;
+}
+
+/* Style pour le conteneur d'image */
+.swal-image {
+  margin: 1rem auto;
+  filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.1));
+}
+
+/* Styles pour le contenu du message d'approbation */
+.approval-message {
+  text-align: left;
+}
+
+.alert-text {
+  background-color: #fff3e0;
+  border-left: 4px solid #f59e0b;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1.5rem;
+  border-radius: 0 6px 6px 0;
+  display: flex;
+  align-items: center;
+}
+
+.alert-text i {
+  color: #f59e0b;
+  font-size: 1.2rem;
+  margin-right: 0.75rem;
+}
+
+.info-section {
+  background-color: #f0f9ff;
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.info-section h3 {
+  color: #1f2937;
+  font-size: 1.1rem;
+  margin-top: 0;
+  margin-bottom: 0.75rem;
+  font-weight: 600;
+}
+
+.info-section ul {
+  list-style-type: none;
+  padding-left: 0;
+  margin-bottom: 0;
+}
+
+.info-section li {
+  margin-bottom: 0.75rem;
+  display: flex;
+  align-items: flex-start;
+}
+
+.info-section li:last-child {
+  margin-bottom: 0;
+}
+
+.info-section li i {
+  color: #3b82f6;
+  margin-right: 0.75rem;
+  min-width: 16px;
+}
+
+.contact-section {
+  background-color: #f3f4f6;
+  border-radius: 8px;
+  padding: 1rem;
+  margin-top: 1.5rem;
+}
+
+.contact-section p {
+  margin: 0.5rem 0;
+  display: flex;
+  align-items: center;
+}
+
+.contact-section i {
+  color: #6b7280;
+  margin-right: 0.75rem;
+  min-width: 16px;
+}
+
+/* Animation personnalisée pour le popup */
+@keyframes customFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9) translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes customFadeOut {
+  from {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.9) translateY(-20px);
+  }
+}
+
+.swal2-popup.swal2-show {
+  animation: customFadeIn 0.4s ease-out;
+}
+
+.swal2-popup.swal2-hide {
+  animation: customFadeOut 0.3s ease-in;
+}

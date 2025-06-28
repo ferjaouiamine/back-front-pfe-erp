@@ -116,36 +116,68 @@ export class FactureService {
    * @returns Observable<boolean> - true si le backend est disponible, false sinon
    */
   checkBackendAvailability(): Observable<boolean> {
-    console.log('Vérification de la disponibilité du backend de facturation sur le port 8085...');
-    return this.http.get<any>(`${this.apiUrl}/health-check`, { headers: this.getAuthHeaders() })
-      .pipe(
-        timeout(3000), // Timeout après 3 secondes
-        map(() => {
-          console.log('Backend de facturation disponible sur le port 8085');
-          this.backendAvailable = true;
-          return true;
-        }),
-        catchError(error => {
-          // Essayer une URL alternative
-          console.log(`Erreur avec l'URL principale: ${error.message || error}`);
-          console.log('Tentative avec l\'URL alternative...');
-          const alternativeUrl = 'http://localhost:8085/api/factures-alt';
-          return this.http.get<any>(`${alternativeUrl}/health-check`, { headers: this.getAuthHeaders() })
-            .pipe(
-              timeout(3000), // Timeout après 3 secondes
+    console.log('Vérification de la disponibilité du backend de facturation...');
+    
+    // Essayer d'abord l'URL principale (port 8085)
+    const mainUrl = 'http://localhost:8085/api/factures';
+    
+    // Vérifier si le backend est disponible en essayant de récupérer une liste vide de factures
+    return this.http.get<any>(`${mainUrl}`, { 
+      headers: this.getAuthHeaders(),
+      params: new HttpParams().set('limit', '1') // Limiter à 1 résultat pour minimiser les données
+    }).pipe(
+      timeout(3000), // Timeout après 3 secondes
+      map(() => {
+        console.log('Backend de facturation disponible sur le port 8085');
+        this.apiUrl = mainUrl;
+        this.backendAvailable = true;
+        return true;
+      }),
+      catchError(error => {
+        // Essayer une URL alternative sur le port 8080
+        console.log(`Erreur avec l'URL principale (port 8085): ${error.message || error}`);
+        console.log('Tentative avec le port 8080...');
+        const alternativeUrl = 'http://localhost:8080/api/factures';
+        
+        return this.http.get<any>(`${alternativeUrl}`, { 
+          headers: this.getAuthHeaders(),
+          params: new HttpParams().set('limit', '1')
+        }).pipe(
+          timeout(3000),
+          map(() => {
+            console.log('Backend de facturation disponible sur le port 8080');
+            this.apiUrl = alternativeUrl;
+            this.backendAvailable = true;
+            return true;
+          }),
+          catchError(err => {
+            // Dernière tentative avec un autre chemin d'API
+            console.log(`Erreur avec l'URL alternative (port 8080): ${err.message || err}`);
+            console.log('Dernière tentative avec un autre chemin d\'API...');
+            const lastAttemptUrl = 'http://localhost:8085/api/v1/factures';
+            
+            return this.http.get<any>(`${lastAttemptUrl}`, { 
+              headers: this.getAuthHeaders(),
+              params: new HttpParams().set('limit', '1')
+            }).pipe(
+              timeout(3000),
               map(() => {
-                console.log('Backend de facturation disponible sur l\'URL alternative');
+                console.log('Backend de facturation disponible sur le chemin alternatif');
+                this.apiUrl = lastAttemptUrl;
                 this.backendAvailable = true;
                 return true;
               }),
-              catchError(err => {
-                console.warn(`Backend de facturation non disponible: ${err.message || err}`);
+              catchError(finalErr => {
+                console.warn(`Backend de facturation non disponible après toutes les tentatives: ${finalErr.message || finalErr}`);
                 this.backendAvailable = false;
+                this.showMockDataWarning();
                 return of(false);
               })
             );
-        })
-      );
+          })
+        );
+      })
+    );
   }
 
   /**
@@ -872,14 +904,37 @@ export class FactureService {
   }
 
   generatePdf(factureId: string): Observable<Blob> {
+    console.log(`Tentative de génération du PDF pour la facture ${factureId} via ${this.apiUrl}/${factureId}/pdf`);
+    this.loading.next(true);
+    
     return this.http.get(`${this.apiUrl}/${factureId}/pdf`, {
       headers: this.getAuthHeaders(),
       responseType: 'blob'
     }).pipe(
+      tap(response => {
+        console.log(`PDF généré avec succès pour la facture ${factureId}`, response);
+      }),
       catchError(error => {
         console.error(`Erreur lors de la génération du PDF pour la facture ${factureId}:`, error);
-        return throwError(() => new Error(`Échec de la génération du PDF: ${error.message}`));
-      })
+        
+        // Essayer une URL alternative si la première échoue
+        console.log(`Tentative avec l'URL alternative pour la génération du PDF...`);
+        const alternativeUrl = `http://localhost:8085/api/factures/generate-pdf/${factureId}`;
+        
+        return this.http.get(alternativeUrl, {
+          headers: this.getAuthHeaders(),
+          responseType: 'blob'
+        }).pipe(
+          tap(response => {
+            console.log(`PDF généré avec succès via l'URL alternative`, response);
+          }),
+          catchError(secondError => {
+            console.error(`Échec de la génération du PDF via l'URL alternative:`, secondError);
+            return throwError(() => new Error(`Échec de la génération du PDF: ${error.message}. Veuillez vérifier que le service de facturation est bien démarré sur le port 8085.`));
+          })
+        );
+      }),
+      finalize(() => this.loading.next(false))
     );
   }
   
@@ -1222,7 +1277,19 @@ export class FactureService {
    * @param item L'élément à ajouter
    * @returns Observable de la facture mise à jour
    */
+  /**
+   * Notifie les autres composants qu'une facture a été créée
+   * @param facture La facture créée
+   */
+  notifyFactureCreated(facture: Facture): void {
+    if (facture) {
+      console.log('Notification de création de facture:', facture);
+      this.factureCreated.next(facture);
+    }
+  }
+
   ajouterLigneFacture(factureId: string, item: Omit<FactureItem, 'id' | 'factureId' | 'total'>): Observable<Facture> {
+    this.loading.next(true);
     // Si le backend n'est pas disponible, utiliser directement les données fictives
     if (!this.backendAvailable) {
       this.showMockDataWarning();
@@ -1257,6 +1324,10 @@ export class FactureService {
         console.log('Réponse du backend après ajout de ligne:', response);
         return this.getFactureById(factureId);
       }),
+      tap(updatedFacture => {
+        // Notifier les autres composants de la mise à jour
+        this.notifyFactureUpdated(updatedFacture);
+      }),
       catchError(error => {
         console.error('Erreur lors de l\'ajout de ligne:', error);
         
@@ -1269,7 +1340,8 @@ export class FactureService {
         }
         
         return throwError(() => new Error(`Échec de l'ajout de ligne: ${error.message}`));
-      })
+      }),
+      finalize(() => this.loading.next(false))
     );
   }
   

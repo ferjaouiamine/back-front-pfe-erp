@@ -1,0 +1,198 @@
+/* Styles améliorés pour le POS - Optimisation de l'affichage et mise en évidence du bouton d'impression */
+
+/* Optimisation de l'affichage général */
+.dreams-pos-container {
+  width: 100vw !important;
+  max-width: 100% !important;
+  height: 100vh !important;
+  overflow: hidden !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* En-tête plus compact */
+.pos-header {
+  height: 50px !important;
+  padding: 0.25rem 1rem !important;
+  background-color: #f8f9fa !important;
+  border-bottom: 1px solid #e0e0e0 !important;
+}
+
+/* Optimisation de la mise en page principale */
+.pos-main {
+  height: calc(100vh - 50px) !important;
+  width: 100% !important;
+}
+
+.pos-content {
+  display: flex !important;
+  height: calc(100vh - 110px) !important; /* Tenir compte de l'en-tête et de la barre de catégories */
+}
+
+/* Barre de catégories plus compacte */
+.pos-categories-bar {
+  height: 60px !important;
+  overflow-x: auto !important;
+  white-space: nowrap !important;
+  padding: 0.25rem 0.5rem !important;
+  background-color: white !important;
+}
+
+.category-item {
+  display: inline-flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 0.5rem 1rem !important;
+  margin: 0 0.25rem !important;
+  border-radius: 8px !important;
+  cursor: pointer !important;
+}
+
+.category-item.active {
+  background-color: rgba(118, 56, 255, 0.1) !important;
+  color: #7638ff !important;
+}
+
+/* Optimisation du panneau de produits */
+.pos-products {
+  flex: 1 !important;
+  padding: 0.5rem !important;
+  overflow-y: auto !important;
+  background-color: #f8f9fa !important;
+}
+
+.products-grid {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)) !important;
+  gap: 0.75rem !important;
+  padding: 0.5rem !important;
+}
+
+/* Cartes de produits plus compactes et modernes */
+.product-card {
+  background-color: white !important;
+  border-radius: 8px !important;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.08) !important;
+  overflow: hidden !important;
+  transition: transform 0.2s ease, box-shadow 0.2s ease !important;
+  position: relative !important;
+  height: 220px !important;
+}
+
+.product-card:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.12) !important;
+}
+
+.product-img {
+  height: 120px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background-color: #f8f9fa !important;
+  padding: 0.5rem !important;
+}
+
+.product-img img {
+  max-height: 100% !important;
+  max-width: 100% !important;
+  object-fit: contain !important;
+}
+
+/* Placeholder pour images manquantes */
+.product-img img[src=""], 
+.product-img img:not([src]) {
+  display: none !important;
+}
+
+.product-img img[src=""]:after, 
+.product-img img:not([src]):after {
+  content: "Image non disponible" !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 100% !important;
+  height: 100% !important;
+  background-color: #f0f0f0 !important;
+  color: #777 !important;
+  font-size: 0.8rem !important;
+}
+
+/* Optimisation du panneau du panier */
+.pos-cart {
+  width: 350px !important;
+  min-width: 350px !important;
+  max-width: 350px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  background-color: white !important;
+  border-left: 1px solid #e0e0e0 !important;
+}
+
+.cart-header {
+  padding: 0.75rem 1rem !important;
+  border-bottom: 1px solid #e0e0e0 !important;
+}
+
+.cart-items {
+  flex: 1 !important;
+  overflow-y: auto !important;
+  padding: 0.5rem !important;
+  max-height: calc(100vh - 350px) !important;
+}
+
+/* Mise en évidence du bouton d'impression */
+.btn-print {
+  background-color: #ff9f43 !important; /* Orange vif */
+  color: white !important;
+  border: none !important;
+  border-radius: 4px !important;
+  padding: 0.5rem !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  flex: 1 !important;
+  font-size: 0.8rem !important;
+  font-weight: bold !important;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1) !important;
+  transition: all 0.2s ease !important;
+}
+
+.btn-print:hover {
+  background-color: #f08422 !important;
+  transform: translateY(-2px) !important;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15) !important;
+}
+
+.btn-print i {
+  font-size: 1.2rem !important;
+  margin-bottom: 0.25rem !important;
+}
+
+/* Amélioration des boutons d'action du panier */
+.cart-actions {
+  display: flex !important;
+  gap: 0.5rem !important;
+  padding: 0.75rem !important;
+  border-top: 1px solid #e0e0e0 !important;
+  background-color: #f8f9fa !important;
+}
+
+/* Amélioration des totaux du panier */
+.cart-totals {
+  padding: 0.75rem 1rem !important;
+  border-top: 1px solid #e0e0e0 !important;
+  background-color: #f8f9fa !important;
+}
+
+.cart-total {
+  font-weight: bold !important;
+  color: #7638ff !important;
+  font-size: 1.1rem !important;
+  margin-top: 0.5rem !important;
+  padding-top: 0.5rem !important;
+  border-top: 1px dashed #e0e0e0 !important;
+}

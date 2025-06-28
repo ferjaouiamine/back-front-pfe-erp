@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
 import { HttpClientModule } from '@angular/common/http';
+import { ToastrModule } from 'ngx-toastr';
 
 // Material Imports
 import { MatTableModule } from '@angular/material/table';
@@ -71,6 +72,12 @@ import { PdfService } from './services/pdf.service';
     RouterModule,
     HttpClientModule,
     FournisseurRoutingModule,
+    ToastrModule.forRoot({  // Configuration du ToastrModule
+      timeOut: 5000,
+      positionClass: 'toast-top-right',
+      preventDuplicates: true,
+      closeButton: true
+    }),
     // Material Modules
     MatTableModule,
     MatSortModule,

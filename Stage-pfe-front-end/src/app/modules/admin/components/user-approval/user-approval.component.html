@@ -1,0 +1,368 @@
+<div class="user-approval-container">
+  <div class="page-header">
+    <h2>Gestion des utilisateurs</h2>
+    <p class="subtitle">Approuvez ou désactivez les comptes utilisateurs</p>
+  </div>
+  
+  <!-- Messages d'alerte -->
+  <div *ngIf="errorMessage" class="alert alert-danger">
+    <i class="fas fa-exclamation-circle"></i> {{ errorMessage }}
+  </div>
+  
+  <div *ngIf="successMessage" class="alert alert-success">
+    <i class="fas fa-check-circle"></i> {{ successMessage }}
+  </div>
+  
+  <!-- Alerte de service indisponible -->
+  <div *ngIf="!isServiceAvailable()" class="alert alert-warning">
+    <i class="fas fa-exclamation-triangle"></i>
+    <div>
+      <strong>Service d'authentification indisponible</strong>
+      <p class="mb-0">Le service d'authentification n'est pas accessible. Veuillez vérifier que le service est démarré sur le port 8081.</p>
+      <p class="mb-0 mt-2">Assurez-vous que le microservice auth-service est en cours d'exécution.</p>
+    </div>
+  </div>
+  
+  <!-- Utilisateurs en attente d'approbation -->
+  <div class="card mb-4">
+    <div class="card-header">
+      <h3>
+        <i class="fas fa-user-clock"></i> 
+        Utilisateurs en attente d'approbation
+        <span class="badge bg-warning">{{ pendingUsers.length }}</span>
+      </h3>
+    </div>
+    
+    <div class="card-body">
+      <div *ngIf="isLoading" class="text-center p-3">
+        <div class="spinner-border text-primary" role="status">
+          <span class="visually-hidden">Chargement...</span>
+        </div>
+        <p class="mt-2">Chargement des utilisateurs...</p>
+      </div>
+      
+      <div *ngIf="!isLoading && pendingUsers.length === 0" class="empty-state">
+        <i class="fas fa-check-circle"></i>
+        <p>Aucun utilisateur en attente d'approbation</p>
+      </div>
+      
+      <div *ngIf="!isLoading && pendingUsers.length > 0" class="table-responsive">
+        <table class="table table-hover">
+          <thead>
+            <tr>
+              <th>Utilisateur</th>
+              <th>Email</th>
+              <th>Rôles</th>
+              <th>Date d'inscription</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let user of pendingUsers">
+              <td>
+                <div class="user-info">
+                  <div class="user-avatar">
+                    <i class="fas fa-user"></i>
+                  </div>
+                  <div class="user-details">
+                    <span class="user-name">{{ user.username }}</span>
+                  </div>
+                </div>
+              </td>
+              <td>{{ user.email }}</td>
+              <td>
+                <span *ngFor="let role of user.roles" class="badge bg-secondary me-1">
+                  {{ getRoleLabel(role) }}
+                </span>
+              </td>
+              <td>{{ user.createdDate || 'Non disponible' }}</td>
+              <td>
+                <button class="btn btn-success btn-sm" (click)="approveUser(user.id)" [disabled]="isLoading">
+                  <i class="fas fa-check"></i> Approuver
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Utilisateurs actifs -->
+  <div class="card">
+    <div class="card-header">
+      <h3>
+        <i class="fas fa-users"></i> 
+        Utilisateurs actifs
+        <span class="badge bg-success">{{ activeUsers.length }}</span>
+      </h3>
+    </div>
+    
+    <div class="card-body">
+      <div *ngIf="!activeUsers.length" class="empty-state">
+        <i class="fas fa-users-slash"></i>
+        <p>Aucun utilisateur actif</p>
+      </div>
+      
+      <div *ngIf="activeUsers.length > 0" class="table-responsive">
+        <table class="table table-hover">
+          <thead>
+            <tr>
+              <th>Utilisateur</th>
+              <th>Email</th>
+              <th>Rôles</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let user of activeUsers">
+              <td>
+                <div class="user-info">
+                  <div class="user-avatar">
+                    <i class="fas fa-user"></i>
+                  </div>
+                  <div class="user-details">
+                    <span class="user-name">{{ user.username }}</span>
+                  </div>
+                </div>
+              </td>
+              <td>{{ user.email }}</td>
+              <td>
+                <span *ngFor="let role of user.roles" class="badge bg-secondary me-1">
+                  {{ getRoleLabel(role) }}
+                </span>
+              </td>
+              <td>
+                <button class="btn btn-danger btn-sm" (click)="deactivateUser(user.id)" [disabled]="isLoading">
+                  <i class="fas fa-ban"></i> Désactiver
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  .user-approval-container {
+    padding: 1.5rem;
+  }
+  
+  .page-header {
+    margin-bottom: 2rem;
+  }
+  
+  .page-header h2 {
+    font-size: 1.8rem;
+    color: #2d3748;
+    margin-bottom: 0.5rem;
+  }
+  
+  .subtitle {
+    color: #718096;
+    font-size: 1rem;
+  }
+  
+  .card {
+    border-radius: 8px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+    border: 1px solid #e2e8f0;
+    margin-bottom: 1.5rem;
+  }
+  
+  .card-header {
+    background-color: #f8fafc;
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid #e2e8f0;
+  }
+  
+  .card-header h3 {
+    font-size: 1.2rem;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    color: #4a5568;
+  }
+  
+  .card-header h3 i {
+    margin-right: 0.75rem;
+    color: #718096;
+  }
+  
+  .card-body {
+    padding: 1.5rem;
+  }
+  
+  .badge {
+    font-weight: 500;
+    padding: 0.35em 0.65em;
+    border-radius: 0.25rem;
+  }
+  
+  .bg-warning {
+    background-color: #f59e0b;
+    color: white;
+  }
+  
+  .bg-success {
+    background-color: #10b981;
+    color: white;
+  }
+  
+  .bg-secondary {
+    background-color: #64748b;
+    color: white;
+  }
+  
+  .empty-state {
+    text-align: center;
+    padding: 2rem;
+    color: #718096;
+  }
+  
+  .empty-state i {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    color: #cbd5e1;
+  }
+  
+  .table {
+    width: 100%;
+    margin-bottom: 0;
+  }
+  
+  .table th {
+    color: #64748b;
+    font-weight: 600;
+    border-bottom-width: 1px;
+    padding: 0.75rem 1rem;
+  }
+  
+  .table td {
+    padding: 1rem;
+    vertical-align: middle;
+  }
+  
+  .user-info {
+    display: flex;
+    align-items: center;
+  }
+  
+  .user-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background-color: #e2e8f0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 0.75rem;
+  }
+  
+  .user-avatar i {
+    color: #64748b;
+  }
+  
+  .user-name {
+    font-weight: 500;
+    color: #2d3748;
+  }
+  
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    font-weight: 500;
+    padding: 0.375rem 0.75rem;
+    border-radius: 0.25rem;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  
+  .btn-sm {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+  }
+  
+  .btn i {
+    margin-right: 0.375rem;
+  }
+  
+  .btn-success {
+    background-color: #10b981;
+    border-color: #10b981;
+    color: white;
+  }
+  
+  .btn-success:hover {
+    background-color: #059669;
+    border-color: #059669;
+  }
+  
+  .btn-danger {
+    background-color: #ef4444;
+    border-color: #ef4444;
+    color: white;
+  }
+  
+  .btn-danger:hover {
+    background-color: #dc2626;
+    border-color: #dc2626;
+  }
+  
+  .btn:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+  }
+  
+  .alert {
+    padding: 1rem;
+    margin-bottom: 1rem;
+    border-radius: 0.25rem;
+    display: flex;
+    align-items: center;
+  }
+  
+  .alert i {
+    margin-right: 0.5rem;
+  }
+  
+  .alert-danger {
+    background-color: #fee2e2;
+    color: #b91c1c;
+    border: 1px solid #fecaca;
+  }
+  
+  .alert-success {
+    background-color: #d1fae5;
+    color: #065f46;
+    border: 1px solid #a7f3d0;
+  }
+  
+  .me-1 {
+    margin-right: 0.25rem;
+  }
+  
+  .mb-4 {
+    margin-bottom: 1.5rem;
+  }
+  
+  .mt-2 {
+    margin-top: 0.5rem;
+  }
+  
+  .spinner-border {
+    display: inline-block;
+    width: 2rem;
+    height: 2rem;
+    border: 0.25rem solid currentColor;
+    border-right-color: transparent;
+    border-radius: 50%;
+    animation: spinner-border 0.75s linear infinite;
+  }
+  
+  @keyframes spinner-border {
+    to { transform: rotate(360deg); }
+  }
+</style>

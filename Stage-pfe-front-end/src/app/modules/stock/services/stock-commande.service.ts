@@ -29,8 +29,8 @@ export interface StockStats {
 })
 export class StockCommandeService {
   // URLs des API
-  private primaryApiUrl = 'http://localhost:8082/api/stock';
-  private backupApiUrl = 'http://localhost:8080/api/stock';
+  private primaryApiUrl = 'http://localhost:8088/api/stock-commandes';
+  private backupApiUrl = 'http://localhost:8080/api/stock-commandes';
   
   // État du service
   private backendAvailable = true;
@@ -38,7 +38,14 @@ export class StockCommandeService {
   
   constructor(private http: HttpClient, private authService: AuthService) {
     // Vérifier la disponibilité du backend au démarrage
-    this.checkBackendAvailability();
+    this.checkBackendAvailability().subscribe(
+      isAvailable => {
+        console.log(`Backend disponible: ${isAvailable}`);
+        if (!isAvailable) {
+          console.warn('Aucun backend de stock-commande disponible. Certaines fonctionnalités peuvent être limitées.');
+        }
+      }
+    );
   }
 
   /**
@@ -253,9 +260,8 @@ export class StockCommandeService {
     const apiUrl = this.getApiUrl();
     console.log(`Ajout du produit ${produitId} à la commande ${commandeId} via ${apiUrl}`);
 
-    return this.http.post<any>(`${apiUrl}/commandes/${commandeId}/produits`, null, {
-      headers: this.getAuthHeaders(),
-      params
+    return this.http.post<any>(`${apiUrl}/commandes/${commandeId}/produits/${produitId}?quantite=${quantite}`, null, {
+      headers: this.getAuthHeaders()
     }).pipe(
       retry(1),
       timeout(5000),
@@ -266,9 +272,8 @@ export class StockCommandeService {
         const fallbackUrl = apiUrl === this.primaryApiUrl ? this.backupApiUrl : this.primaryApiUrl;
         console.log(`Tentative avec l'URL de secours: ${fallbackUrl}`);
         
-        return this.http.post<any>(`${fallbackUrl}/commandes/${commandeId}/produits`, null, {
-          headers: this.getAuthHeaders(),
-          params
+        return this.http.post<any>(`${fallbackUrl}/commandes/${commandeId}/produits/${produitId}?quantite=${quantite}`, null, {
+          headers: this.getAuthHeaders()
         }).pipe(
           catchError(fallbackError => {
             console.error('Échec de l\'ajout du produit sur les deux endpoints', fallbackError);

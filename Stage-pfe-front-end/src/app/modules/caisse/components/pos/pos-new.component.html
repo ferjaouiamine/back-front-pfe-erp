@@ -108,7 +108,7 @@
                 <span>Indisponible</span>
               </div>
               <div class="product-img">
-                <img [src]="product.imageUrl || 'assets/images/product-default.png'" alt="{{ product.name }}">
+                <img [src]="getProductImage(product)" alt="{{ product.name }}" onerror="this.src='assets/images/products/default-placeholder.jpg'">
               </div>
               <div class="product-content">
                 <h3 class="product-title">{{ product.name }}</h3>

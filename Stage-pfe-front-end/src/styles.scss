@@ -44,6 +44,22 @@ body {
   background-color: #f8f9fa;
 }
 
+/* Styles pour les notifications MatSnackBar */
+.success-snackbar {
+  background-color: #4caf50;
+  color: white;
+}
+
+.error-snackbar {
+  background-color: #f44336;
+  color: white;
+}
+
+.warning-snackbar {
+  background-color: #ff9800;
+  color: white;
+}
+
 /* Styles pour les boutons */
 .btn {
   display: inline-block;

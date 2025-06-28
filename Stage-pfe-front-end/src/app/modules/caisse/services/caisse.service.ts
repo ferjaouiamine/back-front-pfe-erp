@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
-import { Observable, of, throwError } from 'rxjs';
+import { Observable, of, throwError, forkJoin } from 'rxjs';
 import { catchError, map, tap, timeout } from 'rxjs/operators';
 import { delay as rxjsDelay } from 'rxjs/operators';
 import { 
@@ -14,6 +14,8 @@ import {
   ProductCategory
 } from '../models/pos.models';
 import { AuthService } from '../../auth/services/auth.service';
+import { StockService } from '../../stock/services/stock.service';
+import { FactureItem } from '../../facturation/services/facture.service';
 
 @Injectable({
   providedIn: 'root'
@@ -25,10 +27,12 @@ export class CaisseService {
   private backendAvailable = true; // Forcer l'utilisation des données fictives car les endpoints ne sont pas disponibles
   private mockDelay = 500; // Délai pour les données fictives (ms)
   private showedMockWarning = false; // Pour éviter d'afficher plusieurs fois l'avertissement
+  private backendUnavailableMessage = 'Le serveur de caisse n\'est pas disponible. Les données affichées sont fictives à des fins de démonstration.';
 
   constructor(
     private http: HttpClient,
-    public authService: AuthService
+    public authService: AuthService,
+    private stockService: StockService
   ) {
     // Vérifier la disponibilité du backend au démarrage
     this.checkBackendAvailability().subscribe(available => {
@@ -48,6 +52,17 @@ export class CaisseService {
       'Authorization': `Bearer ${token}`,
       'Content-Type': 'application/json'
     });
+  }
+  
+  /**
+   * Génère une image SVG en base64 avec le texte spécifié
+   * @param text Texte à afficher dans l'image
+   * @param bgColor Couleur de fond (par défaut: #eee)
+   * @returns URL de données de l'image SVG en base64
+   */
+  private generateSVGPlaceholder(text: string, bgColor: string = '#eee'): string {
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" viewBox="0 0 300 300"><rect width="300" height="300" fill="${bgColor}"/><text x="50%" y="50%" font-size="18" text-anchor="middle" alignment-baseline="middle" font-family="monospace, sans-serif" fill="#333">${text}</text></svg>`;
+    return `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(svg)))}`;
   }
 
   /**
@@ -692,6 +707,71 @@ export class CaisseService {
   }
 
   /**
+   * Retourne le message d'indisponibilité du backend
+   * @returns Message d'indisponibilité
+   */
+  getBackendUnavailableMessage(): string {
+    return this.backendUnavailableMessage;
+  }
+  
+  /**
+   * Met à jour automatiquement le stock après l'impression d'un ticket
+   * @param items Les articles du panier à déduire du stock
+   * @param invoiceNumber Le numéro de facture/ticket pour référence
+   * @returns Observable qui se termine lorsque toutes les mises à jour sont terminées
+   */
+  updateStockAfterPrint(items: FactureItem[], invoiceNumber: string): Observable<any> {
+    console.log('Mise à jour automatique du stock après impression du ticket', invoiceNumber);
+    
+    // Si aucun article, retourner un observable vide
+    if (!items || items.length === 0) {
+      console.log('Aucun article à mettre à jour dans le stock');
+      return of(null);
+    }
+    
+    console.log('Préparation de la mise à jour du stock pour', items.length, 'articles');
+    
+    // Créer un tableau d'observables pour chaque article
+    const stockUpdates = items.map(item => {
+      // Vérifier que l'article a un ID de produit
+      if (!item.productId) {
+        console.warn('Article sans ID de produit, impossible de mettre à jour le stock', item);
+        return of(null);
+      }
+      
+      console.log(`Mise à jour du stock pour le produit ${item.productId} (${item.productName}): -${item.quantity}`);
+      
+      // Créer un mouvement de sortie de stock
+      return this.stockService.removeStockEntry(
+        item.productId,
+        item.quantity,
+        'Vente - Impression ticket',
+        invoiceNumber
+      ).pipe(
+        catchError(error => {
+          console.error(`Erreur lors de la mise à jour du stock pour le produit ${item.productId}:`, error);
+          // Continuer malgré l'erreur
+          return of(null);
+        })
+      );
+    });
+    
+    // Exécuter toutes les mises à jour en parallèle
+    return forkJoin(stockUpdates).pipe(
+      tap(results => {
+        const successCount = results.filter(result => result !== null).length;
+        console.log(`Mise à jour du stock terminée: ${successCount}/${items.length} produits mis à jour`);
+        this.backendAvailable = successCount > 0;
+      }),
+      catchError(error => {
+        console.error('Erreur lors de la mise à jour du stock:', error);
+        this.backendAvailable = false;
+        return of(null);
+      })
+    );
+  }
+
+  /**
    * Vérifie la disponibilité du backend en envoyant une requête de test
    * @returns Observable<boolean> - true si le backend est disponible, false sinon
    */
@@ -844,7 +924,7 @@ export class CaisseService {
           // S'assurer que le prix est un nombre
           price: product.price || 0,
           // Ajouter une URL d'image par défaut si non définie
-          imageUrl: product.imageUrl || 'assets/images/product-default.png'
+          imageUrl: product.imageUrl || this.generateSVGPlaceholder(product.name || 'Produit')
         }));
       }),
       tap(products => {
@@ -883,7 +963,7 @@ export class CaisseService {
           // S'assurer que le prix est un nombre
           price: product.price || 0,
           // Ajouter une URL d'image par défaut si non définie
-          imageUrl: product.imageUrl || 'assets/images/product-default.png'
+          imageUrl: product.imageUrl || this.generateSVGPlaceholder(product.name || 'Produit')
         }));
       }),
       tap(products => {

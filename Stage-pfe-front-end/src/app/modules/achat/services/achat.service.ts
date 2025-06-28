@@ -12,6 +12,7 @@ export interface Fournisseur {
   email: string;
   contactNom?: string;
   notes?: string;
+  actif?: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -132,12 +133,15 @@ export class AchatService {
     );
   }
 
-  // Récupérer tous les fournisseurs
+  // Récupérer tous les fournisseurs (uniquement les actifs/réels)
   getFournisseurs(): Observable<Fournisseur[]> {
     return this.http.get<Fournisseur[]>(this.fournisseursUrl, { headers: this.getAuthHeaders() }).pipe(
       map(fournisseurs => {
         console.log('Fournisseurs récupérés depuis l\'API:', fournisseurs);
-        return fournisseurs;
+        // Filtrer pour ne garder que les fournisseurs actifs (réels)
+        const fournisseursReels = fournisseurs.filter(f => f.actif !== false);
+        console.log('Fournisseurs réels après filtrage:', fournisseursReels);
+        return fournisseursReels;
       }),
       catchError(error => {
         console.error('Erreur lors de la récupération des fournisseurs:', error);

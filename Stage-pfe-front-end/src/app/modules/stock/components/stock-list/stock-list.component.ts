@@ -246,4 +246,32 @@ export class StockListComponent implements OnInit {
       return 'Normal';
     }
   }
+  
+  /**
+   * Vérifie si des filtres sont actifs
+   */
+  hasActiveFilters(): boolean {
+    const { searchTerm, categoryId, stockStatus, active } = this.filterForm.value;
+    return !!searchTerm || !!categoryId || stockStatus !== 'all' || active === true;
+  }
+  
+  /**
+   * Récupère le nom d'une catégorie à partir de son ID
+   */
+  getCategoryName(categoryId: string | number): string {
+    if (!categoryId) return '';
+    const category = this.categories.find(c => c.id === categoryId);
+    return category ? category.name : '';
+  }
+  
+  /**
+   * Récupère le libellé du statut de stock
+   */
+  getStockStatusLabel(status: string): string {
+    switch (status) {
+      case 'low': return 'Stock faible';
+      case 'out': return 'Épuisé';
+      default: return 'Tous';
+    }
+  }
 }

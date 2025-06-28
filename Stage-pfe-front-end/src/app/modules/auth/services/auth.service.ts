@@ -11,6 +11,7 @@ export interface User {
   address?: string;
   roles: string[];
   active?: boolean;
+  status?: 'ACTIVE' | 'INACTIVE' | 'PENDING';
 }
 
 export interface RegisterRequest {
@@ -57,29 +58,76 @@ export class AuthService {
    * Authentifie un utilisateur et stocke son token JWT
    */
   login(credentials: LoginRequest): Observable<AuthResponse> {
+    console.log('AuthService: Tentative de connexion avec:', credentials.usernameOrEmail);
+    
     if (this.simulationMode) {
       return this.simulateLogin(credentials);
     }
-    
-    console.log('AuthService: Sending login request to', `${this.apiUrl}/login`);
-    console.log('AuthService: Login credentials:', credentials);
-    
-    // Effacer complètement les données d'authentification précédentes
-    this.logout();
     
     return this.http.post<AuthResponse>(`${this.apiUrl}/login`, credentials)
       .pipe(
         tap((response: AuthResponse) => {
           console.log('AuthService: Login response:', response);
-          this.setToken(response.accessToken);
-          this.loadUserFromToken();
           
-          // Log détaillé des rôles après connexion
-          console.log('AuthService: Utilisateur connecté:', this.currentUser);
-          console.log('AuthService: Rôles de l\'utilisateur après connexion:', this.getUserRoles());
+          // Débogage complet de la réponse pour comprendre sa structure
+          console.log('AuthService: Structure complète de la réponse:', JSON.stringify(response));
+          
+          // Vérification du statut d'activation - approche plus robuste
+          let isInactive = false;
+          let inactiveReason = '';
+          
+          // Cas 1: Vérification explicite de active === false
+          if (response.user && response.user.active === false) {
+            console.log('AuthService: Utilisateur inactif détecté (active=false)');
+            isInactive = true;
+            inactiveReason = 'Votre compte n\'a pas encore été activé par un administrateur.';
+          }
+          
+          // Cas 2: Vérification du statut explicite
+          if (!isInactive && response.user && response.user.status) {
+            if (response.user.status === 'INACTIVE') {
+              console.log('AuthService: Utilisateur avec statut INACTIVE');
+              isInactive = true;
+              inactiveReason = 'Votre compte a été désactivé par un administrateur.';
+            } else if (response.user.status === 'PENDING') {
+              console.log('AuthService: Utilisateur avec statut PENDING');
+              isInactive = true;
+              inactiveReason = 'Votre compte est en attente d\'approbation par un administrateur.';
+            }
+          }
+          
+          // Si l'utilisateur est inactif, rediriger et arrêter le processus
+          if (isInactive) {
+            console.log('AuthService: Redirection vers la page d\'attente d\'approbation');
+            this.router.navigate(['/auth/inactive-account']);
+            throw new Error(inactiveReason + ' Veuillez patienter ou contacter un administrateur.');
+          }
+          
+          // Si tout est OK, continuer le processus de connexion
+          console.log('AuthService: Utilisateur actif, continuation du processus de connexion');
+          this.setToken(response.accessToken);
+          
+          // Vérification supplémentaire lors du chargement des données utilisateur
+          try {
+            this.loadUserFromToken();
+            console.log('AuthService: Utilisateur connecté:', this.currentUser);
+            console.log('AuthService: Rôles de l\'utilisateur après connexion:', this.getUserRoles());
+          } catch (e) {
+            console.error('AuthService: Erreur lors du chargement des données utilisateur:', e);
+            this.logout();
+            throw new Error('Erreur lors du chargement des données utilisateur. Veuillez réessayer.');
+          }
         }),
         catchError(error => {
           console.error('AuthService: Login error:', error);
+          
+          // Gestion spécifique des erreurs 403 (compte inactif)
+          if (error.status === 403) {
+            console.log('AuthService: Erreur 403 détectée - compte inactif');
+            this.router.navigate(['/auth/inactive-account']);
+            return throwError(() => new Error('Votre compte n\'a pas encore été activé par un administrateur. Veuillez patienter.'));
+          }
+          
           return throwError(() => new Error(this.formatErrorMessage(error)));
         })
       );
@@ -122,7 +170,7 @@ export class AuthService {
             email: userData.email,
             address: userData.address,
             roles: userData.roles || ['ACHETEUR'],
-            active: userData.roles && userData.roles.includes('VENDEUR') ? false : true // Les vendeurs doivent être activés par un admin
+            active: false // Tous les utilisateurs doivent être activés par un admin
           }
         };
         return authResponse;
@@ -428,6 +476,63 @@ export class AuthService {
       const decodedToken = this.decodeToken(token);
       
       if (decodedToken) {
+        // Débogage complet du token pour comprendre sa structure
+        console.log('AuthService: Structure complète du token décodé:', JSON.stringify(decodedToken));
+        console.log('Token décodé - propriété active:', decodedToken.active);
+        console.log('Type de la propriété active:', typeof decodedToken.active);
+        
+        // Vérification du statut d'activation - approche plus robuste
+        let isInactive = false;
+        let inactiveReason = '';
+        
+        // Récupérer les propriétés de statut
+        const userActive = decodedToken.active;
+        const userStatus = decodedToken.status;
+        
+        console.log('AuthService: Vérification du statut utilisateur dans le token:');
+        console.log('- Propriété active:', userActive);
+        console.log('- Propriété status:', userStatus);
+        
+        // Cas 1: L'utilisateur est explicitement inactif (active=false)
+        if (userActive === false) {
+          console.log('AuthService: Utilisateur explicitement inactif (active=false)');
+          isInactive = true;
+          inactiveReason = 'Votre compte n\'a pas encore été activé par un administrateur';
+        }
+        
+        // Cas 2: L'utilisateur a un statut INACTIVE ou PENDING
+        if (!isInactive && userStatus) {
+          if (userStatus === 'INACTIVE') {
+            console.log('AuthService: Utilisateur avec statut INACTIVE');
+            isInactive = true;
+            inactiveReason = 'Votre compte a été désactivé par un administrateur';
+          } else if (userStatus === 'PENDING') {
+            console.log('AuthService: Utilisateur avec statut PENDING');
+            isInactive = true;
+            inactiveReason = 'Votre compte est en attente d\'approbation par un administrateur';
+          }
+        }
+        
+        // Cas 3: L'utilisateur n'est pas explicitement actif
+        if (!isInactive && userActive !== true && (!userStatus || userStatus !== 'ACTIVE')) {
+          console.log('AuthService: Utilisateur avec statut non clairement actif');
+          console.log('- active:', userActive);
+          console.log('- status:', userStatus);
+          isInactive = true;
+          inactiveReason = 'Votre compte n\'est pas actif';
+        }
+        
+        // Si l'utilisateur est inactif, déconnecter et rediriger
+        if (isInactive) {
+          console.log('AuthService: Utilisateur inactif détecté -', inactiveReason);
+          this.logout(); // Supprimer le token
+          this.router.navigate(['/auth/inactive-account']);
+          return;
+        }
+        
+        // Si l'utilisateur est actif, continuer normalement
+        console.log('AuthService: Utilisateur actif confirmé, chargement des données utilisateur');
+        
         // Normaliser les rôles
         let roles = [];
         if (Array.isArray(decodedToken.roles)) {
@@ -447,22 +552,46 @@ export class AuthService {
           if (!roles.includes('CLIENT')) roles.push('CLIENT');
         }
         
+        // Vérifier si l'utilisateur est un vendeur
+        const hasVendeurRole = roles.some((role: string) => 
+          role === 'VENDEUR' || role === 'ROLE_VENDEUR');
+        
+        if (hasVendeurRole) {
+          console.log('Utilisateur avec rôle VENDEUR détecté');
+        }
+        
+        // Tous les utilisateurs doivent être explicitement activés
+        const isActive = decodedToken.active === true;
+        console.log('État d\'activation calculé pour l\'utilisateur:', isActive);
+        
+        // Si l'utilisateur n'est pas explicitement actif, le déconnecter
+        if (!isActive) {
+          console.log('AuthService: Utilisateur non explicitement actif, déconnexion');
+          this.logout();
+          this.router.navigate(['/auth/inactive-account']);
+          return;
+        }
+        
         this.currentUser = {
           id: decodedToken.sub || decodedToken.id,
           username: decodedToken.username || decodedToken.preferred_username,
           email: decodedToken.email,
           address: decodedToken.address,
           roles: roles,
-          active: decodedToken.active !== undefined ? decodedToken.active : true
+          active: isActive
         };
+        
         console.log('AuthService: Utilisateur chargé avec succès:', this.currentUser);
         console.log('AuthService: Rôles de l\'utilisateur:', this.currentUser.roles);
+        console.log('AuthService: État d\'activation de l\'utilisateur:', this.currentUser.active);
       } else {
         console.log('AuthService: Token décodé est null ou invalide');
+        this.logout(); // Token invalide, déconnecter l'utilisateur
       }
     } catch (error) {
       console.error('Erreur lors du décodage du token:', error);
       this.currentUser = null;
+      this.logout(); // Erreur de décodage, déconnecter l'utilisateur
     }
   }
 
@@ -548,6 +677,51 @@ export class AuthService {
         this.loadUserFromToken();
       })
     );
+  }
+
+  /**
+   * Détermine l'URL de redirection par défaut en fonction du rôle de l'utilisateur
+   */
+  getDefaultRedirectUrl(): string {
+    // Vérifier si l'utilisateur est connecté
+    if (!this.isLoggedIn()) {
+      return '/auth/login';
+    }
+    
+    // Récupérer l'utilisateur actuel et ses rôles
+    const currentUser = this.getCurrentUser();
+    if (!currentUser) {
+      return '/auth/login';
+    }
+    
+    // Vérifier si l'utilisateur est actif - pour TOUS les utilisateurs
+    if (currentUser.active === false) {
+      console.log('Utilisateur inactif détecté dans getDefaultRedirectUrl, redirection vers page inactive');
+      return '/auth/inactive-account';
+    }
+    
+    // Si l'utilisateur n'a pas la propriété active explicitement définie à true, le considérer comme inactif
+    if (currentUser.active !== true) {
+      console.log('État d\'activation de l\'utilisateur non confirmé, redirection vers page inactive');
+      return '/auth/inactive-account';
+    }
+    
+    // Vérifier les rôles et rediriger en conséquence
+    if (this.hasRole('ADMIN')) {
+      return '/admin/dashboard';
+    } else if (this.hasRole('VENDEUR')) {
+      return '/vendor-dashboard';
+    } else if (this.hasRole('FOURNISSEUR')) {
+      return '/fournisseur/commandes';
+    } else if (this.hasRole('ACHAT')) {
+      return '/achat/commandes';
+    } else if (this.hasRole('MAGASINIER')) {
+      return '/stock/dashboard';
+    } else if (this.hasRole('CLIENT')) {
+      return '/acheteur/dashboard';
+    } else {
+      return '/caisse';
+    }
   }
 
   /**
