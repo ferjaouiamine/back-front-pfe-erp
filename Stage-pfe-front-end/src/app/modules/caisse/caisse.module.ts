@@ -27,7 +27,7 @@ import { MatExpansionModule } from '@angular/material/expansion';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatCheckboxModule } from '@angular/material/checkbox';
-
+import { StockModule } from '../stock/stock.module';
 
 @NgModule({
   declarations: [
@@ -47,6 +47,7 @@ import { MatCheckboxModule } from '@angular/material/checkbox';
     FormsModule,
     ReactiveFormsModule,
     CaisseRoutingModule,
+    StockModule,
     // Angular Material
     MatCardModule,
     MatButtonModule,

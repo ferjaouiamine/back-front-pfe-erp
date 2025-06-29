@@ -6,6 +6,7 @@ import { takeUntil } from 'rxjs/operators';
 
 import { CaisseService } from '../../services/caisse.service';
 import { AuthService } from '../../../auth/services/auth.service';
+import { ProductService } from '../../../stock/services/product.service';
 import { 
   CartItem, 
   SaleTransaction, 
@@ -67,6 +68,7 @@ export class PosNewComponent implements OnInit, OnDestroy {
 
   constructor(
     private caisseService: CaisseService,
+    private productService: ProductService,
     private dialog: MatDialog,
     private snackBar: MatSnackBar,
     private authService: AuthService
@@ -128,7 +130,7 @@ export class PosNewComponent implements OnInit, OnDestroy {
     
     // Utiliser le service approprié selon la catégorie
     if (categoryId === 'all') {
-      this.caisseService.getAllProducts().subscribe({
+      this.productService.getProducts().subscribe({
         next: (results) => {
           console.log('Produits reçus dans le composant:', results);
           this.products = results || [];

@@ -43,8 +43,12 @@ export interface PurchaseOrder {
   expectedDeliveryDate?: Date | string;
   deliveryDate?: Date | string;
   items: PurchaseOrderItem[];
+  lignes?: PurchaseOrderItem[]; // Alias pour items
+  lignesCommande?: PurchaseOrderItem[]; // Autre alias pour items
+  articles?: PurchaseOrderItem[]; // Autre alias pour items
   total: number;
   notes?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
+  [key: string]: any; // Pour permettre l'accès aux propriétés dynamiques
 }

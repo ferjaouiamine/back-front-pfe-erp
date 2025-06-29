@@ -331,208 +331,18 @@ export class PurchaseOrderDetailPlusComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Charge une commande par son ID
-   */
-  loadOrderById(id: string): void {
-    this.isLoading = true;
-    console.log('Chargement de la commande avec ID:', id);
-    
-    // Récupérer directement les données brutes du backend pour les examiner
-    this.http.get(`http://localhost:8088/api/commandes/${id}`).subscribe({
-      next: (rawData: any) => {
-        console.log('DONNÉES BRUTES du backend pour la commande', id, ':', rawData);
-        console.log('STRUCTURE JSON COMPLÈTE:', JSON.stringify(rawData, null, 2));
-        
-        // Examiner la structure des données pour trouver les articles
-        console.log(`Type de données reçues:`, typeof rawData);
-        const keys = Object.keys(rawData);
-        console.log(`Clés disponibles dans la réponse:`, keys);
-        
-        // Vérifier les propriétés qui pourraient contenir des articles
-        this.debugArticlesProperty(rawData, 'lignes');
-        this.debugArticlesProperty(rawData, 'lignesCommande');
-        this.debugArticlesProperty(rawData, 'articles');
-        
-        // Continuer avec le traitement normal
-        this.purchaseOrderService.getPurchaseOrderById(id).subscribe({
-          next: (order) => {
-            console.log('Commande récupérée via le service:', order);
-            console.log('Nombre de produits dans la commande:', order.items?.length || 0);
-            
-            // Vérifier si les articles sont présents et leur structure
-            if (order.items && order.items.length > 0) {
-              console.log('Articles trouvés dans la commande:');
-              order.items.forEach((item, index) => {
-                console.log(`Article ${index + 1}:`, item);
-              });
-            } else {
-              console.warn('Aucun article trouvé dans la commande!');
-              
-              // Vérifier si la commande contient d'autres propriétés qui pourraient contenir les articles
-              const orderKeys = Object.keys(order);
-              console.log('Propriétés disponibles dans la commande:', orderKeys);
-              
-              // Récupérer les articles depuis les propriétés non mappées si nécessaire
-              let articlesRecuperes = false;
-              
-              // Vérifier si la commande a des propriétés non mappées
-              if ((order as any).lignes && Array.isArray((order as any).lignes) && (order as any).lignes.length > 0) {
-                console.log('Propriété "lignes" trouvée avec', (order as any).lignes.length, 'éléments');
-                // Convertir les lignes en articles pour le modèle
-                order.items = (order as any).lignes.map((ligne: any) => ({
-                  id: ligne.id?.toString(),
-                  productId: ligne.produit?.id?.toString(),
-                  productName: ligne.produit?.nom ?? ligne.designation,
-                  quantity: ligne.quantite ?? 0,
-                  unitPrice: ligne.prixUnitaire ?? 0,
-                  total: ligne.montantHT ?? (ligne.quantite * ligne.prixUnitaire) ?? 0
-                }));
-                articlesRecuperes = true;
-                console.log('Articles récupérés depuis la propriété "lignes":', order.items);
-              } else if ((order as any).lignesCommande && Array.isArray((order as any).lignesCommande) && (order as any).lignesCommande.length > 0) {
-                console.log('Propriété "lignesCommande" trouvée avec', (order as any).lignesCommande.length, 'éléments');
-                // Convertir les lignesCommande en articles pour le modèle
-                order.items = (order as any).lignesCommande.map((ligne: any) => ({
-                  id: ligne.id?.toString(),
-                  productId: ligne.produit?.id?.toString(),
-                  productName: ligne.produit?.nom ?? ligne.designation,
-                  quantity: ligne.quantite ?? 0,
-                  unitPrice: ligne.prixUnitaire ?? 0,
-                  total: ligne.montantHT ?? (ligne.quantite * ligne.prixUnitaire) ?? 0
-                }));
-                articlesRecuperes = true;
-                console.log('Articles récupérés depuis la propriété "lignesCommande":', order.items);
-              } else {
-                // Essayer de récupérer les articles directement depuis les données brutes
-                if (rawData) {
-                  if (Array.isArray(rawData.lignes) && rawData.lignes.length > 0) {
-                    console.log('Récupération des articles depuis les données brutes (lignes)');
-                    order.items = rawData.lignes.map((ligne: any) => ({
-                      id: ligne.id?.toString(),
-                      productId: ligne.produit?.id?.toString(),
-                      productName: ligne.produit?.nom ?? ligne.designation,
-                      quantity: ligne.quantite ?? 0,
-                      unitPrice: ligne.prixUnitaire ?? 0,
-                      total: ligne.montantHT ?? (ligne.quantite * ligne.prixUnitaire) ?? 0
-                    }));
-                    articlesRecuperes = true;
-                  } else if (Array.isArray(rawData.lignesCommande) && rawData.lignesCommande.length > 0) {
-                    console.log('Récupération des articles depuis les données brutes (lignesCommande)');
-                    order.items = rawData.lignesCommande.map((ligne: any) => ({
-                      id: ligne.id?.toString(),
-                      productId: ligne.produit?.id?.toString(),
-                      productName: ligne.produit?.nom ?? ligne.designation,
-                      quantity: ligne.quantite ?? 0,
-                      unitPrice: ligne.prixUnitaire ?? 0,
-                      total: ligne.montantHT ?? (ligne.quantite * ligne.prixUnitaire) ?? 0
-                    }));
-                    articlesRecuperes = true;
-                  } else if (Array.isArray(rawData.articles) && rawData.articles.length > 0) {
-                    console.log('Récupération des articles depuis les données brutes (articles)');
-                    order.items = rawData.articles.map((article: any) => ({
-                      id: article.id?.toString(),
-                      productId: article.produit?.id?.toString() || article.productId?.toString(),
-                      productName: article.produit?.nom ?? article.designation ?? article.productName,
-                      quantity: article.quantite ?? article.quantity ?? 0,
-                      unitPrice: article.prixUnitaire ?? article.unitPrice ?? 0,
-                      total: article.montantHT ?? article.total ?? (article.quantite * article.prixUnitaire) ?? 0
-                    }));
-                    articlesRecuperes = true;
-                  }
-                }
-              }
-              
-              if (articlesRecuperes) {
-                console.log('Nombre d\'articles récupérés après correction:', order.items.length);
-              } else {
-                console.warn('Aucune propriété alternative contenant des articles n\'a été trouvée');
-                // Initialiser un tableau vide si aucun article n'a été trouvé
-                order.items = [];
-              }
-            }
-            
-            this.patchFormWithOrder(order);
-          },
-          error: (error: any) => {
-            console.error('Erreur détaillée lors du chargement de la commande via le service:', error);
-            this.showErrorMessage('Erreur lors du chargement de la commande: ' + error.message);
-            this.isLoading = false;
-          }
-        });
-      },
-      error: (error: any) => {
-        console.error('Erreur lors de la récupération des données brutes:', error);
-        // Continuer avec le service normal en cas d'erreur
-        this.continueWithNormalService(id);
-      }
-    });
-  }
-  
-  /**
-   * Méthode de débogage pour examiner une propriété qui pourrait contenir des articles
-   */
-  private debugArticlesProperty(data: any, propertyName: string): void {
-    if (data[propertyName]) {
-      console.log(`La propriété '${propertyName}' contient:`, data[propertyName]);
-      console.log(`Type de '${propertyName}':`, typeof data[propertyName]);
-      if (Array.isArray(data[propertyName])) {
-        console.log(`Nombre d'éléments dans '${propertyName}':`, data[propertyName].length);
-        if (data[propertyName].length > 0) {
-          console.log(`Premier élément de '${propertyName}':`, data[propertyName][0]);
-          if (data[propertyName][0].produit) {
-            console.log(`Détails du produit dans le premier élément:`, data[propertyName][0].produit);
-          }
-        }
-      }
-    } else {
-      console.log(`La propriété '${propertyName}' n'existe pas dans les données.`);
-    }
-  }
-  
-  /**
-   * Continuer avec le service normal en cas d'erreur lors de la récupération des données brutes
-   */
-  private continueWithNormalService(id: string): void {
-    this.purchaseOrderService.getPurchaseOrderById(id).subscribe({
-      next: (order) => {
-        console.log('Commande récupérée via le service:', order);
-        this.patchFormWithOrder(order);
-      },
-      error: (error: any) => {
-        console.error('Erreur détaillée lors du chargement de la commande:', error);
-        this.showErrorMessage('Erreur lors du chargement de la commande: ' + error.message);
-      },
-      complete: () => {
-        this.isLoading = false;
-      }
-    });
-  }
-
-  /**
    * Met à jour le formulaire avec les données d'une commande
+   * @param order Commande à afficher dans le formulaire
    */
-  patchFormWithOrder(order: PurchaseOrder): void {
+  private patchFormWithOrder(order: PurchaseOrder): void {
     console.log('Mise à jour du formulaire avec les données de la commande:', order);
     
     // Vider le tableau d'articles existant
     while (this.items.length > 0) {
       this.items.removeAt(0);
     }
-    
-    // Vérifier si la commande contient des articles
-    if (!order.items || order.items.length === 0) {
-      console.warn('La commande ne contient aucun article!');
-    } else {
-      console.log('Nombre d\'articles dans la commande:', order.items.length);
-      
-      // Ajouter les articles de la commande
-      order.items.forEach((item, index) => {
-        console.log(`Ajout de l'article ${index + 1}:`, item);
-        this.addItem(item);
-      });
-    }
-    
-    // Mettre à jour les autres champs du formulaire
+
+    // Mettre à jour les champs du formulaire
     this.orderForm.patchValue({
       id: order.id,
       orderNumber: order.orderNumber,
@@ -554,13 +364,67 @@ export class PurchaseOrderDetailPlusComponent implements OnInit, OnDestroy {
         : typeof order.deliveryDate === 'string'
           ? order.deliveryDate.split('T')[0]
           : '',
-      notes: order.notes
+      notes: order.notes || ''
     });
-    
+
+    // Ajouter les articles à la commande
+    if (order.items && order.items.length > 0) {
+      console.log(`Ajout de ${order.items.length} articles au formulaire`);
+      order.items.forEach(item => this.addItem(item));
+    } else {
+      console.warn('Aucun article trouvé dans la commande');
+    }
+
     // Si en mode lecture seule, désactiver le formulaire
     if (this.isReadOnly) {
       this.orderForm.disable();
     }
+  }
+
+  /**
+   * Charge une commande par son ID
+   */
+  loadOrderById(id: string): void {
+    this.isLoading = true;
+    console.log(`Chargement de la commande avec l'ID: ${id}`);
+
+    this.purchaseOrderService.getPurchaseOrderById(id).subscribe({
+      next: (order) => {
+        try {
+          console.log('Réponse de l\'API:', order);
+          
+          // Vérifier si les articles sont présents dans différentes propriétés
+          if (!order.items || order.items.length === 0) {
+            if (order.lignes && order.lignes.length > 0) {
+              console.log('Utilisation de la propriété "lignes" pour les articles');
+              order.items = order.lignes;
+            } else if (order.lignesCommande && order.lignesCommande.length > 0) {
+              console.log('Utilisation de la propriété "lignesCommande" pour les articles');
+              order.items = order.lignesCommande;
+            } else if (order.articles && order.articles.length > 0) {
+              console.log('Utilisation de la propriété "articles" pour les articles');
+              order.items = order.articles;
+            } else {
+              console.warn('Aucun article trouvé dans la réponse de l\'API');
+              order.items = [];
+            }
+          }
+
+          console.log(`Nombre d'articles chargés: ${order.items.length}`);
+          this.patchFormWithOrder(order);
+        } catch (error) {
+          console.error('Erreur lors du traitement de la commande:', error);
+          this.showErrorMessage('Erreur lors du chargement de la commande');
+        } finally {
+          this.isLoading = false;
+        }
+      },
+      error: (error) => {
+        console.error('Erreur lors de la récupération de la commande:', error);
+        this.showErrorMessage('Impossible de charger la commande. Veuillez réessayer.');
+        this.isLoading = false;
+      }
+    });
   }
 
   /**
@@ -575,26 +439,36 @@ export class PurchaseOrderDetailPlusComponent implements OnInit, OnDestroy {
       unitPrice: [item.unitPrice || 0, [Validators.required, Validators.min(0)]],
       total: [item.total || 0]
     });
+
+    // Ajouter le nouvel article au début du tableau
+    this.items.insert(0, newItemGroup);
     
-    this.items.push(newItemGroup);
+    // Forcer le calcul du total
+    this.calculateItemTotal(newItemGroup);
     
-    // Calcul des totaux
+    // Mettre à jour le total de la commande
     this.calculateOrderTotal();
     
     // Mettre à jour la liste des commandes
     this.updateOrdersList();
     
-    // Écouter les changements de quantité et prix unitaire pour mettre à jour la liste des commandes
+    // S'abonner aux changements de quantité et de prix
     const quantitySub = newItemGroup.get('quantity')?.valueChanges.subscribe(() => {
+      this.calculateItemTotal(newItemGroup);
+      this.calculateOrderTotal();
       this.updateOrdersList();
     });
     
     const priceSub = newItemGroup.get('unitPrice')?.valueChanges.subscribe(() => {
+      this.calculateItemTotal(newItemGroup);
+      this.calculateOrderTotal();
       this.updateOrdersList();
     });
     
-    if (quantitySub) this.subscriptions.push(quantitySub);
-    if (priceSub) this.subscriptions.push(priceSub);
+    // Stocker les souscriptions pour les nettoyer plus tard
+    if (quantitySub && priceSub) {
+      this.subscriptions.push(quantitySub, priceSub);
+    }
   }
 
   /**
@@ -873,11 +747,30 @@ export class PurchaseOrderDetailPlusComponent implements OnInit, OnDestroy {
     this.isLoading = true;
     const formValue = this.orderForm.value;
     
-    // Construire l'objet commande
+    // Préparer les articles avec le format attendu par l'API
+    const items = this.items.controls.map(item => ({
+      id: item.get('id')?.value,
+      productId: item.get('productId')?.value,
+      productName: item.get('productName')?.value,
+      quantity: item.get('quantity')?.value || 0,
+      unitPrice: item.get('unitPrice')?.value || 0,
+      total: (item.get('quantity')?.value || 0) * (item.get('unitPrice')?.value || 0)
+    }));
+    
+    console.log('Articles à enregistrer:', items);
+    
+    // Construire l'objet commande avec les articles formatés
     const order: PurchaseOrder = {
       ...formValue,
-      total: this.calculateOrderTotal()
+      items: items,
+      total: this.calculateOrderTotal(),
+      // Assurer que les dates sont au bon format
+      orderDate: formValue.orderDate ? new Date(formValue.orderDate).toISOString() : new Date().toISOString(),
+      expectedDeliveryDate: formValue.expectedDeliveryDate ? new Date(formValue.expectedDeliveryDate).toISOString() : null,
+      deliveryDate: formValue.deliveryDate ? new Date(formValue.deliveryDate).toISOString() : null
     };
+    
+    console.log('Données de la commande à enregistrer:', order);
     
     // Mettre à jour ou créer la commande selon qu'il s'agit d'une édition ou d'une création
     const saveObservable = this.isNewOrder
@@ -886,13 +779,42 @@ export class PurchaseOrderDetailPlusComponent implements OnInit, OnDestroy {
     
     saveObservable.subscribe({
       next: (savedOrder) => {
+        console.log('Commande enregistrée avec succès:', savedOrder);
         this.showSuccessMessage('La commande a été enregistrée avec succès.');
+        
+        // Mettre à jour l'ID de la commande si c'est une nouvelle commande
+        if (this.isNewOrder && savedOrder.id) {
+          this.orderId = savedOrder.id;
+          this.isNewOrder = false;
+        }
         
         // Rediriger vers la page de visualisation
         this.router.navigate(['/stock/purchase-orders/view', savedOrder.id]);
       },
       error: (error) => {
-        this.showErrorMessage('Erreur lors de l\'enregistrement de la commande: ' + error.message);
+        console.error('Erreur complète lors de l\'enregistrement:', error);
+        let errorMessage = 'Erreur lors de l\'enregistrement de la commande';
+        
+        // Ajouter plus de détails sur l'erreur si disponibles
+        if (error.error) {
+          if (typeof error.error === 'string') {
+            errorMessage += `: ${error.error}`;
+          } else if (error.error.message) {
+            errorMessage += `: ${error.error.message}`;
+          } else if (error.error.error) {
+            errorMessage += `: ${error.error.error}`;
+          }
+          
+          // Afficher les erreurs de validation détaillées si disponibles
+          if (error.error.errors) {
+            const validationErrors = Object.values(error.error.errors).flat();
+            errorMessage += '\n' + validationErrors.join('\n');
+          }
+        } else {
+          errorMessage += `: ${error.message || 'Erreur inconnue'}`;
+        }
+        
+        this.showErrorMessage(errorMessage);
       },
       complete: () => {
         this.isLoading = false;

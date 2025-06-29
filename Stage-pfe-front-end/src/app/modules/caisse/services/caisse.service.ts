@@ -943,47 +943,9 @@ export class CaisseService {
   }
 
   /**
-   * Récupère tous les produits du service stock
-   * @returns Observable<any[]> Liste de tous les produits
-   */
-  getAllProducts(): Observable<any[]> {
-    const headers = this.getAuthHeaders();
-    console.log('URL du service stock:', this.stockServiceUrl);
-    console.log('En-têtes d\'authentification:', headers);
-    
-    return this.http.get<any[]>(`${this.stockServiceUrl}/products`, { headers }).pipe(
-      map(products => {
-        console.log('Produits bruts reçus du backend:', products);
-        
-        // Transformer les données pour s'assurer que quantityInStock est défini
-        return products.map(product => ({
-          ...product,
-          // Mapper la propriété quantity du backend vers quantityInStock pour le frontend
-          quantityInStock: product.quantity || product.quantityInStock || product.stock || 0,
-          // S'assurer que le prix est un nombre
-          price: product.price || 0,
-          // Ajouter une URL d'image par défaut si non définie
-          imageUrl: product.imageUrl || this.generateSVGPlaceholder(product.name || 'Produit')
-        }));
-      }),
-      tap(products => {
-        console.log('Produits transformés:', products);
-        this.backendAvailable = true;
-      }),
-      catchError(error => {
-        console.error('Erreur lors de la récupération de tous les produits:', error);
-        this.backendAvailable = false;
-        console.log('Utilisation des données de secours (fallback)...');
-        // Utiliser la recherche générique en cas d'erreur
-        return this.searchProduct('');
-      })
-    );
-  }
-
-  /**
-   * Retourne une icône pour une catégorie donnée
+   * Récupère l'icône appropriée pour une catégorie donnée
    * @param categoryName Nom de la catégorie
-   * @returns string Nom de l'icône Material
+   * @returns Nom de l'icône Material Design
    */
   private getCategoryIcon(categoryName: string): string {
     const iconMap: {[key: string]: string} = {

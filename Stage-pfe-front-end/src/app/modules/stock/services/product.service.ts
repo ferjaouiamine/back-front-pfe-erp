@@ -101,29 +101,14 @@ export class ProductService {
         
         let products: Product[] = [];
         
+        // Handle both array and paginated responses
         if (Array.isArray(response)) {
-          // Mapper les données du backend aux propriétés du modèle Product
-          products = response.map((item: any) => {
-            return {
-              id: typeof item.id === 'number' ? item.id : Number(item.id),
-              reference: item.reference || '',
-              name: item.name || '',
-              description: item.description || '',
-              price: typeof item.price === 'number' ? item.price : parseFloat(item.price) || 0,
-              quantity: typeof item.quantity === 'number' ? item.quantity : parseInt(item.quantity) || 0,
-              alertThreshold: item.alertThreshold || 0,
-              active: item.active !== undefined ? item.active : true,
-              createdAt: item.createdAt ? new Date(item.createdAt) : undefined,
-              updatedAt: item.updatedAt ? new Date(item.updatedAt) : undefined,
-              category: item.category ? {
-                id: item.category.id,
-                name: item.category.name
-              } : undefined,
-              categoryId: item.categoryId || (item.category ? item.category.id : undefined)
-            };
-          });
+          products = response.map((item: any) => this.mapResponseToProduct(item));
+        } else if (response && Array.isArray(response.content)) {
+          // Handle Spring paginated response
+          products = response.content.map((item: any) => this.mapResponseToProduct(item));
         } else {
-          console.warn('La réponse du backend n\'est pas un tableau:', response);
+          console.warn('Unexpected response format:', response);
         }
         
         return products;
@@ -141,11 +126,14 @@ export class ProductService {
             
             let products: Product[] = [];
             
+            // Handle both array and paginated responses
             if (Array.isArray(response)) {
-              // Mapper les données du backend aux propriétés du modèle Product
               products = response.map((item: any) => this.mapResponseToProduct(item));
+            } else if (response && Array.isArray(response.content)) {
+              // Handle Spring paginated response
+              products = response.content.map((item: any) => this.mapResponseToProduct(item));
             } else {
-              console.warn('La réponse du backend alternatif n\'est pas un tableau:', response);
+              console.warn('Unexpected response format:', response);
             }
             
             return products;
@@ -493,69 +481,10 @@ export class ProductService {
       })
     );
   }
-
-  /**
-   * Crée un nouveau produit
-   * @param product Les données du produit à créer
-   * @returns Observable du produit créé
-   */
-  createProduct(product: Product): Observable<Product> {
-    // Si le backend est indisponible, retourner une erreur
-    if (!this.backendAvailable) {
-      return throwError(() => new Error('Le serveur de gestion de produits n\'est pas disponible. Impossible de créer le produit.'));
-    }
-    console.log('Création du produit avec données réelles uniquement:', product);
-    
-    const headers = this.getAuthHeaders();
-    
-    // Log des données du produit avant envoi
-    console.log('Tentative de création du produit:', product);
-    
-    // Essayer d'abord avec le backend sur le port principal
-    return this.http.post<Product>(this.apiUrl, product, { headers }).pipe(
-      map(response => {
-        // Marquer le backend comme disponible puisque la requête a réussi
-        this.backendAvailable = true;
-        console.log('Produit créé avec succès:', response);
-        
-        // Créer un mouvement de stock pour l'entrée initiale si la quantité > 0
-        if (response && response.id && response.quantity > 0) {
-          this.createStockMovement(response.id, response.quantity, 'ENTRY', 'Création initiale du produit');
-        }
-        
-        return response;
-      }),
-      catchError(error => {
-        console.error('Erreur lors de la création du produit sur le port principal:', error);
-        
-        // En cas d'échec, essayer avec le backend sur le port alternatif
-        return this.http.post<Product>(this.alternativeApiUrl, product, { headers }).pipe(
-          map(response => {
-            // Marquer le backend comme disponible puisque la requête a réussi
-            this.backendAvailable = true;
-            console.log('Produit créé avec succès sur le port alternatif:', response);
-            
-            // Créer un mouvement de stock pour l'entrée initiale si la quantité > 0
-            if (response && response.id && response.quantity > 0) {
-              this.createStockMovement(response.id, response.quantity, 'ENTRY', 'Création initiale du produit');
-            }
-            
-            return response;
-          }),
-          catchError(alternativeError => {
-            console.error('Erreur lors de la création du produit sur le port alternatif:', alternativeError);
-            // Marquer le backend comme indisponible
-            this.backendAvailable = false;
-            return throwError(() => new Error(`Échec de la création du produit: ${alternativeError.message}`));
-          })
-        );
-      })
-    );
-  }
   
   /**
    * Met à jour un produit existant
-   * @param product Les données du produit à mettre à jour
+   * @param product Produit à mettre à jour
    * @returns Observable du produit mis à jour
    */
   updateProduct(product: Product): Observable<Product> {
@@ -593,6 +522,8 @@ export class ProductService {
       })
     );
   }
+
+
 
   /**
    * Supprime un produit (désactivation logique)
@@ -888,6 +819,104 @@ export class ProductService {
         );
       })
     );
+  }
+
+  /**
+   * Crée un nouveau produit dans le backend et le synchronise avec le module caisse
+   * @param product Produit à créer
+   * @returns Observable contenant le produit créé
+   */
+  createProduct(product: Product): Observable<Product> {
+    if (!this.backendAvailable) {
+      return throwError(() => new Error('Le serveur de gestion de produits n\'est pas disponible. Impossible de créer le produit.'));
+    }
+
+    // Générer une URL d'image placeholder si aucune n'est fournie
+    if (!product.imageUrl) {
+      product.imageUrl = this.generateImagePlaceholder(product.name || 'Produit');
+    }
+
+    const headers = this.getAuthHeaders();
+    
+    // Créer le produit dans le backend stock
+    return this.http.post<Product>(this.apiUrl, product, { headers }).pipe(
+      map(createdProduct => {
+        console.log('Produit créé avec succès:', createdProduct);
+        this.backendAvailable = true;
+        
+        // Si le produit a une quantité initiale > 0, créer un mouvement de stock d'entrée
+        if (createdProduct && createdProduct.id && createdProduct.quantity > 0) {
+          this.createStockMovement(
+            createdProduct.id as number,
+            createdProduct.quantity,
+            'ENTRY',
+            'Création initiale du produit'
+          );
+        }
+        
+        // Synchroniser le produit avec le module caisse
+        this.syncProductWithCaisse(createdProduct);
+        
+        return createdProduct;
+      }),
+      catchError(error => {
+        console.error('Erreur lors de la création du produit:', error);
+        return throwError(() => new Error(`Impossible de créer le produit. Erreur: ${error.status} ${error.statusText}`));
+      })
+    );
+  }
+  
+  /**
+   * Génère une image placeholder SVG avec les initiales du produit
+   * @param productName Nom du produit
+   * @returns URL de l'image en base64
+   */
+  private generateImagePlaceholder(productName: string): string {
+    // Extraire les initiales du nom du produit (maximum 2 caractères)
+    const initials = productName
+      .split(' ')
+      .map(word => word.charAt(0).toUpperCase())
+      .slice(0, 2)
+      .join('');
+    
+    // Générer une couleur aléatoire pour le fond
+    const colors = ['#3498db', '#2ecc71', '#e74c3c', '#f39c12', '#9b59b6', '#1abc9c'];
+    const backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+    
+    // Créer un SVG avec les initiales
+    const svg = `
+      <svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200">
+        <rect width="200" height="200" fill="${backgroundColor}"/>
+        <text x="50%" y="50%" dy=".3em" font-family="Arial" font-size="80" fill="white" text-anchor="middle">
+          ${initials}
+        </text>
+      </svg>
+    `;
+    
+    // Convertir le SVG en base64
+    const base64 = btoa(svg);
+    return `data:image/svg+xml;base64,${base64}`;
+  }
+  
+  /**
+   * Synchronise un produit avec le module caisse
+   * @param product Produit à synchroniser
+   */
+  private syncProductWithCaisse(product: Product): void {
+    if (!product || !product.id) {
+      console.error('Impossible de synchroniser un produit invalide avec la caisse');
+      return;
+    }
+    
+    console.log('Synchronisation du produit avec le module caisse:', product);
+    
+    // Endpoint de synchronisation dans le module caisse
+    const syncUrl = 'http://localhost:8086/api/sync/product';
+    
+    this.http.post(syncUrl, product, { headers: this.getAuthHeaders() }).subscribe({
+      next: (response) => console.log('Produit synchronisé avec succès avec la caisse:', response),
+      error: (error) => console.error('Erreur lors de la synchronisation du produit avec la caisse:', error)
+    });
   }
 
   /**
