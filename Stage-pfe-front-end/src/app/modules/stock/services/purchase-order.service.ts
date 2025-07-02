@@ -160,7 +160,7 @@ export class PurchaseOrderService {
     this.loading.next(true);
     this.backendAvailable = false; // Par défaut, supposer que le backend n'est pas disponible
 
-    /* ----------- Si on force les mocks ou qu'on est déjà en dégradé ---------- */
+    /* ----------------------------- Mode mock ------------------------------- */
     if (this.forceMockData) {
       const local = this.mockOrders.find((o) => o.id === id);
       const order = local ?? this.getMockPurchaseOrders().find((o) => o.id === id) ?? this.createEmptyPurchaseOrder();
@@ -220,51 +220,55 @@ export class PurchaseOrderService {
         console.log(`Conversion des données brutes en modèle...`);
         this.backendAvailable = true;
         
+        // Vérifier si des données de commande sont disponibles
+        if (!rawData) {
+          throw new Error(`Aucune donnée de commande reçue pour l'ID ${id}`);
+        }
+        
         // Créer une copie des données brutes pour les manipuler
         const orderData = { ...rawData };
         
         // Vérifier si les articles sont présents sous différentes propriétés
         let items = [];
         
-        if (Array.isArray(orderData.lignes) && orderData.lignes.length > 0) {
+        // Vérifier d'abord la propriété 'lignes' qui est le nom principal dans l'API
+        if (orderData.lignes && Array.isArray(orderData.lignes)) {
           console.log(`Utilisation de la propriété 'lignes' pour les articles`);
           items = orderData.lignes.map((ligne: any) => ({
             id: ligne.id?.toString(),
-            productId: ligne.produit?.id?.toString(),
-            productName: ligne.produit?.nom ?? ligne.designation,
-            quantity: ligne.quantite ?? 0,
-            unitPrice: ligne.prixUnitaire ?? 0,
-            total: ligne.montantHT ?? (ligne.quantite * ligne.prixUnitaire) ?? 0
+            productId: ligne.produit?.id?.toString() || ligne.productId?.toString(),
+            productName: ligne.produit?.nom || ligne.designation || ligne.productName || 'Produit sans nom',
+            quantity: Number(ligne.quantite || ligne.quantity || 0),
+            unitPrice: Number(ligne.prixUnitaire || ligne.unitPrice || 0),
+            total: Number(ligne.montantHT || ligne.total || 0)
           }));
-        } else if (Array.isArray(orderData.lignesCommande) && orderData.lignesCommande.length > 0) {
-          console.log(`Utilisation de la propriété 'lignesCommande' pour les articles`);
-          items = orderData.lignesCommande.map((ligne: any) => ({
-            id: ligne.id?.toString(),
-            productId: ligne.produit?.id?.toString(),
-            productName: ligne.produit?.nom ?? ligne.designation,
-            quantity: ligne.quantite ?? 0,
-            unitPrice: ligne.prixUnitaire ?? 0,
-            total: ligne.montantHT ?? (ligne.quantite * ligne.prixUnitaire) ?? 0
-          }));
-        } else if (Array.isArray(orderData.articles) && orderData.articles.length > 0) {
+        } 
+        // Fallback pour d'autres noms de propriétés possibles
+        else if (orderData.articles && Array.isArray(orderData.articles)) {
           console.log(`Utilisation de la propriété 'articles' pour les articles`);
           items = orderData.articles.map((article: any) => ({
             id: article.id?.toString(),
             productId: article.produit?.id?.toString() || article.productId?.toString(),
-            productName: article.produit?.nom ?? article.designation ?? article.productName,
-            quantity: article.quantite ?? article.quantity ?? 0,
-            unitPrice: article.prixUnitaire ?? article.unitPrice ?? 0,
-            total: article.montantHT ?? article.total ?? (article.quantite * article.prixUnitaire) ?? 0
+            productName: article.produit?.nom || article.designation || article.productName || 'Produit sans nom',
+            quantity: Number(article.quantite || article.quantity || 0),
+            unitPrice: Number(article.prixUnitaire || article.unitPrice || 0),
+            total: Number(article.montantHT || article.total || 0)
           }));
         } else {
-          console.warn(`Aucune propriété contenant des articles n'a été trouvée`);
+          console.warn(`Aucune propriété contenant des articles n'a été trouvée dans la réponse API`);
+          console.warn(`Propriétés disponibles:`, Object.keys(orderData));
         }
         
         console.log(`Nombre d'articles trouvés: ${items.length}`);
         
         // Créer l'objet commande avec les articles récupérés
         const mappedOrder = this.mapApiOrderToModel(orderData);
-        mappedOrder.items = items;
+        if (items) {
+          mappedOrder.items = items;
+        } else {
+          console.warn('Aucun article trouvé dans la réponse');
+          mappedOrder.items = [];
+        }
         
         console.log(`Commande mappée avec articles:`, mappedOrder);
         return mappedOrder;
@@ -853,104 +857,172 @@ export class PurchaseOrderService {
   }
 
   private mapApiOrderToModel(apiOrder: any): PurchaseOrder {
-    console.log('Données brutes reçues du backend:', apiOrder);
+    console.log('Début du mapping de la commande API vers le modèle frontend');
+    console.log('Données brutes reçues du backend:', JSON.stringify(apiOrder, null, 2));
     
     // Vérifier si les lignes de commande existent et sont accessibles
-    let items = [];
-    if (Array.isArray(apiOrder.lignes)) {
-      console.log(`La commande contient ${apiOrder.lignes.length} lignes`);
-      items = apiOrder.lignes.map((l: any, index: number) => {
-        console.log(`Traitement de la ligne ${index}:`, l);
+    let items: PurchaseOrderItem[] = [];
+    
+    // Essayer différents formats de données pour les articles
+    const possibleItemsProperties = [
+      'lignes',
+      'lignesCommande',
+      'articles',
+      'items',
+      'orderItems',
+      'purchaseOrderItems'
+    ];
+    
+    // Trouver la première propriété qui contient des articles
+    const itemsProperty = possibleItemsProperties.find(prop => {
+      const hasItems = Array.isArray(apiOrder[prop]) && apiOrder[prop].length > 0;
+      if (hasItems) {
+        console.log(`Articles trouvés dans la propriété '${prop}':`, apiOrder[prop]);
+      }
+      return hasItems;
+    });
+    
+    if (itemsProperty) {
+      console.log(`Utilisation de la propriété '${itemsProperty}' pour les articles`);
+      const rawItems = apiOrder[itemsProperty];
+      
+      items = rawItems.map((item: any, index: number) => {
+        console.log(`Traitement de l'article ${index + 1}/${rawItems.length}:`, item);
+        
+        // Extraire les propriétés selon différents formats possibles
+        const id = item.id?.toString();
+        const productId = item.produit?.id?.toString() || item.productId?.toString();
+        const productName = item.produit?.nom || item.designation || item.productName || 'Produit sans nom';
+        const quantity = Number(item.quantite || item.quantity || 0);
+        const unitPrice = Number(item.prixUnitaire || item.unitPrice || 0);
+        const total = Number(item.montantHT || item.total || (quantity * unitPrice) || 0);
+        
         return {
-          id: l.id?.toString(),
-          productId: l.produit?.id?.toString(),
-          productName: l.produit?.nom ?? l.designation,
-          quantity: l.quantite ?? 0,
-          unitPrice: l.prixUnitaire ?? 0,
-          total: l.montantHT ?? (l.quantite * l.prixUnitaire) ?? 0
+          id,
+          productId,
+          productName,
+          quantity,
+          unitPrice,
+          total
         };
       });
-    } else if (apiOrder.lignesCommande && Array.isArray(apiOrder.lignesCommande)) {
-      // Alternative si le backend utilise un nom de propriété différent
-      console.log(`La commande contient ${apiOrder.lignesCommande.length} lignesCommande`);
-      items = apiOrder.lignesCommande.map((l: any, index: number) => {
-        console.log(`Traitement de la ligneCommande ${index}:`, l);
-        return {
-          id: l.id?.toString(),
-          productId: l.produit?.id?.toString(),
-          productName: l.produit?.nom ?? l.designation,
-          quantity: l.quantite ?? 0,
-          unitPrice: l.prixUnitaire ?? 0,
-          total: l.montantHT ?? (l.quantite * l.prixUnitaire) ?? 0
-        };
-      });
+      
+      console.log(`Nombre d'articles mappés: ${items.length}`);
     } else {
-      console.warn('Aucune ligne de commande trouvée dans la réponse API');
+      console.warn(`Aucune propriété contenant des articles n'a été trouvée dans la réponse API`);
+      console.warn(`Propriétés disponibles:`, Object.keys(apiOrder));
+      
+      // Essayer de récupérer les articles directement si la réponse est un tableau
+      if (Array.isArray(apiOrder)) {
+        console.warn('La réponse est un tableau, tentative d\'extraction des articles...');
+        items = apiOrder
+          .filter((item: any) => item.productId || item.produit?.id)
+          .map((item: any) => ({
+            id: item.id?.toString(),
+            productId: item.produit?.id?.toString() || item.productId?.toString(),
+            productName: item.produit?.nom || item.designation || item.productName || 'Produit sans nom',
+            quantity: Number(item.quantite || item.quantity || 0),
+            unitPrice: Number(item.prixUnitaire || item.unitPrice || 0),
+            total: Number(item.montantHT || item.total || 0)
+          }));
+        
+        if (items.length > 0) {
+          console.log(`Extrait ${items.length} articles du tableau de réponse`);
+        }
+      }
     }
     
-    const mappedOrder = {
-      id: apiOrder.id?.toString(),
-      orderNumber: apiOrder.numero,
-      supplierId: apiOrder.fournisseur?.id?.toString(),
-      supplierName: apiOrder.fournisseur?.nom,
-      supplierEmail: apiOrder.fournisseur?.email || apiOrder.emailFournisseur,
-      supplierAddress: apiOrder.fournisseur?.adresse,
-      status: this.mapApiStatus(apiOrder.statut),
-      orderDate: apiOrder.dateCommande ?? new Date().toISOString(),
-      expectedDeliveryDate: apiOrder.dateLivraisonPrevue,
-      deliveryDate: apiOrder.dateLivraisonEffective,
-      items: items,
-      total: apiOrder.montantTTC ?? apiOrder.montantTotal ?? 0,
-      notes: apiOrder.notes,
-      createdAt: apiOrder.dateCreation,
-      updatedAt: apiOrder.dateModification
-    } as PurchaseOrder;
+    // Extraire les informations de base de la commande
+    const orderId = apiOrder.id?.toString();
+    const orderNumber = apiOrder.numero || apiOrder.orderNumber || '';
+    const supplierId = apiOrder.fournisseur?.id?.toString() || apiOrder.supplierId?.toString() || '';
+    const supplierName = apiOrder.fournisseur?.nom || apiOrder.supplierName || '';
+    const supplierEmail = apiOrder.fournisseur?.email || apiOrder.emailFournisseur || apiOrder.supplierEmail || '';
+    const supplierAddress = apiOrder.fournisseur?.adresse || apiOrder.supplierAddress || '';
+    const status = this.mapApiStatus(apiOrder.statut || apiOrder.status || 'DRAFT');
+    const orderDate = apiOrder.dateCommande || apiOrder.orderDate || new Date().toISOString();
+    const expectedDeliveryDate = apiOrder.dateLivraisonPrevue || apiOrder.expectedDeliveryDate;
+    const deliveryDate = apiOrder.dateLivraisonEffective || apiOrder.deliveryDate;
+    const notes = apiOrder.notes || '';
+    const createdAt = apiOrder.dateCreation || apiOrder.createdAt;
+    const updatedAt = apiOrder.dateModification || apiOrder.updatedAt;
     
-    console.log('Commande mappée vers le modèle frontend:', mappedOrder);
+    // Calculer le total s'il n'est pas fourni
+    const calculatedTotal = items.reduce((sum, item) => sum + (item.total || 0), 0);
+    const total = Number(apiOrder.montantTTC || apiOrder.montantTotal || apiOrder.total || calculatedTotal);
+    
+    const mappedOrder: PurchaseOrder = {
+      id: orderId,
+      orderNumber,
+      supplierId,
+      supplierName,
+      supplierEmail,
+      supplierAddress,
+      status,
+      orderDate,
+      expectedDeliveryDate,
+      deliveryDate,
+      items,
+      total,
+      notes,
+      createdAt,
+      updatedAt
+    };
+    
+    console.log('Commande mappée vers le modèle frontend:', JSON.stringify(mappedOrder, null, 2));
     return mappedOrder;
   }
 
   private mapModelToApiOrder(order: PurchaseOrder): any {
-    console.log('Mapping de la commande frontend vers le format API:', order);
+    console.log('Début du mapping de la commande frontend vers le format API:', order);
     
     // Vérifier si les articles existent
-    const lignes = order.items && order.items.length > 0 
-      ? order.items.map((item, index) => {
-          console.log(`Mapping de l'article ${index}:`, item);
-          return {
-            id: item.id,
-            produit: {
-              id: item.productId,
-              nom: item.productName
-            },
-            designation: item.productName,
-            quantite: item.quantity,
-            prixUnitaire: item.unitPrice,
-            montantHT: item.total
-          };
-        })
-      : [];
+    const lignes = (order.items || []).map((item, index) => {
+      console.log(`Mapping de l'article ${index + 1}/${order.items?.length || 0}:`, item);
+      
+      // S'assurer que les valeurs numériques sont bien des nombres
+      const quantite = Number(item.quantity) || 0;
+      const prixUnitaire = Number(item.unitPrice) || 0;
+      const montantHT = Number(item.total) || (quantite * prixUnitaire);
+      
+      return {
+        id: item.id || undefined, // Ne pas inclure si non défini
+        produit: {
+          id: item.productId,
+          nom: item.productName || 'Produit sans nom'
+        },
+        designation: item.productName || 'Produit sans nom',
+        quantite: quantite,
+        prixUnitaire: prixUnitaire,
+        montantHT: montantHT,
+        // Ajout de champs supplémentaires qui pourraient être requis par le backend
+        tva: 0, // Valeur par défaut pour la TVA
+        remise: 0, // Valeur par défaut pour la remise
+        unite: 'unité' // Valeur par défaut pour l'unité
+      };
+    });
     
     console.log(`Nombre d'articles mappés: ${lignes.length}`);
     
     // Créer l'objet de commande au format API
     const apiOrder = {
-      id: order.id,
-      numero: order.orderNumber,
+      id: order.id || undefined, // Ne pas inclure si c'est une nouvelle commande
+      numero: order.orderNumber || undefined,
       fournisseur: order.supplierId ? {
         id: order.supplierId,
-        nom: order.supplierName,
-        email: order.supplierEmail,
-        adresse: order.supplierAddress
+        nom: order.supplierName || 'Fournisseur inconnu',
+        email: order.supplierEmail || undefined,
+        adresse: order.supplierAddress || undefined
       } : null,
-      emailFournisseur: order.supplierEmail, // Ajouter l'email du fournisseur directement dans la commande
-      statut: this.mapModelStatus(order.status),
-      dateCommande: order.orderDate,
-      dateLivraisonPrevue: order.expectedDeliveryDate,
-      dateLivraisonEffective: order.deliveryDate,
+      emailFournisseur: order.supplierEmail || undefined,
+      statut: this.mapModelStatus(order.status || 'DRAFT'),
+      dateCommande: order.orderDate || new Date().toISOString(),
+      dateLivraisonPrevue: order.expectedDeliveryDate || undefined,
+      dateLivraisonEffective: order.deliveryDate || undefined,
       lignes: lignes,
-      lignesCommande: lignes, // Ajouter également sous ce nom alternatif
-      articles: lignes.map(ligne => ({ // Ajouter également sous le nom 'articles'
+      lignesCommande: lignes, // Alias pour compatibilité
+      // Format alternatif pour les articles si le backend l'attend différemment
+      articles: lignes.map(ligne => ({
         id: ligne.id,
         productId: ligne.produit.id,
         productName: ligne.produit.nom,
@@ -958,13 +1030,25 @@ export class PurchaseOrderService {
         unitPrice: ligne.prixUnitaire,
         total: ligne.montantHT
       })),
-      montantTTC: order.total,
-      montantTotal: order.total, // Ajouter également sous ce nom alternatif
-      notes: order.notes
+      montantTTC: Number(order.total) || 0,
+      montantHT: Number(order.total) || 0, // Même valeur que montantTTC si pas de TVA
+      montantTotal: Number(order.total) || 0, // Alias pour compatibilité
+      notes: order.notes || undefined,
+      // Champs supplémentaires qui pourraient être requis
+      devise: 'MAD', // Devise par défaut
+      tauxTVA: 0, // Taux de TVA par défaut
+      montantTVA: 0, // Montant TVA par défaut
+      remise: 0, // Remise par défaut
+      modePaiement: 'VIREMENT', // Mode de paiement par défaut
+      delaiPaiement: '30j', // Délai de paiement par défaut
+      conditions: '30 jours fin de mois' // Conditions par défaut
     };
     
-    console.log('Commande mappée vers le format API:', apiOrder);
-    return apiOrder;
+    // Nettoyer l'objet pour supprimer les champs undefined
+    const cleanApiOrder = JSON.parse(JSON.stringify(apiOrder));
+    
+    console.log('Commande mappée vers le format API:', JSON.stringify(cleanApiOrder, null, 2));
+    return cleanApiOrder;
   }
 
   private mapApiStatus(apiStatus: string): PurchaseOrderStatus {

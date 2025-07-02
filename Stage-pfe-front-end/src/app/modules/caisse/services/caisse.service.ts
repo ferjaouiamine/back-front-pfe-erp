@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
 import { Observable, of, throwError, forkJoin } from 'rxjs';
-import { catchError, map, tap, timeout } from 'rxjs/operators';
+import { catchError, map, switchMap, tap, timeout } from 'rxjs/operators';
 import { delay as rxjsDelay } from 'rxjs/operators';
 import { 
   SaleTransaction, 
@@ -276,39 +276,45 @@ export class CaisseService {
     const defaultImage = 'assets/img/product/default.jpg'; // Image par défaut existante dans le projet
     
     // Utiliser le nouvel endpoint /api/produits/search
-    return this.http.get<any[]>('http://localhost:8086/api/produits/search', { headers, params }).pipe(
+    return this.http.get<any[]>('http://localhost:8082/api/produits/search', { headers, params }).pipe(
       tap(() => this.backendAvailable = true),
       map(produits => {
         console.log('Produits récupérés avec succès:', produits);
         // Transformer les produits pour s'assurer que tous les champs nécessaires sont présents
-        return produits.map(produit => ({
-          ...produit,
-          // Assurer que l'URL de l'image est complète, essayer plusieurs fallbacks
-          imageUrl: produit.imageUrl || defaultImage,
-          // S'assurer que la quantité en stock est correctement définie et n'est pas 0 par défaut
-          // Si le backend renvoie null ou undefined, mettre une valeur par défaut de 10
-          quantityInStock: produit.quantityInStock != null ? produit.quantityInStock : 10,
-          // S'assurer que le stockQuantity est également défini pour la compatibilité
-          stockQuantity: produit.stockQuantity || produit.quantityInStock || 10
-        }));
+        return produits
+          .map(produit => ({
+            ...produit,
+            // Assurer que l'URL de l'image est complète, essayer plusieurs fallbacks
+            imageUrl: produit.imageUrl || defaultImage,
+            // S'assurer que la quantité en stock est correctement définie
+            // Si le backend renvoie null ou undefined, mettre 0
+            quantityInStock: produit.quantityInStock != null ? produit.quantityInStock : 0,
+            // S'assurer que le stockQuantity est également défini pour la compatibilité
+            stockQuantity: produit.stockQuantity || produit.quantityInStock || 0
+          }))
+          // Filtrer pour ne garder que les produits disponibles
+          .filter(produit => produit.quantityInStock > 0);
       }),
       catchError(error => {
         console.error('Erreur lors de la recherche de produits via /api/produits/search:', error);
         // Essayer l'URL alternative
-        return this.http.get<any[]>('http://localhost:8086/api/products/search', { headers, params }).pipe(
+        return this.http.get<any[]>('http://localhost:8082/api/products/search', { headers, params }).pipe(
           tap(() => this.backendAvailable = true),
           map(produits => {
             console.log('Produits récupérés avec succès via URL alternative:', produits);
             // Transformer les produits pour s'assurer que tous les champs nécessaires sont présents
-            return produits.map(produit => ({
-              ...produit,
-              // Assurer que l'URL de l'image est complète
-              imageUrl: produit.imageUrl || defaultImage,
-              // S'assurer que la quantité en stock est correctement définie
-              quantityInStock: produit.quantityInStock != null ? produit.quantityInStock : 10,
-              // S'assurer que le stockQuantity est également défini pour la compatibilité
-              stockQuantity: produit.stockQuantity || produit.quantityInStock || 10
-            }));
+            return produits
+              .map(produit => ({
+                ...produit,
+                // Assurer que l'URL de l'image est complète
+                imageUrl: produit.imageUrl || defaultImage,
+                // S'assurer que la quantité en stock est correctement définie
+                quantityInStock: produit.quantityInStock != null ? produit.quantityInStock : 0,
+                // S'assurer que le stockQuantity est également défini pour la compatibilité
+                stockQuantity: produit.stockQuantity || produit.quantityInStock || 0
+              }))
+              // Filtrer pour ne garder que les produits disponibles
+              .filter(produit => produit.quantityInStock > 0);
           }),
           catchError(secondError => {
             console.error('Erreur lors de la recherche de produits via /api/products/search:', secondError);
@@ -317,12 +323,15 @@ export class CaisseService {
               tap(() => this.backendAvailable = true),
               map(produits => {
                 console.log('Produits récupérés avec succès via port 8080:', produits);
-                return produits.map(produit => ({
-                  ...produit,
-                  imageUrl: produit.imageUrl || defaultImage,
-                  quantityInStock: produit.quantityInStock != null ? produit.quantityInStock : 10,
-                  stockQuantity: produit.stockQuantity || produit.quantityInStock || 10
-                }));
+                return produits
+                  .map(produit => ({
+                    ...produit,
+                    imageUrl: produit.imageUrl || defaultImage,
+                    quantityInStock: produit.quantityInStock != null ? produit.quantityInStock : 0,
+                    stockQuantity: produit.stockQuantity || produit.quantityInStock || 0
+                  }))
+                  // Filtrer pour ne garder que les produits disponibles
+                  .filter(produit => produit.quantityInStock > 0);
               }),
               catchError(() => {
                 console.warn('Aucun backend disponible, génération de produits fictifs');
@@ -520,8 +529,22 @@ export class CaisseService {
     // Afficher l'avertissement de données fictives
     this.showMockDataWarning();
     
+    // Interface pour les produits prédéfinis
+    interface PredefinedProduct {
+      id: string;
+      name: string;
+      barcode: string;
+      price: number;
+      stockQuantity: number;
+      quantityInStock?: number;
+      category: string;
+      description: string;
+      imageUrl: string;
+      taxRate: number;
+    }
+
     // Produits prédéfinis pour avoir des données cohérentes
-    const predefinedProducts = [
+    const predefinedProducts: PredefinedProduct[] = [
       {
         id: 'prod-001',
         name: 'Ordinateur portable HP',
@@ -656,16 +679,19 @@ export class CaisseService {
       }
     ];
     
-    // Filtrer les produits en fonction de la requête
-    const filteredProducts = predefinedProducts.filter(product => {
-      const searchQuery = query.toLowerCase();
-      return (
-        product.name.toLowerCase().includes(searchQuery) ||
-        product.barcode.toLowerCase().includes(searchQuery) ||
-        product.category.toLowerCase().includes(searchQuery) ||
-        product.description.toLowerCase().includes(searchQuery)
-      );
-    });
+    // Filtrer les produits en fonction de la requête et de la disponibilité
+    const filteredProducts = predefinedProducts
+      .filter(product => {
+        const searchQuery = query.toLowerCase();
+        return (
+          product.name.toLowerCase().includes(searchQuery) ||
+          product.barcode.toLowerCase().includes(searchQuery) ||
+          product.category.toLowerCase().includes(searchQuery) ||
+          product.description.toLowerCase().includes(searchQuery)
+        );
+      })
+      // S'assurer que seuls les produits disponibles sont inclus
+      .filter(product => (product.quantityInStock || product.stockQuantity || 0) > 0);
     
     // Si aucun produit ne correspond à la recherche, générer des produits aléatoires
     if (filteredProducts.length === 0) {
@@ -673,12 +699,15 @@ export class CaisseService {
       const count = Math.floor(Math.random() * 3) + 1;
       
       for (let i = 0; i < count; i++) {
+        const stock = Math.floor(Math.random() * 50) + 1; // Entre 1 et 50
         mockProducts.push({
           id: `prod-${Date.now()}-${i}`,
           name: `${query} Produit ${i+1}`,
           barcode: `BARCODE-${Math.floor(Math.random() * 10000)}`,
           price: Math.floor(Math.random() * 100) + 1,
-          stockQuantity: Math.floor(Math.random() * 100) + 10,
+          // S'assurer que la quantité en stock est toujours positive
+          quantityInStock: stock,
+          stockQuantity: stock,
           category: 'Catégorie fictive',
           description: 'Description fictive pour un produit généré automatiquement',
           imageUrl: 'assets/images/products/default.jpg',
@@ -686,17 +715,20 @@ export class CaisseService {
           isFictive: true
         });
       }
-      
-      return of(mockProducts).pipe(rxjsDelay(this.mockDelay));
+            // S'assurer que les produits générés sont disponibles
+        const availableMockProducts = mockProducts.filter(p => (p.quantityInStock || p.stockQuantity || 0) > 0);
+        return of(availableMockProducts).pipe(rxjsDelay(this.mockDelay));
     }
     
     // Ajouter la propriété isFictive pour indiquer que ce sont des données fictives
-    const productsWithFlag = filteredProducts.map(product => ({
+    // et s'assurer que quantityInStock est défini
+    const productsWithFictiveFlag = filteredProducts.map(product => ({
       ...product,
-      isFictive: true
+      quantityInStock: product.quantityInStock || product.stockQuantity || 0,
+      isFictive: false
     }));
     
-    return of(productsWithFlag).pipe(rxjsDelay(this.mockDelay));
+    return of(productsWithFictiveFlag).pipe(rxjsDelay(this.mockDelay));
   }
 
   /**
@@ -890,9 +922,8 @@ export class CaisseService {
       catchError(error => {
         console.error('Erreur lors de la récupération des catégories:', error);
         this.backendAvailable = false;
-        // Retourner des catégories par défaut en cas d'erreur
+        // Retourner des catégories par défaut en cas d'erreur (sans la catégorie 'Tous')
         return of([
-          { id: 'all', name: 'Tous', icon: 'apps' },
           { id: 'mobiles', name: 'Mobiles', icon: 'smartphone' },
           { id: 'computers', name: 'Ordinateurs', icon: 'laptop' },
           { id: 'watches', name: 'Montres', icon: 'watch' },
@@ -912,31 +943,69 @@ export class CaisseService {
   getProductsByCategory(categoryId: string): Observable<any[]> {
     const headers = this.getAuthHeaders();
     
-    return this.http.get<any[]>(`${this.stockServiceUrl}/products/category/${categoryId}`, { headers }).pipe(
-      map(products => {
-        console.log(`Produits bruts reçus pour la catégorie ${categoryId}:`, products);
+    // Récupérer d'abord les informations de la catégorie
+    return this.getCategories().pipe(
+      switchMap((categories: any[]) => {
+        // Trouver la catégorie correspondante
+        const category = categories.find((cat: any) => cat.id === categoryId || cat.name === categoryId);
+        const categoryName = category ? category.name : 'Inconnue';
         
-        // Transformer les données pour s'assurer que quantityInStock est défini
-        return products.map(product => ({
-          ...product,
-          // Mapper la propriété quantity du backend vers quantityInStock pour le frontend
-          quantityInStock: product.quantity || product.quantityInStock || product.stock || 0,
-          // S'assurer que le prix est un nombre
-          price: product.price || 0,
-          // Ajouter une URL d'image par défaut si non définie
-          imageUrl: product.imageUrl || this.generateSVGPlaceholder(product.name || 'Produit')
-        }));
+        // Récupérer les produits de la catégorie
+        return this.http.get<any[]>(`${this.stockServiceUrl}/products/category/${categoryId}`, { headers }).pipe(
+          map((products: any[]) => {
+            console.log(`Produits bruts reçus pour la catégorie ${categoryId}:`, products);
+            
+            // Transformer et filtrer les produits disponibles
+            return products
+              .map((product: any) => ({
+                ...product,
+                // Mapper la propriété quantity du backend vers quantityInStock pour le frontend
+                quantityInStock: product.quantity || product.quantityInStock || product.stock || 0,
+                // S'assurer que le prix est un nombre
+                price: product.price || 0,
+                // Ajouter une URL d'image par défaut si non définie
+                imageUrl: product.imageUrl || this.generateSVGPlaceholder(product.name || 'Produit'),
+                // Ajouter le nom de la catégorie
+                category: product.category || categoryName,
+                categoryName: product.categoryName || categoryName
+              }))
+              // Filtrer pour ne garder que les produits disponibles
+              .filter((product: any) => product.quantityInStock > 0);
+          }),
+          tap((products: any[]) => {
+            console.log(`Produits disponibles pour la catégorie ${categoryName} (${categoryId}):`, products);
+            this.backendAvailable = true;
+          }),
+          catchError((error: any) => {
+            console.error(`Erreur lors de la récupération des produits de la catégorie ${categoryName} (${categoryId}):`, error);
+            this.backendAvailable = false;
+            // Utiliser la recherche générique en cas d'erreur
+            return this.searchProduct('').pipe(
+              map((products: any[]) => {
+                return products
+                  .filter((p: any) => p.category === categoryId || p.category === categoryName)
+                  .map((p: any) => ({
+                    ...p,
+                    category: p.category || categoryName,
+                    categoryName: p.categoryName || categoryName
+                  }));
+              })
+            );
+          })
+        );
       }),
-      tap(products => {
-        console.log(`Produits transformés pour la catégorie ${categoryId}:`, products);
-        this.backendAvailable = true;
-      }),
-      catchError(error => {
-        console.error(`Erreur lors de la récupération des produits de la catégorie ${categoryId}:`, error);
-        this.backendAvailable = false;
-        // Utiliser la recherche générique en cas d'erreur
-        return this.searchProduct('').pipe(
-          map(products => products.filter(p => p.category === categoryId))
+      catchError((error: any) => {
+        console.error(`Erreur lors de la récupération des catégories:`, error);
+        // En cas d'erreur de récupération des catégories, continuer avec le nom de catégorie par défaut
+        return this.http.get<any[]>(`${this.stockServiceUrl}/products/category/${categoryId}`, { headers }).pipe(
+          map((products: any[]) => products.map((p: any) => ({
+            ...p,
+            quantityInStock: p.quantity || p.quantityInStock || p.stock || 0,
+            price: p.price || 0,
+            imageUrl: p.imageUrl || this.generateSVGPlaceholder(p.name || 'Produit'),
+            category: p.category || 'Inconnue',
+            categoryName: p.categoryName || 'Inconnue'
+          })))
         );
       })
     );

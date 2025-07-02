@@ -21,7 +21,9 @@
         </div>
         <div class="info-row" *ngIf="data.product.category">
           <span class="info-label">Catégorie:</span>
-          <span class="info-value">{{data.product.category}}</span>
+          <span class="info-value">
+            {{ data.product.category.name || data.product.category }}
+          </span>
         </div>
         <div class="info-row" *ngIf="data.product.stockQuantity !== undefined">
           <span class="info-label">Stock:</span>

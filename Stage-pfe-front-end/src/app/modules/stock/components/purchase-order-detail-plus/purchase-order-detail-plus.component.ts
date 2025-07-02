@@ -747,30 +747,46 @@ export class PurchaseOrderDetailPlusComponent implements OnInit, OnDestroy {
     this.isLoading = true;
     const formValue = this.orderForm.value;
     
-    // Préparer les articles avec le format attendu par l'API
-    const items = this.items.controls.map(item => ({
-      id: item.get('id')?.value,
-      productId: item.get('productId')?.value,
-      productName: item.get('productName')?.value,
-      quantity: item.get('quantity')?.value || 0,
-      unitPrice: item.get('unitPrice')?.value || 0,
-      total: (item.get('quantity')?.value || 0) * (item.get('unitPrice')?.value || 0)
-    }));
+    // Vérifier s'il y a des articles dans le formulaire
+    if (!this.items || this.items.length === 0) {
+      this.showErrorMessage('Veuillez ajouter au moins un article à la commande.');
+      this.isLoading = false;
+      return;
+    }
     
-    console.log('Articles à enregistrer:', items);
+    // Préparer les articles avec le format attendu par l'API
+    const items = this.items.controls.map(item => {
+      const itemValue = item.value;
+      const quantity = Number(itemValue.quantity) || 0;
+      const unitPrice = Number(itemValue.unitPrice) || 0;
+      const total = quantity * unitPrice;
+      
+      return {
+        id: itemValue.id,
+        productId: itemValue.productId,
+        productName: itemValue.productName,
+        quantity: quantity,
+        unitPrice: unitPrice,
+        total: total
+      };
+    });
+    
+    console.log('Articles extraits du formulaire:', items);
     
     // Construire l'objet commande avec les articles formatés
     const order: PurchaseOrder = {
       ...formValue,
       items: items,
-      total: this.calculateOrderTotal(),
+      total: items.reduce((sum, item) => sum + (item.total || 0), 0),
       // Assurer que les dates sont au bon format
       orderDate: formValue.orderDate ? new Date(formValue.orderDate).toISOString() : new Date().toISOString(),
       expectedDeliveryDate: formValue.expectedDeliveryDate ? new Date(formValue.expectedDeliveryDate).toISOString() : null,
-      deliveryDate: formValue.deliveryDate ? new Date(formValue.deliveryDate).toISOString() : null
+      deliveryDate: formValue.deliveryDate ? new Date(formValue.deliveryDate).toISOString() : null,
+      // S'assurer que le statut est défini
+      status: formValue.status || 'DRAFT'
     };
     
-    console.log('Données de la commande à enregistrer:', order);
+    console.log('Données de la commande à enregistrer:', JSON.stringify(order, null, 2));
     
     // Mettre à jour ou créer la commande selon qu'il s'agit d'une édition ou d'une création
     const saveObservable = this.isNewOrder
@@ -815,6 +831,7 @@ export class PurchaseOrderDetailPlusComponent implements OnInit, OnDestroy {
         }
         
         this.showErrorMessage(errorMessage);
+        this.isLoading = false;
       },
       complete: () => {
         this.isLoading = false;

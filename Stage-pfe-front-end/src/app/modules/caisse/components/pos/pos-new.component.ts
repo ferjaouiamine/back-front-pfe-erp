@@ -1,6 +1,7 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
+import { Router } from '@angular/router';
 import { Subject, interval } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 
@@ -40,7 +41,7 @@ export class PosNewComponent implements OnInit, OnDestroy {
   searchQuery = '';
   isSearching = false;
   products: any[] = [];
-  selectedCategory: string = 'all';
+  selectedCategory: string | null = null;
   
   // Propriétés du panier
   cartItems: CartItem[] = [];
@@ -71,7 +72,8 @@ export class PosNewComponent implements OnInit, OnDestroy {
     private productService: ProductService,
     private dialog: MatDialog,
     private snackBar: MatSnackBar,
-    private authService: AuthService
+    private authService: AuthService,
+    private router: Router
   ) {}
 
   ngOnInit(): void {
@@ -88,14 +90,36 @@ export class PosNewComponent implements OnInit, OnDestroy {
     // Récupérer l'utilisateur courant
     this.currentUser = this.authService.getCurrentUser();
     
-    // Charger les catégories puis les produits
+    // Charger les catégories (cela chargera automatiquement les produits de la première catégorie)
     this.loadCategories();
-    this.loadProducts('all');
   }
 
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
+  }
+
+  /**
+   * Déconnecte l'utilisateur et le redirige vers la page de connexion
+   */
+  logout(): void {
+    // Fermer la caisse si elle est ouverte
+    if (this.isRegisterOpen) {
+      this.closeRegisterDialog();
+    }
+    
+    // Appeler le service d'authentification pour la déconnexion
+    this.authService.logout();
+    
+    // Afficher un message de confirmation
+    this.snackBar.open('Déconnexion réussie', 'Fermer', {
+      duration: 3000,
+      horizontalPosition: 'center',
+      verticalPosition: 'top',
+    });
+    
+    // Rediriger vers la page de connexion
+    this.router.navigate(['/login']);
   }
 
   /**
@@ -122,68 +146,64 @@ export class PosNewComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Charge les produits pour une catégorie donnée ou tous les produits
+   * Charge les produits pour une catégorie donnée
    */
-  loadProducts(categoryId: string = 'all'): void {
+  loadProducts(categoryId: string): void {
+    if (!categoryId) {
+      console.error('Aucun ID de catégorie fourni');
+      this.products = [];
+      return;
+    }
+
     this.isSearching = true;
     this.selectedCategory = categoryId;
     
-    // Utiliser le service approprié selon la catégorie
-    if (categoryId === 'all') {
-      this.productService.getProducts().subscribe({
-        next: (results) => {
-          console.log('Produits reçus dans le composant:', results);
-          this.products = results || [];
-          this.isSearching = false;
-          this.backendAvailable = this.caisseService.isBackendAvailable();
-          
-          // Si aucun produit n'est retourné, afficher un message
-          if (this.products.length === 0) {
-            console.warn('Aucun produit retourné par le service');
-          }
-        },
-        error: (error) => {
-          console.error('Erreur lors du chargement des produits:', error);
-          this.isSearching = false;
-          this.showNotification('Erreur lors du chargement des produits', 'error');
-          this.backendAvailable = this.caisseService.isBackendAvailable();
-          this.products = [];
+    this.caisseService.getProductsByCategory(categoryId).subscribe({
+      next: (results) => {
+        console.log('Produits par catégorie reçus dans le composant:', results);
+        
+        // Normaliser les données des produits
+        this.products = (results || []).map(product => this.normalizeProductData(product));
+        
+        this.isSearching = false;
+        this.backendAvailable = true;
+        
+        // Si aucun produit n'est retourné, afficher un message
+        if (this.products.length === 0) {
+          console.warn('Aucun produit retourné pour cette catégorie');
         }
-      });
-    } else {
-      this.caisseService.getProductsByCategory(categoryId).subscribe({
-        next: (results) => {
-          console.log('Produits par catégorie reçus dans le composant:', results);
-          this.products = results || [];
-          this.isSearching = false;
-          this.backendAvailable = this.caisseService.isBackendAvailable();
-          
-          // Si aucun produit n'est retourné, afficher un message
-          if (this.products.length === 0) {
-            console.warn('Aucun produit retourné pour cette catégorie');
-          }
-        },
-        error: (error) => {
-          console.error('Erreur lors du chargement des produits par catégorie:', error);
-          this.isSearching = false;
-          this.showNotification('Erreur lors du chargement des produits', 'error');
-          this.backendAvailable = this.caisseService.isBackendAvailable();
-          this.products = [];
-        }
-      });
-    }
+      },
+      error: (error) => {
+        console.error('Erreur lors du chargement des produits par catégorie:', error);
+        this.isSearching = false;
+        this.showNotification('Erreur lors du chargement des produits', 'error');
+        this.backendAvailable = false;
+        this.products = [];
+      }
+    });
   }
 
   /**
-   * Charge les catégories de produits
+   * Charge les catégories de produits et sélectionne automatiquement la première catégorie
    */
   loadCategories(): void {
     this.caisseService.getCategories().subscribe({
       next: (categories) => {
         this.categories = categories;
+        
+        // Sélectionner automatiquement la première catégorie si disponible
+        if (this.categories.length > 0) {
+          const firstCategory = this.categories[0];
+          this.selectedCategory = firstCategory.id;
+          this.loadProducts(firstCategory.id);
+        } else {
+          console.warn('Aucune catégorie disponible');
+          this.products = [];
+        }
       },
       error: (error) => {
         console.error('Erreur lors du chargement des catégories:', error);
+        this.showNotification('Erreur lors du chargement des catégories', 'error');
       }
     });
   }
@@ -192,26 +212,28 @@ export class PosNewComponent implements OnInit, OnDestroy {
    * Gestion du changement de la recherche
    */
   onSearchChange(): void {
-    if (this.searchQuery && this.searchQuery.length > 2) {
-      this.isSearching = true;
-      
-      // Appel au service pour rechercher les produits
-      this.caisseService.searchProduct(this.searchQuery).subscribe({
-        next: (results) => {
-          this.products = results;
-          this.isSearching = false;
-        },
-        error: (error) => {
-          console.error('Erreur lors de la recherche de produits:', error);
-          this.isSearching = false;
-          this.showNotification('Erreur lors de la recherche', 'error');
-          this.backendAvailable = this.caisseService.isBackendAvailable();
-        }
-      });
-    } else if (!this.searchQuery) {
-      // Si la recherche est vide, charger tous les produits
-      this.loadProducts(this.selectedCategory);
+    // Si la recherche est vide, recharger les produits de la catégorie sélectionnée
+    if (!this.searchQuery || this.searchQuery.trim() === '') {
+      if (this.selectedCategory) {
+        this.loadProducts(this.selectedCategory);
+      }
+      return;
     }
+
+    this.isSearching = true;
+    const searchTerm = this.searchQuery.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    
+    this.caisseService.searchProduct(searchTerm).subscribe({
+      next: (products) => {
+        this.products = (products || []).map(product => this.normalizeProductData(product));
+        this.isSearching = false;
+      },
+      error: (error) => {
+        console.error('Erreur lors de la recherche des produits:', error);
+        this.isSearching = false;
+        this.products = [];
+      }
+    });
   }
 
   /**
@@ -219,7 +241,9 @@ export class PosNewComponent implements OnInit, OnDestroy {
    */
   clearSearch(): void {
     this.searchQuery = '';
-    this.loadProducts(this.selectedCategory);
+    if (this.selectedCategory) {
+      this.loadProducts(this.selectedCategory);
+    }
   }
 
   /**
@@ -256,16 +280,32 @@ export class PosNewComponent implements OnInit, OnDestroy {
       this.showNotification('Produit en rupture de stock', 'error');
       return;
     }
-    
+
+    // Vérifier si la quantité demandée est disponible
+    if (quantity > product.quantityInStock) {
+      this.showNotification(`Quantité limitée à ${product.quantityInStock} en stock`, 'warning');
+      quantity = product.quantityInStock;
+    }
+
     // Vérifier si le produit est déjà dans le panier
     const existingItemIndex = this.cartItems.findIndex(item => item.productId === product.id);
     
     if (existingItemIndex !== -1) {
-      // Mettre à jour la quantité si le produit est déjà dans le panier
-      this.updateQuantity(existingItemIndex, this.cartItems[existingItemIndex].quantity + quantity);
+      // Calculer la nouvelle quantité totale
+      const newTotalQuantity = this.cartItems[existingItemIndex].quantity + quantity;
+      
+      // Vérifier si la quantité totale ne dépasse pas le stock disponible
+      if (newTotalQuantity > product.quantityInStock) {
+        this.showNotification(`Quantité maximale de ${product.quantityInStock} atteinte pour ce produit`, 'warning');
+        this.updateQuantity(existingItemIndex, product.quantityInStock);
+        return;
+      }
+      
+      // Mettre à jour la quantité
+      this.updateQuantity(existingItemIndex, newTotalQuantity);
       return;
     }
-    
+
     // Ajouter le nouveau produit au panier
     const taxRate = product.taxRate || 20; // 20% par défaut
     const taxAmount = (product.price * taxRate / 100) * quantity;
@@ -273,14 +313,19 @@ export class PosNewComponent implements OnInit, OnDestroy {
     const newItem: CartItem = {
       productId: product.id,
       productName: product.name,
-      barcode: product.barcode,
+      barcode: product.barcode || product.reference || '',
       quantity: quantity,
       unitPrice: product.price,
       totalPrice: product.price * quantity,
       taxRate: taxRate,
       taxAmount: taxAmount,
       discount: 0,
-      product: product
+      product: {
+        ...product,
+        // S'assurer que les propriétés de stock sont bien définies
+        quantityInStock: product.quantityInStock,
+        price: product.price
+      }
     };
     
     this.cartItems = [...this.cartItems, newItem];
@@ -301,10 +346,13 @@ export class PosNewComponent implements OnInit, OnDestroy {
     const currentItem = this.cartItems[index];
     const product = currentItem.product;
     
-    // Vérifier si la quantité demandée est disponible en stock
-    if (product && newQuantity > product.quantityInStock) {
-      this.showNotification(`Quantité limitée à ${product.quantityInStock} en stock`, 'warning');
-      newQuantity = product.quantityInStock;
+    // Vérifier si le produit a des informations de stock valides
+    if (product && typeof product.quantityInStock === 'number') {
+      // Vérifier si la quantité demandée est disponible en stock
+      if (newQuantity > product.quantityInStock) {
+        this.showNotification(`Quantité limitée à ${product.quantityInStock} en stock`, 'warning');
+        newQuantity = product.quantityInStock;
+      }
     }
     
     const updatedItems = [...this.cartItems];
@@ -442,8 +490,7 @@ export class PosNewComponent implements OnInit, OnDestroy {
     this.calculateTotals();
     this.showNotification('Commande annulée', 'success');
   }
-  
-  
+
   /**
    * Imprime la commande actuelle
    */
@@ -592,7 +639,13 @@ export class PosNewComponent implements OnInit, OnDestroy {
         this.activeSession = session;
         this.isRegisterOpen = true;
         this.showNotification('Caisse ouverte avec succès', 'success');
-        this.loadProducts();
+        // Recharger les produits de la catégorie actuellement sélectionnée
+        if (this.selectedCategory) {
+          this.loadProducts(this.selectedCategory);
+        } else if (this.categories.length > 0) {
+          // Si aucune catégorie n'est sélectionnée mais qu'il y a des catégories disponibles, charger la première
+          this.loadProducts(this.categories[0].id);
+        }
       },
       error: (error) => {
         console.error('Erreur lors de l\'ouverture de la caisse:', error);
@@ -690,19 +743,67 @@ export class PosNewComponent implements OnInit, OnDestroy {
    * @returns URL de l'image (SVG en base64)
    */
   getProductImage(product: any): string {
-    // Si le produit a déjà une URL d'image, l'utiliser
-    if (product.imageUrl && product.imageUrl.length > 0) {
-      // Si c'est une URL relative, ajouter le chemin de base
-      if (!product.imageUrl.startsWith('http') && !product.imageUrl.startsWith('data:') && !product.imageUrl.startsWith('/assets/')) {
-        return '/assets/images/products/' + product.imageUrl;
-      }
+    if (product && product.imageUrl) {
       return product.imageUrl;
     }
-    
     // Générer une image SVG avec le nom du produit
     return this.generateSVGPlaceholder(product.name || 'Produit');
   }
+
+  /**
+   * Calcule une couleur de texte contrastée en fonction de la couleur de fond
+   * @param bgColor Couleur de fond au format hexadécimal
+   * @returns '#000000' pour les fonds clairs, '#ffffff' pour les fonds foncés
+   */
+  private getContrastYIQ(bgColor: string): string {
+    // Convertir la couleur hex en RGB
+    let r = 0, g = 0, b = 0;
+    
+    // Gérer les formats de couleur hexadécimaux
+    if (bgColor.startsWith('#')) {
+      const hex = bgColor.substring(1);
+      const bigint = parseInt(hex.length === 3 ? 
+        hex.split('').map(c => c + c).join('') : 
+        hex, 16);
+      r = (bigint >> 16) & 255;
+      g = (bigint >> 8) & 255;
+      b = bigint & 255;
+    }
+    
+    // Calculer la luminosité selon la formule YIQ
+    const yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
+    
+    // Retourner noir ou blanc selon le contraste
+    return (yiq >= 128) ? '#000000' : '#ffffff';
+  }
   
+  /**
+   * Normalise les données d'un produit pour assurer la cohérence
+   * @param product Données du produit à normaliser
+   * @returns Produit avec des propriétés normalisées
+   */
+  private normalizeProductData(product: any): any {
+    if (!product) return null;
+    
+    return {
+      ...product,
+      // S'assurer que quantityInStock est correctement défini
+      quantityInStock: product.quantityInStock ?? product.quantity ?? product.stockQuantity ?? product.stock ?? 0,
+      // S'assurer que le prix est un nombre
+      price: Number(product.price) || 0,
+      // S'assurer que les URLs d'images sont valides
+      imageUrl: product.imageUrl || this.getProductImage(product),
+      // S'assurer que la référence est définie
+      reference: product.reference || product.barcode || '',
+      // S'assurer que la catégorie est définie
+      category: product.category || 'Non catégorisé',
+      categoryName: product.categoryName || product.category || 'Non catégorisé',
+      // S'assurer que les propriétés optionnelles ont des valeurs par défaut
+      taxRate: product.taxRate || 20,
+      barcode: product.barcode || product.reference || ''
+    };
+  }
+
   /**
    * Génère une image SVG en base64 avec le texte spécifié
    * @param text Texte à afficher dans l'image
@@ -710,7 +811,31 @@ export class PosNewComponent implements OnInit, OnDestroy {
    * @returns URL de données de l'image SVG en base64
    */
   private generateSVGPlaceholder(text: string, bgColor: string = '#eee'): string {
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" viewBox="0 0 300 300"><rect width="300" height="300" fill="${bgColor}"/><text x="50%" y="50%" font-size="18" text-anchor="middle" alignment-baseline="middle" font-family="monospace, sans-serif" fill="#333">${text}</text></svg>`;
-    return `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(svg)))}`;
+    // Convertir le texte en un code de couleur unique
+    const textToColor = (str: string) => {
+      let hash = 0;
+      for (let i = 0; i < str.length; i++) {
+        hash = str.charCodeAt(i) + ((hash << 5) - hash);
+      }
+      const c = (hash & 0x00FFFFFF)
+        .toString(16)
+        .toUpperCase();
+      return '#' + '00000'.substring(0, 6 - c.length) + c;
+    };
+
+    // Créer une couleur de texte contrastée
+    const textColor = this.getContrastYIQ(bgColor);
+    
+    // Créer le SVG
+    const svg = `
+      <svg width="200" height="200" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+        <rect width="200" height="200" fill="${bgColor}" />
+        <text x="50%" y="50%" font-family="Arial" font-size="16" fill="${textColor}" text-anchor="middle" dy=".3em">
+          ${text.substring(0, 20)}
+        </text>
+      </svg>
+    `;
+    
+    return 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svg)));
   }
 }

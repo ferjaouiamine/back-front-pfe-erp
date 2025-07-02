@@ -5,23 +5,53 @@ import { map, catchError, delay, switchMap } from 'rxjs/operators';
 import { AuthService } from '../../auth/services/auth.service';
 
 export interface Product {
-  sku?: any; // Rendu optionnel avec le point d'interrogation
+  /** Identifiant unique du produit */
   id?: number;
+  
+  /** Référence unique du produit (code-barres, SKU, etc.) */
   reference?: string;
+  
+  /** Nom du produit (obligatoire) */
   name: string;
+  
+  /** Description détaillée du produit */
   description?: string;
+  
+  /** Prix de vente unitaire */
   price: number;
+  
+  /** Quantité en stock (alias de quantityInStock pour rétrocompatibilité) */
   quantity: number;
+  
+  /** Quantité disponible en stock (propriété principale) */
+  quantityInStock?: number;
+  
+  /** Seuil d'alerte pour les stocks bas */
   alertThreshold?: number;
+  
+  /** Indique si le produit est actif/visible */
   active?: boolean;
+  
+  /** Date de création */
   createdAt?: Date;
+  
+  /** Date de dernière mise à jour */
   updatedAt?: Date;
+  
+  /** Catégorie du produit */
   category?: {
     id?: number | string;
     name?: string;
   };
+  
+  /** URL de l'image du produit */
+  imageUrl?: string;
+  
+  /** Alias pour la compatibilité avec l'ancien code */
+  stockQuantity?: number;
+  
+  /** Identifiant de la catégorie du produit */
   categoryId?: number | string;
-  imageUrl?: string; // URL de l'image du produit
 }
 
 export interface ProductCategory {
@@ -164,6 +194,7 @@ export class ProductService {
       description: item.description || '',
       price: typeof item.price === 'number' ? item.price : parseFloat(item.price) || 0,
       quantity: typeof item.quantity === 'number' ? item.quantity : parseInt(item.quantity) || 0,
+      quantityInStock: item.quantityInStock || item.stockQuantity || 0, // Ajout de cette propriété
       alertThreshold: typeof item.alertThreshold === 'number' ? item.alertThreshold : parseInt(item.alertThreshold) || 0,
       active: item.active !== undefined ? item.active : true,
       category: item.category ? {
@@ -247,6 +278,7 @@ export class ProductService {
         description: 'Ordinateur portable Apple avec puce M2',
         price: 1299.99,
         quantity: 10,
+        quantityInStock: 5, // Ajout de cette propriété
         alertThreshold: 3,
         active: true,
         category: {
@@ -263,6 +295,7 @@ export class ProductService {
         description: 'Ordinateur portable Apple avec puce M2 Pro',
         price: 1999.99,
         quantity: 5,
+        quantityInStock: 2, // Ajout de cette propriété
         alertThreshold: 2,
         active: true,
         category: {
@@ -911,7 +944,7 @@ export class ProductService {
     console.log('Synchronisation du produit avec le module caisse:', product);
     
     // Endpoint de synchronisation dans le module caisse
-    const syncUrl = 'http://localhost:8086/api/sync/product';
+    const syncUrl = 'http://localhost:8082/api/sync/product';
     
     this.http.post(syncUrl, product, { headers: this.getAuthHeaders() }).subscribe({
       next: (response) => console.log('Produit synchronisé avec succès avec la caisse:', response),

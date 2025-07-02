@@ -14,6 +14,9 @@
     <div class="header-right">
       <div class="time">{{ currentTime | date:'HH:mm:ss' }}</div>
       <div class="user">Bienvenue, {{ currentUser?.username || 'Utilisateur' }}</div>
+      <button mat-icon-button color="warn" (click)="logout()" matTooltip="Déconnexion">
+        <mat-icon>logout</mat-icon>
+      </button>
     </div>
   </div>
 
@@ -41,30 +44,23 @@
       <!-- Barre de recherche et options -->
       <div class="pos-top-bar">
         <div class="pos-search">
-          <i class="material-icons">search</i>
-          <input type="text" placeholder="Rechercher des produits..." [(ngModel)]="searchQuery" (input)="onSearchChange()">
-          <button *ngIf="searchQuery" (click)="clearSearch()"><i class="material-icons">close</i></button>
-        </div>
-        <div class="view-options">
-          <button class="btn view-btn active">
-            <i class="material-icons">grid_view</i>
-          </button>
-          <button class="btn view-btn">
-            <i class="material-icons">view_list</i>
+          <mat-icon>search</mat-icon>
+          <input type="text" 
+                 placeholder="Rechercher par nom, référence ou description..." 
+                 [(ngModel)]="searchQuery" 
+                 (input)="onSearchChange()"
+                 (keyup.enter)="onSearchChange()">
+          <button class="btn btn-icon" 
+                  (click)="clearSearch()" 
+                  *ngIf="searchQuery"
+                  matTooltip="Effacer la recherche">
+            <mat-icon>clear</mat-icon>
           </button>
         </div>
       </div>
 
       <!-- Barre de catégories horizontale -->
       <div class="pos-categories-bar">
-        <!-- Catégorie "Tous" -->
-        <div class="category-item" [ngClass]="{'active': selectedCategory === 'all'}" (click)="loadProducts('all')">
-          <div class="category-icon">
-            <i class="material-icons">dashboard</i>
-          </div>
-          <span class="category-name">Tous</span>
-        </div>
-
         <!-- Catégories dynamiques -->
         <div class="category-item" *ngFor="let category of categories" 
              [ngClass]="{'active': selectedCategory === category.id}" 
@@ -90,11 +86,11 @@
           <div class="no-products" *ngIf="!isSearching && products.length === 0">
             <i class="material-icons" *ngIf="backendAvailable">inventory_2</i>
             <i class="material-icons error-icon" *ngIf="!backendAvailable">error_outline</i>
-            <h3 *ngIf="backendAvailable">Aucun produit trouvé</h3>
-            <h3 *ngIf="!backendAvailable">Impossible de se connecter au service de stock</h3>
+            <p *ngIf="backendAvailable">Aucun produit trouvé pour votre recherche</p>
+            <p *ngIf="!backendAvailable">Impossible de se connecter au service de stock</p>
             <p *ngIf="backendAvailable">Essayez une autre catégorie ou modifiez votre recherche</p>
             <p *ngIf="!backendAvailable">Vérifiez que le service stock-service est bien démarré sur le port 8082</p>
-            <button class="btn-retry" *ngIf="!backendAvailable" (click)="loadProducts('all')">
+            <button class="btn-retry" *ngIf="!backendAvailable" (click)="categories.length > 0 ? loadProducts(categories[0].id) : loadCategories()">
               <i class="material-icons">refresh</i> Réessayer
             </button>
           </div>
