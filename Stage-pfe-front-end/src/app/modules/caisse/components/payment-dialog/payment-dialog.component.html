@@ -41,6 +41,7 @@
         </mat-button-toggle-group>
       </div>
       
+      <!-- Section pour paiement en espèces -->
       <div class="amount-section" *ngIf="paymentForm.get('method')?.value === 'CASH'">
         <div class="amount-due">
           <h3>Montant à payer</h3>
@@ -74,6 +75,24 @@
         </div>
       </div>
       
+      <!-- Section pour paiement par carte -->
+      <div class="card-payment-section" *ngIf="paymentForm.get('method')?.value === 'CARD'">
+        <app-stripe-card 
+          [amount]="amountDue" 
+          (paymentSuccess)="onCardPaymentSuccess($event)" 
+          (paymentError)="onCardPaymentError($event)">
+        </app-stripe-card>
+      </div>
+      
+      <!-- Section pour paiement par virement -->
+      <div class="transfer-payment-section" *ngIf="paymentForm.get('method')?.value === 'TRANSFER'">
+        <app-bank-transfer 
+          [amount]="amountDue" 
+          (transferInitiated)="onTransferInitiated($event)" 
+          (transferError)="onTransferError($event)">
+        </app-bank-transfer>
+      </div>
+      
       <div class="print-option">
         <mat-checkbox formControlName="printReceipt">Imprimer le reçu</mat-checkbox>
       </div>
@@ -82,7 +101,9 @@
   
   <mat-dialog-actions align="end">
     <button mat-button (click)="cancel()">Annuler</button>
-    <button mat-raised-button color="primary" [disabled]="paymentForm.invalid || (paymentForm.get('method')?.value === 'CASH' && amountTendered < amountDue)" (click)="confirmPayment()">
+    <button mat-raised-button color="primary" 
+      [disabled]="isPaymentButtonDisabled()" 
+      (click)="confirmPayment()">
       Confirmer le paiement
     </button>
   </mat-dialog-actions>

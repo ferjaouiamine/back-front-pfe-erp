@@ -1,0 +1,26 @@
+.email-form {
+  min-width: 400px;
+  max-width: 600px;
+}
+
+.full-width {
+  width: 100%;
+  margin-bottom: 15px;
+}
+
+mat-dialog-content {
+  padding-top: 10px;
+}
+
+mat-dialog-actions {
+  padding: 16px 0;
+}
+
+button {
+  min-width: 90px;
+}
+
+mat-spinner {
+  display: inline-block;
+  margin-right: 8px;
+}

@@ -1,0 +1,49 @@
+.stripe-card-container {
+  padding: 15px;
+  border-radius: 4px;
+  background-color: #f9f9f9;
+  margin-bottom: 20px;
+}
+
+.card-element-container {
+  padding: 10px;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  background-color: white;
+  margin-bottom: 15px;
+  min-height: 40px;
+}
+
+.card-errors {
+  margin-top: 10px;
+  color: #fa755a;
+}
+
+.loading-indicator {
+  display: flex;
+  align-items: center;
+  margin: 10px 0;
+  
+  mat-spinner {
+    margin-right: 10px;
+  }
+  
+  span {
+    color: #555;
+  }
+}
+
+.secure-payment-info {
+  display: flex;
+  align-items: center;
+  margin-top: 10px;
+  color: #6b7c93;
+  font-size: 0.9em;
+  
+  mat-icon {
+    font-size: 18px;
+    height: 18px;
+    width: 18px;
+    margin-right: 5px;
+  }
+}

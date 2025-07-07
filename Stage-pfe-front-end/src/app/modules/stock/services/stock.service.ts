@@ -1,8 +1,9 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
 import { Observable, of, throwError } from 'rxjs';
-import { catchError, map } from 'rxjs/operators';
+import { catchError, map, tap } from 'rxjs/operators';
 import { AuthService } from '../../../modules/auth/services/auth.service';
+import { StockUpdateService } from './stock-update.service';
 
 export interface StockMovement {
   id: string;
@@ -44,7 +45,8 @@ export class StockService {
 
   constructor(
     private http: HttpClient,
-    private authService: AuthService
+    private authService: AuthService,
+    private stockUpdateService: StockUpdateService
   ) { }
 
   private getAuthHeaders(): HttpHeaders {
@@ -313,8 +315,12 @@ export class StockService {
       return this.http.post<StockMovement>(url, null, { headers, params }).pipe(
         map(response => {
           this.backendAvailable = true;
-          console.log(`Sortie de stock effectuée avec succès sur le port ${port}:`, response);
+          console.log(`Entrée de stock effectuée avec succès sur le port ${port}:`, response);
           return response;
+        }),
+        tap(() => {
+          // Notifier que le stock a été mis à jour
+          this.stockUpdateService.notifyStockUpdated();
         }),
         catchError(error => {
           console.error(`Erreur lors de la sortie de stock sur le port ${port}:`, error);

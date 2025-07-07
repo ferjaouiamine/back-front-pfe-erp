@@ -1,0 +1,91 @@
+.bank-transfer-container {
+  padding: 15px;
+  border-radius: 4px;
+  background-color: #f9f9f9;
+  margin-bottom: 20px;
+}
+
+.form-field {
+  margin-bottom: 15px;
+  
+  .full-width {
+    width: 100%;
+  }
+}
+
+.info-text {
+  display: flex;
+  align-items: flex-start;
+  margin-bottom: 15px;
+  color: #6b7c93;
+  font-size: 0.9em;
+  
+  mat-icon {
+    font-size: 18px;
+    height: 18px;
+    width: 18px;
+    margin-right: 5px;
+    color: #3f51b5;
+  }
+}
+
+.error-message {
+  margin: 10px 0;
+  color: #fa755a;
+}
+
+.button-container {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 20px;
+  
+  button {
+    min-width: 200px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    
+    mat-spinner {
+      margin-left: 10px;
+    }
+  }
+}
+
+.transfer-success {
+  text-align: center;
+  padding: 20px;
+  
+  .success-icon {
+    margin-bottom: 15px;
+    
+    mat-icon {
+      font-size: 48px;
+      height: 48px;
+      width: 48px;
+      color: #4caf50;
+    }
+  }
+  
+  h3 {
+    color: #4caf50;
+    margin-bottom: 15px;
+  }
+  
+  .transfer-link {
+    background-color: #e8f5e9;
+    padding: 10px;
+    border-radius: 4px;
+    margin: 15px 0;
+    word-break: break-all;
+    
+    a {
+      color: #2e7d32;
+    }
+  }
+  
+  .note {
+    font-style: italic;
+    color: #757575;
+    margin-top: 15px;
+  }
+}

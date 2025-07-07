@@ -56,11 +56,49 @@ export class StockListComponent implements OnInit {
     this.isLoading = true;
     this.errorMessage = null;
     
-    this.productService.getProducts().subscribe({
+    // Forcer le rechargement complet depuis le serveur en ajoutant un timestamp pour éviter le cache
+    // et indiquer qu'il s'agit de la liste officielle des produits
+    this.productService.getProducts(false, true, true).subscribe({
       next: (data) => {
-        this.products = data;
-        this.applyFilters(); // Applique les filtres initiaux
-        this.isLoading = false;
+        console.log('Produits chargés:', data.length);
+        
+        // S'assurer que les catégories sont correctement associées aux produits
+        this.loadCategories().then(() => {
+          console.log('Catégories disponibles:', this.categories);
+          
+          // Enrichir manuellement les produits avec les catégories
+          this.products = data.map(product => {
+            console.log('Traitement du produit:', product.name, 'categoryId:', product.categoryId, 'category:', product.category);
+            
+            // Essayer d'abord d'utiliser la catégorie existante si elle a un nom
+            if (product.category && product.category.name && product.category.name !== 'Non catégorisé') {
+              console.log('Produit avec catégorie existante valide:', product.name, product.category);
+              return product;
+            }
+            
+            // Sinon, essayer de trouver la catégorie par ID
+            const categoryId = product.categoryId || (product.category ? product.category.id : null);
+            console.log('ID de catégorie à rechercher:', categoryId);
+            
+            if (categoryId) {
+              const category = this.categories.find(c => c.id === categoryId);
+              console.log('Catégorie trouvée:', category);
+              
+              if (category) {
+                product.category = {
+                  id: category.id,
+                  name: category.name
+                };
+                console.log('Catégorie associée au produit:', product.name, product.category);
+              }
+            }
+            return product;
+          });
+          
+          console.log('Produits enrichis avec catégories dans le composant:', this.products);
+          this.applyFilters(); // Applique les filtres initiaux
+          this.isLoading = false;
+        });
       },
       error: (error) => {
         console.error('Erreur lors du chargement des produits:', error);
@@ -70,14 +108,20 @@ export class StockListComponent implements OnInit {
     });
   }
   
-  loadCategories(): void {
-    this.productService.getCategories().subscribe({
-      next: (data) => {
-        this.categories = data;
-      },
-      error: (error) => {
-        console.error('Erreur lors du chargement des catégories:', error);
-      }
+  loadCategories(): Promise<void> {
+    return new Promise<void>((resolve) => {
+      this.productService.getCategories().subscribe({
+        next: (data) => {
+          console.log('Catégories chargées:', data.length);
+          this.categories = data;
+          resolve();
+        },
+        error: (error) => {
+          console.error('Erreur lors du chargement des catégories:', error);
+          this.categories = [];
+          resolve(); // Résoudre quand même pour ne pas bloquer le flux
+        }
+      });
     });
   }
   
@@ -91,8 +135,9 @@ export class StockListComponent implements OnInit {
         product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (product.reference && product.reference.toLowerCase().includes(searchTerm.toLowerCase()));
       
-      // Filtre par catégorie
-      const matchesCategory = !categoryId || product.categoryId === categoryId;
+      // Filtre par catégorie (prend en compte à la fois categoryId et category.id)
+      const productCategoryId = product.categoryId || (product.category ? product.category.id : null);
+      const matchesCategory = !categoryId || productCategoryId === categoryId;
       
       // Filtre par statut de stock
       let matchesStockStatus = true;
@@ -207,12 +252,22 @@ export class StockListComponent implements OnInit {
   
   deleteProduct(productId: number | string | undefined): void {
     if (productId !== undefined && confirm('Êtes-vous sûr de vouloir supprimer ce produit ?')) {
+      this.isLoading = true;
       const numericId = typeof productId === 'string' ? Number(productId) : productId;
+      
       this.productService.deleteProduct(numericId).subscribe({
-        next: () => {
+        next: (response) => {
+          console.log('Réponse de suppression:', response);
           this.successMessage = 'Produit supprimé avec succès';
-          // Recharger les produits après suppression
-          this.loadProducts();
+          
+          // Supprimer le produit de la liste locale immédiatement
+          this.products = this.products.filter(p => p.id !== numericId);
+          this.filteredProducts = this.filteredProducts.filter(p => p.id !== numericId);
+          
+          // Puis recharger complètement la liste depuis le serveur
+          setTimeout(() => {
+            this.loadProducts();
+          }, 500);
           
           // Effacer le message après 3 secondes
           setTimeout(() => {
@@ -222,6 +277,10 @@ export class StockListComponent implements OnInit {
         error: (error) => {
           console.error('Erreur lors de la suppression du produit:', error);
           this.errorMessage = `Erreur lors de la suppression: ${error.message || 'Veuillez réessayer'}`;
+          this.isLoading = false;
+        },
+        complete: () => {
+          this.isLoading = false;
         }
       });
     }
@@ -258,10 +317,10 @@ export class StockListComponent implements OnInit {
   /**
    * Récupère le nom d'une catégorie à partir de son ID
    */
-  getCategoryName(categoryId: string | number): string {
-    if (!categoryId) return '';
+  getCategoryName(categoryId: string | number | null | undefined): string {
+    if (!categoryId) return 'Non catégorisé';
     const category = this.categories.find(c => c.id === categoryId);
-    return category ? category.name : '';
+    return category ? category.name : 'Non catégorisé';
   }
   
   /**

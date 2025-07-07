@@ -1,0 +1,21 @@
+<div class="stripe-card-container">
+  <div class="card-element-container">
+    <div id="card-element"></div>
+  </div>
+  
+  <div class="card-errors" *ngIf="error">
+    <div class="alert alert-danger">
+      {{ error }}
+    </div>
+  </div>
+  
+  <div class="loading-indicator" *ngIf="loading">
+    <mat-spinner diameter="30"></mat-spinner>
+    <span>Traitement du paiement en cours...</span>
+  </div>
+  
+  <div class="secure-payment-info">
+    <mat-icon>lock</mat-icon>
+    <span>Paiement sécurisé par Stripe</span>
+  </div>
+</div>

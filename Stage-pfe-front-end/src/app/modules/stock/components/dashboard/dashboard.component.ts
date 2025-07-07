@@ -1,20 +1,27 @@
-import { Component, OnInit, AfterViewInit, ElementRef, ViewChild } from '@angular/core';
+import { Component, OnInit, AfterViewInit, ElementRef, ViewChild, OnDestroy } from '@angular/core';
 import { ProductService } from '../../services/product.service';
 import { StockService } from '../../services/stock.service';
+import { StockUpdateService } from '../../services/stock-update.service';
+import { forkJoin, of, Subscription } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 import { Chart, registerables } from 'chart.js';
 
 // Enregistrer tous les composants de Chart.js
 Chart.register(...registerables);
-import { forkJoin } from 'rxjs';
-import { catchError } from 'rxjs/operators';
-import { of } from 'rxjs';
 
 @Component({
   selector: 'app-stock-dashboard',
   templateUrl: './dashboard.component.html',
   styleUrls: ['./dashboard.component.scss']
 })
-export class StockDashboardComponent implements OnInit, AfterViewInit {
+export class StockDashboardComponent implements OnInit, AfterViewInit, OnDestroy {
+  // Seuil pour déterminer les stocks faibles
+  private readonly LOW_STOCK_THRESHOLD: number = 20;
+  private readonly CRITICAL_STOCK_THRESHOLD: number = 5;
+  
+  // Abonnement aux notifications de mise à jour de stock
+  private stockUpdateSubscription: Subscription = new Subscription();
+  
   // Statistiques du tableau de bord
   totalProducts: number = 0;
   lowStockProducts: number = 0;
@@ -35,12 +42,19 @@ export class StockDashboardComponent implements OnInit, AfterViewInit {
   @ViewChild('movementChartCanvas') movementChartCanvas!: ElementRef<HTMLCanvasElement>;
 
   constructor(
+    private productService: ProductService,
     private stockService: StockService,
-    private productService: ProductService
+    private stockUpdateService: StockUpdateService
   ) { }
 
   ngOnInit(): void {
     this.loadDashboardData();
+    
+    // S'abonner aux notifications de mise à jour de stock
+    this.stockUpdateSubscription = this.stockUpdateService.stockUpdated$.subscribe(() => {
+      console.log('Dashboard received stock update notification, refreshing data...');
+      this.loadDashboardData();
+    });
   }
   
   ngAfterViewInit(): void {
@@ -82,8 +96,14 @@ export class StockDashboardComponent implements OnInit, AfterViewInit {
   processProductData(products: any[]): void {
     this.totalProducts = products.length;
     
-    // Identifier les produits à faible stock (moins de 10 unités)
-    this.lowStockProducts = products.filter(p => p.quantity < 10).length;
+    // Identifier les produits à faible stock (moins que le seuil défini)
+    const lowStockItems = products.filter(p => p.quantity < this.LOW_STOCK_THRESHOLD);
+    this.lowStockProducts = lowStockItems.length;
+    
+    // Ajouter des logs pour déboguer
+    console.log(`Total des produits: ${this.totalProducts}`);
+    console.log(`Produits avec stock < ${this.LOW_STOCK_THRESHOLD}: ${this.lowStockProducts}`);
+    console.log('Détail des produits à faible stock:', lowStockItems);
     
     // Top 5 des produits les plus vendus (basé sur les ventes simulées)
     this.topProducts = products
@@ -213,8 +233,15 @@ export class StockDashboardComponent implements OnInit, AfterViewInit {
 
   // Méthode pour obtenir la classe CSS en fonction du niveau de stock
   getStockLevelClass(quantity: number): string {
-    if (quantity <= 5) return 'danger';
-    if (quantity <= 20) return 'warning';
+    if (quantity <= this.CRITICAL_STOCK_THRESHOLD) return 'danger';
+    if (quantity <= this.LOW_STOCK_THRESHOLD) return 'warning';
     return 'success';
+  }
+  
+  ngOnDestroy(): void {
+    // Se désabonner pour éviter les fuites de mémoire
+    if (this.stockUpdateSubscription) {
+      this.stockUpdateSubscription.unsubscribe();
+    }
   }
 }

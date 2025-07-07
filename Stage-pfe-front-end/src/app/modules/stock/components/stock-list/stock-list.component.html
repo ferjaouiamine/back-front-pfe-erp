@@ -166,7 +166,7 @@
                 </div>
               </td>
               <td>
-                <span class="category-badge">{{ product.category?.name || 'Non catégorisé' }}</span>
+                <span class="category-badge">{{ getCategoryName(product.categoryId || (product.category ? product.category.id : null)) }}</span>
               </td>
               <td>
                 <span class="fw-medium">{{ product.quantity }}</span>

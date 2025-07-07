@@ -1,0 +1,41 @@
+<h2 mat-dialog-title>Envoyer la commande par email</h2>
+<mat-dialog-content>
+  <form [formGroup]="emailForm" class="email-form">
+    <p>Envoi du bon de commande <strong>{{ data.orderNumber }}</strong> à <strong>{{ data.supplierName }}</strong></p>
+    
+    <mat-form-field appearance="outline" class="full-width">
+      <mat-label>Email du destinataire</mat-label>
+      <input matInput formControlName="email" type="email" placeholder="email@fournisseur.com">
+      <mat-error *ngIf="emailForm.get('email')?.hasError('required')">
+        L'email est requis
+      </mat-error>
+      <mat-error *ngIf="emailForm.get('email')?.hasError('email')">
+        Format d'email invalide
+      </mat-error>
+    </mat-form-field>
+    
+    <mat-form-field appearance="outline" class="full-width">
+      <mat-label>Sujet</mat-label>
+      <input matInput formControlName="subject">
+      <mat-error *ngIf="emailForm.get('subject')?.hasError('required')">
+        Le sujet est requis
+      </mat-error>
+    </mat-form-field>
+    
+    <mat-form-field appearance="outline" class="full-width">
+      <mat-label>Message</mat-label>
+      <textarea matInput formControlName="message" rows="4"></textarea>
+      <mat-error *ngIf="emailForm.get('message')?.hasError('required')">
+        Le message est requis
+      </mat-error>
+    </mat-form-field>
+  </form>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button (click)="onCancel()">Annuler</button>
+  <button mat-raised-button color="primary" [disabled]="emailForm.invalid || isLoading" (click)="onSubmit()">
+    <mat-spinner diameter="20" *ngIf="isLoading"></mat-spinner>
+    <span *ngIf="!isLoading">Envoyer</span>
+  </button>
+</mat-dialog-actions>

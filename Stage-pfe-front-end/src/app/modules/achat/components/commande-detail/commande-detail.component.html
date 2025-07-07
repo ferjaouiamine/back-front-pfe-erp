@@ -240,16 +240,35 @@
         </mat-card-header>
         <mat-card-content>
           <div class="form-grid">
-            <mat-form-field appearance="outline">
-              <mat-label>Fournisseur</mat-label>
-              <mat-select formControlName="fournisseur.id">
-                <mat-option *ngFor="let fournisseur of fournisseurs" [value]="fournisseur.id">
-                  {{ fournisseur.nom }}
-                </mat-option>
-              </mat-select>
-              <mat-error *ngIf="commandeForm.get('fournisseur.id')?.hasError('required')">
-                Le fournisseur est requis
-              </mat-error>
+            <!-- Option pour basculer entre sélection de fournisseur et saisie d'email -->
+            <div class="toggle-email-mode">
+              <mat-slide-toggle [checked]="useEmailMode" (change)="toggleEmailMode()">
+                Utiliser uniquement l'email du fournisseur
+              </mat-slide-toggle>
+            </div>
+            
+            <!-- Sélection du fournisseur (mode standard) -->
+            <div formGroupName="fournisseur" *ngIf="!useEmailMode">
+              <mat-form-field appearance="outline">
+                <mat-label>Fournisseur</mat-label>
+                <mat-select formControlName="id">
+                  <mat-option *ngFor="let fournisseur of fournisseurs" [value]="fournisseur.id">
+                    {{ fournisseur.nom }}
+                  </mat-option>
+                </mat-select>
+                <mat-error *ngIf="commandeForm.get('fournisseur')?.get('id')?.hasError('required')">
+                  Le fournisseur est requis
+                </mat-error>
+              </mat-form-field>
+            </div>
+            
+            <!-- Saisie de l'email du fournisseur (mode email) -->
+            <mat-form-field appearance="outline" *ngIf="useEmailMode">
+              <mat-label>Email du fournisseur</mat-label>
+              <input matInput [(ngModel)]="fournisseurEmail" [ngModelOptions]="{standalone: true}" 
+                     placeholder="exemple@fournisseur.com" type="email">
+              <mat-icon matSuffix>email</mat-icon>
+              <mat-hint>Un fournisseur sera créé automatiquement si l'email n'existe pas</mat-hint>
             </mat-form-field>
             
             <mat-form-field appearance="outline">

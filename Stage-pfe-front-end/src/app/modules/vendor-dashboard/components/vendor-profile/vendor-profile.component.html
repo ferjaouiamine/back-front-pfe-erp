@@ -1,0 +1,172 @@
+<div class="vendor-profile-container" *ngIf="!isLoading; else loading">
+  <mat-tab-group [(selectedIndex)]="selectedTabIndex" class="profile-tabs">
+    <!-- Onglet Profil -->
+    <mat-tab label="Mon Profil">
+      <div class="profile-content">
+        <div class="profile-header">
+          <div class="profile-avatar">
+            <img [src]="vendorProfile.profileImage || 'assets/images/default-avatar.png'" alt="Photo de profil" class="profile-image">
+            <button mat-icon-button class="edit-photo" matTooltip="Modifier la photo">
+              <mat-icon>edit</mat-icon>
+            </button>
+          </div>
+          <div class="profile-info">
+            <h2>{{ vendorProfile.fullName }}</h2>
+            <p class="email">{{ vendorProfile.email }}</p>
+            <div class="stats">
+              <div class="stat-item">
+                <mat-icon>date_range</mat-icon>
+                <span>En poste depuis {{ vendorProfile.hireDate | date:'MMMM yyyy' }}</span>
+              </div>
+              <div class="stat-item">
+                <mat-icon>euro_symbol</mat-icon>
+                <span>Objectif de vente: {{ vendorProfile.salesTarget | number }}€</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <form [formGroup]="profileForm" (ngSubmit)="onSaveProfile()" class="profile-form">
+          <div class="form-row">
+            <mat-form-field appearance="outline" class="form-field">
+              <mat-label>Nom complet</mat-label>
+              <input matInput formControlName="fullName" required>
+              <mat-error *ngIf="profileForm.get('fullName')?.hasError('required')">
+                Le nom est requis
+              </mat-error>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="form-field">
+              <mat-label>Email</mat-label>
+              <input matInput formControlName="email" type="email" required>
+              <mat-error *ngIf="profileForm.get('email')?.hasError('required')">
+                L'email est requis
+              </mat-error>
+              <mat-error *ngIf="profileForm.get('email')?.hasError('email')">
+                Veuillez entrer un email valide
+              </mat-error>
+            </mat-form-field>
+          </div>
+
+          <div class="form-row">
+            <mat-form-field appearance="outline" class="form-field">
+              <mat-label>Téléphone</mat-label>
+              <input matInput formControlName="phone" placeholder="0601020304">
+              <mat-error *ngIf="profileForm.get('phone')?.hasError('pattern')">
+                Format de téléphone invalide (10 chiffres)
+              </mat-error>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="form-field">
+              <mat-label>Date d'embauche</mat-label>
+              <input matInput [matDatepicker]="picker" formControlName="hireDate" readonly>
+              <mat-datepicker-toggle matSuffix [for]="picker"></mat-datepicker-toggle>
+              <mat-datepicker #picker></mat-datepicker>
+            </mat-form-field>
+          </div>
+
+          <div class="form-row">
+            <mat-form-field appearance="outline" class="form-field full-width">
+              <mat-label>Adresse</mat-label>
+              <textarea matInput formControlName="address" rows="2"></textarea>
+            </mat-form-field>
+          </div>
+
+          <div class="form-actions">
+            <button mat-raised-button color="primary" type="submit" [disabled]="!profileForm.valid || isLoading">
+              <mat-icon>save</mat-icon>
+              Enregistrer les modifications
+            </button>
+            <button mat-button type="button" (click)="profileForm.reset()" [disabled]="!profileForm.dirty">
+              Annuler
+            </button>
+          </div>
+        </form>
+
+        <div class="sales-progress">
+          <h3>Objectif de vente</h3>
+          <div class="progress-container">
+            <div class="progress-bar">
+              <div class="progress-fill" [ngClass]="getSalesProgressClass()" [style.width.%]="getSalesProgress()">
+                {{ getSalesProgress() | number:'1.0-0' }}%
+              </div>
+            </div>
+            <div class="progress-labels">
+              <span>0€</span>
+              <span>{{ vendorProfile.totalSales | number }}€ / {{ vendorProfile.salesTarget | number }}€</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </mat-tab>
+
+    <!-- Onglet Notifications -->
+    <mat-tab label="Notifications">
+      <div class="notifications-container">
+        <div class="notifications-header">
+          <h2>Mes notifications</h2>
+          <button mat-button color="primary" (click)="onMarkAllAsRead()" [disabled]="notifications.length === 0">
+            <mat-icon>mark_email_read</mat-icon>
+            Tout marquer comme lu
+          </button>
+        </div>
+
+        <mat-nav-list *ngIf="notifications.length > 0; else noNotifications">
+          <mat-list-item *ngFor="let notification of notifications" 
+                        [class.unread]="!notification.read"
+                        (click)="onMarkAsRead(notification)">
+            <mat-icon matListIcon [ngClass]="notification.type">
+              {{ notification.type === 'sale' ? 'shopping_cart' : 'notifications' }}
+            </mat-icon>
+            <div matLine class="notification-content">
+              <h3>{{ notification.title }}</h3>
+              <p>{{ notification.message }}</p>
+              <span class="notification-time">
+                {{ notification.createdAt | date:'short' }}
+              </span>
+            </div>
+            <button mat-icon-button (click)="onDeleteNotification(notification); $event.stopPropagation()">
+              <mat-icon>delete</mat-icon>
+            </button>
+          </mat-list-item>
+        </mat-nav-list>
+
+        <ng-template #noNotifications>
+          <div class="no-notifications">
+            <mat-icon>notifications_off</mat-icon>
+            <p>Aucune notification pour le moment</p>
+          </div>
+        </ng-template>
+      </div>
+    </mat-tab>
+
+    <!-- Onglet Activités récentes -->
+    <mat-tab label="Activités récentes">
+      <div class="activities-container">
+        <h2>Activités récentes</h2>
+        
+        <mat-list>
+          <mat-list-item *ngFor="let activity of recentActivities">
+            <mat-icon matListIcon [color]="getActivityColor(activity.type)">
+              {{ getActivityIcon(activity.type) }}
+            </mat-icon>
+            <div matLine class="activity-content">
+              <h3>{{ activity.description }}</h3>
+              <p>{{ activity.date | date:'medium' }}</p>
+            </div>
+            <span matLine class="activity-amount" [class.positive]="activity.amount > 0">
+              {{ activity.amount > 0 ? '+' : '' }}{{ activity.amount | number }}€
+            </span>
+          </mat-list-item>
+        </mat-list>
+      </div>
+    </mat-tab>
+  </mat-tab-group>
+</div>
+
+<ng-template #loading>
+  <div class="loading-container">
+    <mat-spinner diameter="50"></mat-spinner>
+    <p>Chargement du profil...</p>
+  </div>
+</ng-template>

@@ -4,6 +4,8 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { Subscription, forkJoin, Observable, of } from 'rxjs';
 import { catchError, finalize, map, switchMap, delay } from 'rxjs/operators';
 import { HttpClient } from '@angular/common/http';
+import { MatDialog } from '@angular/material/dialog';
+import { EmailDialogComponent } from '../../dialogs/email-dialog/email-dialog.component';
 import { PurchaseOrder, PurchaseOrderItem, PurchaseOrderStatus, Product as OrderProduct, Supplier } from '../../models/purchase-order.model';
 import { OrderItemForm } from '../../models/order-item-creation.model';
 import { PurchaseOrderService } from '../../services/purchase-order.service';
@@ -75,7 +77,8 @@ export class PurchaseOrderDetailPlusComponent implements OnInit, OnDestroy {
     private router: Router,
     private purchaseOrderService: PurchaseOrderService,
     private productService: ProductService,
-    private http: HttpClient
+    private http: HttpClient,
+    private dialog: MatDialog
   ) { }
 
   ngOnInit(): void {
@@ -192,7 +195,7 @@ export class PurchaseOrderDetailPlusComponent implements OnInit, OnDestroy {
         }
       },
       error: (error) => {
-        this.showErrorMessage('Erreur lors du chargement des fournisseurs: ' + error.message);
+        this.setErrorMessage('Erreur lors du chargement des fournisseurs: ' + error.message);
       },
       complete: () => {
         this.isLoading = false;
@@ -254,12 +257,12 @@ export class PurchaseOrderDetailPlusComponent implements OnInit, OnDestroy {
         this.filteredProducts = [...this.products];
         
         if (products.length === 0) {
-          this.showWarningMessage('Aucun produit disponible. Essayez d\'activer les données fictives.');
+          this.setWarningMessage('Aucun produit disponible. Essayez d\'activer les données fictives.');
         }
       },
       error: (error) => {
         console.error('Erreur lors du chargement des produits:', error);
-        this.showErrorMessage('Erreur lors du chargement des produits: ' + error.message);
+        this.setErrorMessage('Erreur lors du chargement des produits: ' + error.message);
       },
       complete: () => {
         this.isLoading = false;
@@ -294,11 +297,11 @@ export class PurchaseOrderDetailPlusComponent implements OnInit, OnDestroy {
         this.filteredProducts = [...this.products];
         
         if (products.length === 0) {
-          this.showWarningMessage('Aucun produit disponible pour ce fournisseur. Essayez d\'activer les données fictives.');
+          this.setWarningMessage('Aucun produit disponible pour ce fournisseur. Essayez d\'activer les données fictives.');
         }
       },
       error: (error) => {
-        this.showErrorMessage('Erreur lors du chargement des produits: ' + error.message);
+        this.setErrorMessage('Erreur lors du chargement des produits: ' + error.message);
         
         // Afficher un message d'erreur plus détaillé dans la console pour faciliter le débogage
         console.error('Détails de l\'erreur:', {
@@ -389,6 +392,7 @@ export class PurchaseOrderDetailPlusComponent implements OnInit, OnDestroy {
     console.log(`Chargement de la commande avec l'ID: ${id}`);
 
     this.purchaseOrderService.getPurchaseOrderById(id).subscribe({
+
       next: (order) => {
         try {
           console.log('Réponse de l\'API:', order);
@@ -414,14 +418,14 @@ export class PurchaseOrderDetailPlusComponent implements OnInit, OnDestroy {
           this.patchFormWithOrder(order);
         } catch (error) {
           console.error('Erreur lors du traitement de la commande:', error);
-          this.showErrorMessage('Erreur lors du chargement de la commande');
+          this.setErrorMessage('Erreur lors du chargement de la commande');
         } finally {
           this.isLoading = false;
         }
       },
       error: (error) => {
         console.error('Erreur lors de la récupération de la commande:', error);
-        this.showErrorMessage('Impossible de charger la commande. Veuillez réessayer.');
+        this.setErrorMessage('Impossible de charger la commande. Veuillez réessayer.');
         this.isLoading = false;
       }
     });
@@ -540,16 +544,47 @@ export class PurchaseOrderDetailPlusComponent implements OnInit, OnDestroy {
    * @param itemData Données de l'article à ajouter
    */
   handleItemAdded(itemData: OrderItemForm): void {
-    if (!itemData) {
-      this.showErrorMessage('Données d\'article invalides');
-      return;
-    }
-    
     try {
+      if (!itemData) {
+        console.error('Données d\'article invalides');
+        return;
+      }
+      
       console.log('Ajout d\'article depuis le composant de création:', itemData);
       
+      // Récupérer l'ID de la commande actuelle (soit du formulaire, soit de la propriété orderId)
+      const orderId = this.orderForm.get('id')?.value || this.orderId;
+      
+      if (!orderId) {
+        // Pour les nouvelles commandes sans ID, nous devons d'abord sauvegarder la commande
+        if (this.isNewOrder) {
+          // Préparer les données de l'article
+          const newItem = {
+            productId: itemData.productId,
+            productName: itemData.productName,
+            quantity: itemData.quantity,
+            unitPrice: itemData.unitPrice,
+            total: itemData.total
+          };
+          
+          // Ajouter d'abord l'article au formulaire local
+          this.addItem(newItem);
+          
+          this.setWarningMessage('La commande doit être sauvegardée avant d\'ajouter des articles au backend.');
+          
+          // On ne sauvegarde pas automatiquement pour éviter des problèmes de logique
+          // L'utilisateur devra cliquer sur le bouton Enregistrer
+          return;
+        } else {
+          this.setErrorMessage('Impossible d\'ajouter un article: ID de commande non disponible');
+          return;
+        }
+      }
+      
+      console.log(`Ajout d'article à la commande ${orderId}`);
+      
       // Vérifier si le produit est déjà dans la commande
-      const existingItemIndex = this.findExistingItemIndex(itemData.productId);
+      const existingItemIndex = this.findItemIndexByProductId(itemData.productId);
       
       if (existingItemIndex !== -1) {
         // Si le produit existe déjà, mettre à jour sa quantité
@@ -562,32 +597,141 @@ export class PurchaseOrderDetailPlusComponent implements OnInit, OnDestroy {
           unitPrice: itemData.unitPrice // Mettre à jour le prix unitaire avec le dernier prix
         });
         
-        this.showSuccessMessage(`Quantité de "${itemData.productName}" mise à jour à ${newQuantity}.`);
+        this.setSuccessMessage(`Quantité de "${itemData.productName}" mise à jour à ${newQuantity}.`);
+        
+        // TODO: Implémenter la mise à jour de la quantité d'un article existant via l'API
       } else {
-        // Sinon, ajouter un nouvel article
-        this.addItem({
+        // Préparer les données de l'article pour l'ajout au formulaire local et l'envoi au backend
+        // Le format correspond à Partial<PurchaseOrderItem> attendu par le service
+        const newItem = {
           productId: itemData.productId,
           productName: itemData.productName,
           quantity: itemData.quantity,
           unitPrice: itemData.unitPrice,
           total: itemData.total
-        });
+        };
         
-        this.showSuccessMessage(`"${itemData.productName}" ajouté à la commande.`);
+        // Ajouter l'article au formulaire local
+        this.addItem(newItem);
+        
+        // Envoyer l'article au backend
+        this.purchaseOrderService.addLineToOrder(orderId, newItem).subscribe({
+          next: (response) => {
+            console.log('Article ajouté avec succès au backend:', response);
+            this.setSuccessMessage(`"${itemData.productName}" ajouté à la commande et sauvegardé.`);
+            
+            // Recharger la commande pour obtenir les données à jour
+            this.loadOrderById(orderId);
+          },
+          error: (error) => {
+            console.error('Erreur lors de l\'ajout de l\'article au backend:', error);
+            this.setErrorMessage(`Erreur lors de la sauvegarde de l'article: ${error.message || 'Erreur de communication avec le serveur'}`);
+          }
+        });
       }
       
       // Recalculer le total de la commande
       this.calculateOrderTotal();
       
-      // Mettre à jour la liste des commandes
-      this.updateOrdersList();
-      
       // Fermer la recherche de produits
       this.closeProductSearch();
     } catch (error: any) {
       console.error('Erreur lors de l\'ajout de l\'article:', error);
-      this.showErrorMessage(`Erreur lors de l'ajout de l'article: ${error.message || 'Erreur inconnue'}`);
+      this.setErrorMessage(`Erreur lors de l'ajout de l'article: ${error.message || 'Erreur inconnue'}`);
     }
+  }
+  
+  /**
+   * Trouve l'index d'un article dans le formulaire par son ID de produit
+   * @param productId ID du produit à rechercher
+   * @returns Index de l'article ou -1 si non trouvé
+   */
+  findItemIndexByProductId(productId: string): number {
+    if (!this.items || this.items.length === 0) {
+      return -1;
+    }
+    
+    return this.items.controls.findIndex(item => 
+      item.get('productId')?.value === productId
+    );
+  }
+  
+  /**
+   * Définit un message à afficher
+   * @param message Le message à afficher
+   * @param type Le type de message (success, error, warning)
+   */
+  setMessage(message: string, type: 'success' | 'error' | 'warning'): void {
+    switch (type) {
+      case 'success':
+        this.successMessage = message;
+        break;
+      case 'error':
+        this.errorMessage = message;
+        break;
+      case 'warning':
+        this.warningMessage = message;
+        break;
+    }
+    if (this.successMessageTimeout) {
+      clearTimeout(this.successMessageTimeout);
+    }
+    if (this.errorMessageTimeout) {
+      clearTimeout(this.errorMessageTimeout);
+    }
+    if (this.warningMessageTimeout) {
+      clearTimeout(this.warningMessageTimeout);
+    }
+    
+    const timeout = setTimeout(() => {
+      switch (type) {
+        case 'success':
+          this.successMessage = null;
+          break;
+        case 'error':
+          this.errorMessage = null;
+          break;
+        case 'warning':
+          this.warningMessage = null;
+          break;
+      }
+    }, 5000); // Effacer après 5 secondes
+    
+    switch (type) {
+      case 'success':
+        this.successMessageTimeout = timeout;
+        break;
+      case 'error':
+        this.errorMessageTimeout = timeout;
+        break;
+      case 'warning':
+        this.warningMessageTimeout = timeout;
+        break;
+    }
+  }
+  
+  /**
+   * Définit un message de succès à afficher
+   * @param message Le message à afficher
+   */
+  setSuccessMessage(message: string): void {
+    this.setMessage(message, 'success');
+  }
+  
+  /**
+   * Définit un message d'erreur à afficher
+   * @param message Le message à afficher
+   */
+  setErrorMessage(message: string): void {
+    this.setMessage(message, 'error');
+  }
+  
+  /**
+   * Définit un message d'avertissement à afficher
+   * @param message Le message à afficher
+   */
+  setWarningMessage(message: string): void {
+    this.setMessage(message, 'warning');
   }
 
   /**
@@ -625,7 +769,7 @@ export class PurchaseOrderDetailPlusComponent implements OnInit, OnDestroy {
    */
   addItemFromProduct(product: CatalogProduct): void {
     if (!product || !product.id) {
-      this.showErrorMessage('Produit invalide ou incomplet. Impossible de l\'ajouter à la commande.');
+      this.setErrorMessage('Produit invalide ou incomplet. Impossible de l\'ajouter à la commande.');
       return;
     }
     
@@ -640,7 +784,7 @@ export class PurchaseOrderDetailPlusComponent implements OnInit, OnDestroy {
         const existingItem = this.items.at(existingItemIndex);
         const currentQuantity = existingItem.get('quantity')?.value || 0;
         existingItem.patchValue({ quantity: currentQuantity + 1 });
-        this.showSuccessMessage(`Quantité de "${product.name || 'Article'}" augmentée à ${currentQuantity + 1}.`);
+        this.setSuccessMessage(`Quantité de "${product.name || 'Article'}" augmentée à ${currentQuantity + 1}.`);
       } else {
         // Sinon, ajouter un nouvel article
         this.addItem({
@@ -649,7 +793,7 @@ export class PurchaseOrderDetailPlusComponent implements OnInit, OnDestroy {
           quantity: 1,
           unitPrice: product.price || 0
         });
-        this.showSuccessMessage(`"${product.name || 'Article'}" ajouté à la commande.`);
+        this.setSuccessMessage(`"${product.name || 'Article'}" ajouté à la commande.`);
       }
       
       // Recalculer le total de la commande
@@ -662,7 +806,7 @@ export class PurchaseOrderDetailPlusComponent implements OnInit, OnDestroy {
       this.clearProductSearch();
     } catch (error: any) {
       console.error('Erreur lors de l\'ajout du produit:', error);
-      this.showErrorMessage(`Erreur lors de l'ajout du produit: ${error.message || 'Erreur inconnue'}`);
+      this.setErrorMessage(`Erreur lors de l'ajout du produit: ${error.message || 'Erreur inconnue'}`);
     }
   }
   
@@ -738,21 +882,44 @@ export class PurchaseOrderDetailPlusComponent implements OnInit, OnDestroy {
    * Enregistre la commande
    */
   saveOrder(): void {
+    // Marquer tous les champs comme touchés pour déclencher la validation
+    this.markFormGroupTouched(this.orderForm);
+    
     if (this.orderForm.invalid) {
-      this.markFormGroupTouched(this.orderForm);
-      this.showErrorMessage('Veuillez corriger les erreurs dans le formulaire avant de continuer.');
+      this.setErrorMessage('Veuillez corriger les erreurs dans le formulaire avant de continuer.');
       return;
     }
     
-    this.isLoading = true;
+    // Vérifier les champs obligatoires
     const formValue = this.orderForm.value;
+    if (!formValue.supplierId && !formValue.supplierEmail) {
+      this.setErrorMessage('Veuillez sélectionner un fournisseur ou saisir une adresse email.');
+      return;
+    }
+    
+    if (!formValue.orderDate) {
+      this.setErrorMessage('La date de commande est obligatoire.');
+      return;
+    }
     
     // Vérifier s'il y a des articles dans le formulaire
     if (!this.items || this.items.length === 0) {
-      this.showErrorMessage('Veuillez ajouter au moins un article à la commande.');
-      this.isLoading = false;
+      this.setErrorMessage('Veuillez ajouter au moins un article à la commande.');
       return;
     }
+    
+    // Vérifier que chaque article a les informations nécessaires
+    for (let i = 0; i < this.items.length; i++) {
+      const item = this.items.at(i);
+      if (!item.get('productId')?.value || !item.get('productName')?.value || 
+          !item.get('quantity')?.value || item.get('quantity')?.value <= 0 || 
+          item.get('unitPrice')?.value < 0) {
+        this.setErrorMessage(`L'article #${i+1} contient des informations incomplètes ou invalides.`);
+        return;
+      }
+    }
+    
+    this.isLoading = true;
     
     // Préparer les articles avec le format attendu par l'API
     const items = this.items.controls.map(item => {
@@ -796,7 +963,7 @@ export class PurchaseOrderDetailPlusComponent implements OnInit, OnDestroy {
     saveObservable.subscribe({
       next: (savedOrder) => {
         console.log('Commande enregistrée avec succès:', savedOrder);
-        this.showSuccessMessage('La commande a été enregistrée avec succès.');
+        this.setSuccessMessage('La commande a été enregistrée avec succès.');
         
         // Mettre à jour l'ID de la commande si c'est une nouvelle commande
         if (this.isNewOrder && savedOrder.id) {
@@ -830,7 +997,7 @@ export class PurchaseOrderDetailPlusComponent implements OnInit, OnDestroy {
           errorMessage += `: ${error.message || 'Erreur inconnue'}`;
         }
         
-        this.showErrorMessage(errorMessage);
+        this.setErrorMessage(errorMessage);
         this.isLoading = false;
       },
       complete: () => {
@@ -844,105 +1011,62 @@ export class PurchaseOrderDetailPlusComponent implements OnInit, OnDestroy {
    */
   generatePdf(): void {
     if (!this.orderId) {
-      this.showErrorMessage('Impossible de générer le PDF : identifiant de commande manquant');
+      this.setErrorMessage('Impossible de générer le PDF : identifiant de commande manquant');
       return;
     }
-    
-    this.isLoading = true;
-    this.showWarningMessage('Génération du PDF en cours...');
-    
-    this.purchaseOrderService.generatePdf(this.orderId)
-      .pipe(
-        finalize(() => {
-          this.isLoading = false;
-        })
-      )
-      .subscribe({
-        next: (blob: Blob) => {
-          // Créer une URL pour le blob
-          const url = window.URL.createObjectURL(blob);
-          
-          // Créer un lien pour télécharger le PDF
-          const link = document.createElement('a');
-          link.href = url;
-          link.download = `commande_${this.orderForm.get('orderNumber')?.value || this.orderId}.pdf`;
-          
-          // Ajouter le lien au document, cliquer dessus, puis le supprimer
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-          
-          // Ouvrir également dans un nouvel onglet pour prévisualisation
-          window.open(url, '_blank');
-          
-          // Libérer l'URL après un court délai pour permettre l'ouverture de l'onglet
-          setTimeout(() => {
-            window.URL.revokeObjectURL(url);
-          }, 1000);
-          
-          this.showSuccessMessage('PDF généré avec succès');
-        },
-        error: (error) => {
-          console.error('Erreur lors de la génération du PDF:', error);
-          this.showErrorMessage(`Erreur lors de la génération du PDF: ${error.message || 'Erreur inconnue'}`);
-        }
-      });
   }
 
   /**
    * Envoie la commande par email au fournisseur
    */
   sendByEmail(): void {
-    if (this.orderForm.invalid) {
-      this.markFormGroupTouched(this.orderForm);
-      this.showErrorMessage('Veuillez corriger les erreurs dans le formulaire avant d\'envoyer la commande.');
+    if (!this.orderId) {
+      this.setErrorMessage('Impossible d\'envoyer l\'email: ID de commande manquant');
       return;
     }
+
+    // Récupérer les informations du fournisseur depuis le formulaire
+    const supplierEmail = this.orderForm.get('supplierEmail')?.value || '';
+    const orderNumber = this.orderForm.get('orderNumber')?.value || this.orderId;
+    const supplierName = this.orderForm.get('supplierName')?.value || '';
     
-    const formValue = this.orderForm.value;
-    const supplierEmail = formValue.supplierEmail;
-    
-    if (!supplierEmail) {
-      this.showErrorMessage('Aucune adresse email de fournisseur spécifiée.');
-      return;
-    }
-    
-    this.isLoading = true;
-    
-    // Si la commande n'est pas enregistrée, l'enregistrer d'abord
-    if (this.isNewOrder || !this.orderId) {
-      this.saveOrder();
-      return;
-    }
-    
-    // Envoyer la commande existante par email
-    this.purchaseOrderService.sendOrderByEmail({
-      orderId: this.orderId,
-      email: supplierEmail,
-      subject: `Commande ${formValue.orderNumber || this.orderId}`,
-      message: 'Veuillez trouver ci-joint notre commande.'
-    }).subscribe({
-      next: () => {
-        this.showSuccessMessage('La commande a été envoyée au fournisseur par email.');
-      },
-      error: (error) => {
-        this.showErrorMessage('Erreur lors de l\'envoi de la commande par email: ' + error.message);
-      },
-      complete: () => {
-        this.isLoading = false;
+    // Ouvrir le dialogue pour saisir les informations d'email
+    const dialogRef = this.dialog.open(EmailDialogComponent, {
+      width: '500px',
+      data: {
+        orderNumber: orderNumber,
+        supplierName: supplierName,
+        supplierEmail: supplierEmail,
+        subject: `Commande ${orderNumber}`,
+        message: `Veuillez trouver ci-joint notre commande ${orderNumber}.`
+      }
+    });
+
+    // Traiter le résultat du dialogue
+    dialogRef.afterClosed().subscribe(result => {
+      if (result) {
+        this.isLoading = true;
+        
+        // Appeler le service pour envoyer l'email
+        this.purchaseOrderService.sendOrderEmail(this.orderId!.toString(), result).subscribe({
+          next: (response: any) => {
+            this.isLoading = false;
+            this.setSuccessMessage(`Email envoyé avec succès à ${result.email}`);
+            console.log('Réponse du serveur:', response);
+          },
+          error: (error: any) => {
+            this.isLoading = false;
+            this.setErrorMessage(`Erreur lors de l'envoi de l'email: ${error.message || 'Erreur inconnue'}`);
+            console.error('Erreur d\'envoi d\'email:', error);
+          }
+        });
       }
     });
   }
 
   /**
-   * Annule l'édition et retourne à la liste des commandes
-   */
-  cancel(): void {
-    this.router.navigate(['/stock/purchase-orders']);
-  }
-
-  /**
    * Marque tous les contrôles d'un FormGroup comme touchés
+   * @param formGroup Le FormGroup à marquer comme touché
    */
   markFormGroupTouched(formGroup: FormGroup): void {
     Object.values(formGroup.controls).forEach(control => {
@@ -962,50 +1086,7 @@ export class PurchaseOrderDetailPlusComponent implements OnInit, OnDestroy {
     return control ? control.invalid && control.touched : false;
   }
 
-  /**
-   * Affiche un message de succès temporaire
-   */
-  showSuccessMessage(message: string): void {
-    this.successMessage = message;
-    
-    if (this.successMessageTimeout) {
-      clearTimeout(this.successMessageTimeout);
-    }
-    
-    this.successMessageTimeout = setTimeout(() => {
-      this.successMessage = null;
-    }, 5000);
-  }
 
-  /**
-   * Affiche un message d'erreur temporaire
-   */
-  showErrorMessage(message: string): void {
-    this.errorMessage = message;
-    
-    if (this.errorMessageTimeout) {
-      clearTimeout(this.errorMessageTimeout);
-    }
-    
-    this.errorMessageTimeout = setTimeout(() => {
-      this.errorMessage = null;
-    }, 5000);
-  }
-
-  /**
-   * Affiche un message d'avertissement temporaire
-   */
-  showWarningMessage(message: string): void {
-    this.warningMessage = message;
-    
-    if (this.warningMessageTimeout) {
-      clearTimeout(this.warningMessageTimeout);
-    }
-    
-    this.warningMessageTimeout = setTimeout(() => {
-      this.warningMessage = null;
-    }, 7000);
-  }
 
   /**
    * Active ou désactive le mode données fictives
@@ -1045,6 +1126,13 @@ export class PurchaseOrderDetailPlusComponent implements OnInit, OnDestroy {
     };
     
     return statusMap[status] || status;
+  }
+
+  /**
+   * Annule les modifications et retourne à la liste des commandes
+   */
+  cancel(): void {
+    this.router.navigate(['/stock/purchase-orders']);
   }
 
   // La fonction onSupplierChange a été déplacée plus haut dans le code

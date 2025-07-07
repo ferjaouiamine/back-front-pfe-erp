@@ -19,6 +19,7 @@ import { MatChipsModule } from '@angular/material/chips';
 import { MatDialogModule, MatDialog } from '@angular/material/dialog';
 import { MatStepperModule } from '@angular/material/stepper';
 import { MatExpansionModule } from '@angular/material/expansion';
+import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 
 import { CommandeService, Commande, LigneCommande, StatutCommande, StatutLigne } from '../../services/commande.service';
 import { AchatService, Fournisseur } from '../../services/achat.service';
@@ -52,7 +53,7 @@ import { ConfirmDialogComponent } from '../../../shared/components/confirm-dialo
     MatStepperModule,
     MatExpansionModule,
     MatDividerModule,
-    ConfirmDialogComponent
+    MatSlideToggleModule
   ],
   templateUrl: './commande-detail.component.html',
   styleUrls: ['./commande-detail.component.scss']
@@ -66,6 +67,8 @@ export class CommandeDetailComponent implements OnInit {
   commande: Commande | null = null;
   commandeForm: FormGroup;
   fournisseurs: Fournisseur[] = [];
+  useEmailMode = false; // Mode pour utiliser l'email du fournisseur au lieu de sélectionner un fournisseur existant
+  fournisseurEmail = ''; // Email du fournisseur si on utilise le mode email
   produitsLowStock: Produit[] = [];
   loading = true;
   saving = false;
@@ -122,9 +125,9 @@ export class CommandeDetailComponent implements OnInit {
   createCommandeForm(): FormGroup {
     return this.formBuilder.group({
       fournisseur: this.formBuilder.group({
-        id: ['', Validators.required]
+        id: [null] // Suppression du Validators.required pour permettre la sélection d'articles sans fournisseur
       }),
-      dateLivraisonPrevue: [''],
+      dateLivraisonPrevue: [null],
       notes: [''],
       lignes: this.formBuilder.array([])
     });
@@ -260,10 +263,10 @@ export class CommandeDetailComponent implements OnInit {
     // Patcher les valeurs de base
     this.commandeForm.patchValue({
       fournisseur: {
-        id: commande.fournisseur.id
+        id: commande.fournisseur?.id || null
       },
       dateLivraisonPrevue: commande.dateLivraisonPrevue ? new Date(commande.dateLivraisonPrevue) : null,
-      notes: commande.notes
+      notes: commande.notes || ''
     });
     
     // Ajouter les lignes de commande
@@ -317,53 +320,127 @@ export class CommandeDetailComponent implements OnInit {
     return this.calculerTotalHT() + this.calculerTotalTVA();
   }
 
+  toggleEmailMode(): void {
+    this.useEmailMode = !this.useEmailMode;
+    
+    if (this.useEmailMode) {
+      // Si on passe en mode email, on désactive la validation du fournisseur.id
+      this.commandeForm.get('fournisseur')?.get('id')?.clearValidators();
+      this.commandeForm.get('fournisseur')?.get('id')?.updateValueAndValidity();
+    } else {
+      // Si on revient en mode sélection, on réactive la validation
+      this.commandeForm.get('fournisseur')?.get('id')?.setValidators([Validators.required]);
+      this.commandeForm.get('fournisseur')?.get('id')?.updateValueAndValidity();
+    }
+  }
+  
   saveCommande(): void {
+    // Vérifier la validité du formulaire
     if (this.commandeForm.invalid) {
-      this.snackBar.open('Veuillez corriger les erreurs dans le formulaire', 'Fermer', { duration: 3000 });
+      // Marquer tous les champs comme touchés pour afficher les erreurs
+      Object.keys(this.commandeForm.controls).forEach(key => {
+        const control = this.commandeForm.get(key);
+        control?.markAsTouched();
+      });
+      
+      // Afficher un message d'erreur
+      this.snackBar.open('Veuillez corriger les erreurs dans le formulaire', 'Fermer', { duration: 5000 });
       return;
+    }
+    
+    // Vérifier qu'il y a au moins une ligne de commande
+    if (this.lignesFormArray.length === 0) {
+      this.snackBar.open('Veuillez ajouter au moins une ligne de commande', 'Fermer', { duration: 3000 });
+      return;
+    }
+    
+    // Avant l'enregistrement, vérifier que le fournisseur est sélectionné ou que l'email est saisi
+    if (this.useEmailMode) {
+      // En mode email, vérifier que l'email est valide
+      if (!this.fournisseurEmail || !this.validateEmail(this.fournisseurEmail)) {
+        this.snackBar.open('Veuillez saisir un email de fournisseur valide', 'Fermer', { duration: 3000 });
+        return;
+      }
+    } else {
+      // En mode sélection, vérifier que le fournisseur est sélectionné
+      if (!this.commandeForm.get('fournisseur')?.get('id')?.value) {
+        this.snackBar.open('Veuillez sélectionner un fournisseur avant d\'enregistrer la commande', 'Fermer', { duration: 5000 });
+        return;
+      }
     }
     
     this.saving = true;
     
-    // Préparer les données de la commande
-    const commandeData: Commande = {
-      ...this.commandeForm.value,
-      id: this.commandeId,
-      statut: StatutCommande.BROUILLON
-    };
+    // Construire l'objet commande à partir du formulaire
+    const commandeData = this.commandeForm.value;
     
-    // Calculer les montants pour chaque ligne
-    if (commandeData.lignes) {
-      commandeData.lignes.forEach((ligne, index) => {
-        ligne.montantHT = this.calculerMontantHT(index);
-        ligne.montantTVA = this.calculerMontantTVA(index);
-        ligne.montantTTC = this.calculerMontantTTC(index);
-      });
+    // Préparer l'objet fournisseur
+    let fournisseur: { id?: number; nom?: string; email?: string } | undefined = undefined;
+    if (!this.useEmailMode) {
+      fournisseur = {
+        id: commandeData.fournisseur?.id
+      };
     }
     
-    // Créer ou mettre à jour la commande
-    const saveObservable = this.mode === 'create' 
-      ? this.commandeService.createCommande(commandeData)
-      : this.commandeService.updateCommande(this.commandeId!, commandeData);
+    // Préparer les lignes de commande
+    const lignes = commandeData.lignes.map((ligne: any) => {
+      return {
+        ...ligne,
+        montantHT: this.calculerMontantHT(this.lignesFormArray.controls.indexOf(ligne)),
+        montantTVA: this.calculerMontantTVA(this.lignesFormArray.controls.indexOf(ligne)),
+        montantTTC: this.calculerMontantTTC(this.lignesFormArray.controls.indexOf(ligne))
+      };
+    });
     
-    saveObservable.subscribe({
-      next: (result) => {
+    // Construire l'objet commande complet
+    const commande: Commande = {
+      ...this.commande,
+      fournisseur,
+      dateLivraisonPrevue: commandeData.dateLivraisonPrevue,
+      notes: commandeData.notes,
+      lignes,
+      montantHT: this.calculerTotalHT(),
+      montantTVA: this.calculerTotalTVA(),
+      montantTTC: this.calculerTotalTTC(),
+      creePar: 'Utilisateur actuel' // Idéalement, récupérer l'utilisateur connecté
+    };
+    
+    // Appeler le service pour créer ou mettre à jour la commande
+    let observable: any;
+    
+    if (this.mode === 'create') {
+      if (this.useEmailMode) {
+        // Créer avec email
+        observable = this.commandeService.createCommandeWithEmail(commande, this.fournisseurEmail);
+      } else {
+        // Créer avec fournisseur sélectionné
+        observable = this.commandeService.createCommande(commande);
+      }
+    } else {
+      observable = this.commandeService.updateCommande(this.commandeId!, commande);
+    }
+    
+    observable.subscribe({
+      next: (result: Commande) => {
         this.saving = false;
-        this.snackBar.open('Commande enregistrée avec succès', 'Fermer', { duration: 3000 });
+        this.commande = result;
         
-        if (this.mode === 'create') {
-          // Rediriger vers la page de détail de la nouvelle commande
+        // Afficher un message de succès
+        const message = this.mode === 'create' ? 'Commande créée avec succès' : 'Commande mise à jour avec succès';
+        this.snackBar.open(message, 'Fermer', { duration: 3000 });
+        
+        // Rediriger vers la page de détail
+        if (this.mode === 'create' && result.id) {
           this.router.navigate(['/achat/commandes', result.id]);
         } else {
-          // Recharger la commande pour afficher les modifications
-          this.loadCommande();
           this.mode = 'view';
+          this.loadCommande(); // Recharger la commande pour avoir les données à jour
         }
       },
-      error: (err) => {
-        console.error('Erreur lors de l\'enregistrement de la commande', err);
-        this.snackBar.open('Erreur lors de l\'enregistrement de la commande', 'Fermer', { duration: 3000 });
+      error: (err: any) => {
         this.saving = false;
+        console.error('Erreur lors de l\'enregistrement de la commande', err);
+        this.snackBar.open('Erreur lors de l\'enregistrement de la commande', 'Fermer', { duration: 5000 });
       }
     });
   }
@@ -566,6 +643,13 @@ export class CommandeDetailComponent implements OnInit {
     });
   }
 
+  // Méthode pour valider un email
+  validateEmail(email: string): boolean {
+    if (!email) return false;
+    const re = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    return re.test(email);
+  }
+  
   // Méthode pour ajouter les produits au formulaire
   ajouterProduitsAuFormulaire(produits: Produit[]): void {
     const lignesArray = this.lignesFormArray;

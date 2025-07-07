@@ -4,24 +4,7 @@ import { ReactiveFormsModule, FormsModule } from '@angular/forms';
 import { SharedModule } from '../../shared/shared.module';
 import { RouterModule } from '@angular/router';
 import { HttpClientModule } from '@angular/common/http';
-
-// Imports Angular Material
-import { MatCardModule } from '@angular/material/card';
-import { MatButtonModule } from '@angular/material/button';
-import { MatIconModule } from '@angular/material/icon';
-import { MatInputModule } from '@angular/material/input';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatSelectModule } from '@angular/material/select';
-import { MatPaginatorModule } from '@angular/material/paginator';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { MatSnackBarModule } from '@angular/material/snack-bar';
-import { MatDialogModule } from '@angular/material/dialog';
-import { MatTableModule } from '@angular/material/table';
-import { MatDividerModule } from '@angular/material/divider';
-import { MatTooltipModule } from '@angular/material/tooltip';
-import { MatListModule } from '@angular/material/list';
-import { MatChipsModule } from '@angular/material/chips';
-import { MatExpansionModule } from '@angular/material/expansion';
+import { MaterialModule } from '../../shared/material.module';
 
 import { StockRoutingModule } from './stock-routing.module';
 import { StockDashboardComponent } from './components/dashboard/dashboard.component';
@@ -41,6 +24,7 @@ import { CategoryFormDialogComponent } from './components/category-management/ca
 import { PurchaseOrderDetailPlusComponent } from './components/purchase-order-detail-plus/purchase-order-detail-plus.component';
 import { OrderItemCreationComponent } from './components/order-item-creation/order-item-creation.component';
 import { QuantiteDialogComponent } from './components/produits-commande/quantite-dialog/quantite-dialog.component';
+import { EmailDialogComponent } from './dialogs/email-dialog/email-dialog.component';
 import { PurchaseOrderService } from './services/purchase-order.service';
 import { ProductService } from './services/product.service';
 import { StockCommandeService } from './services/stock-commande.service';
@@ -61,7 +45,8 @@ import { StockCommandeService } from './services/stock-commande.service';
     LowStockComponent,
     ProduitsCommandeComponent,
     ReceptionCommandeComponent,
-    QuantiteDialogComponent
+    QuantiteDialogComponent,
+    EmailDialogComponent
   ],
   imports: [
     CommonModule,
@@ -73,23 +58,8 @@ import { StockCommandeService } from './services/stock-commande.service';
     HttpClientModule,
     CategoryManagementComponent,
     CategoryFormDialogComponent,
-    // Modules Angular Material
-    MatCardModule,
-    MatButtonModule,
-    MatIconModule,
-    MatInputModule,
-    MatFormFieldModule,
-    MatSelectModule,
-    MatPaginatorModule,
-    MatProgressSpinnerModule,
-    MatSnackBarModule,
-    MatDialogModule,
-    MatTableModule,
-    MatDividerModule,
-    MatTooltipModule,
-    MatListModule,
-    MatChipsModule,
-    MatExpansionModule
+    // Module Angular Material centralisé
+    MaterialModule
   ],
   providers: [
     // Ajouter les services pour résoudre les problèmes d'injection

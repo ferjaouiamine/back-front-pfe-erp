@@ -10,6 +10,8 @@ import { ProductDetailsDialogComponent } from './components/product-details-dial
 import { OpenRegisterDialogComponent } from './components/open-register-dialog/open-register-dialog.component';
 import { CloseRegisterDialogComponent } from './components/close-register-dialog/close-register-dialog.component';
 import { PaymentDialogComponent } from './components/payment-dialog/payment-dialog.component';
+import { StripeCardComponent } from './components/stripe-card/stripe-card.component';
+import { BankTransferComponent } from './components/bank-transfer/bank-transfer.component';
 
 // Angular Material Imports
 import { MatCardModule } from '@angular/material/card';
@@ -27,6 +29,7 @@ import { MatExpansionModule } from '@angular/material/expansion';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatCheckboxModule } from '@angular/material/checkbox';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { StockModule } from '../stock/stock.module';
 
 @NgModule({
@@ -37,7 +40,9 @@ import { StockModule } from '../stock/stock.module';
     ProductDetailsDialogComponent,
     OpenRegisterDialogComponent,
     CloseRegisterDialogComponent,
-    PaymentDialogComponent
+    PaymentDialogComponent,
+    StripeCardComponent,
+    BankTransferComponent
   ],
   providers: [
     CurrencyPipe
@@ -63,7 +68,8 @@ import { StockModule } from '../stock/stock.module';
     MatExpansionModule,
     MatTooltipModule,
     MatButtonToggleModule,
-    MatCheckboxModule
+    MatCheckboxModule,
+    MatProgressSpinnerModule
   ]
 })
 export class CaisseModule { }

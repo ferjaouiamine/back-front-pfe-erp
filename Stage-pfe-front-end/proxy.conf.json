@@ -38,6 +38,13 @@
     "changeOrigin": true,
     "logLevel": "debug"
   },
+  "/api/payments": {
+    "target": "http://localhost:8086",
+    "secure": false,
+    "changeOrigin": true,
+    "logLevel": "debug",
+    "pathRewrite": {"^/api/payments": "/api/payments"}
+  },
   "/api/*": {
     "target": "http://localhost:8081",
     "secure": false,

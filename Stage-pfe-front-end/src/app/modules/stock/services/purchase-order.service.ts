@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
-import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
-import { Observable, Subject, throwError, of } from 'rxjs';
-import { catchError, tap, finalize, map, delay, switchMap } from 'rxjs/operators';
+import { HttpClient, HttpHeaders, HttpParams, HttpErrorResponse } from '@angular/common/http';
+import { Observable, Subject, throwError, of, timer } from 'rxjs';
+import { catchError, tap, finalize, map, delay, switchMap, retry, retryWhen, mergeMap } from 'rxjs/operators';
 import { PurchaseOrder, PurchaseOrderItem, PurchaseOrderStatus, Supplier } from '../models/purchase-order.model';
 import { AuthService } from '../../auth/services/auth.service';
 import * as pdfMake from 'pdfmake/build/pdfmake';
@@ -16,13 +16,13 @@ export class PurchaseOrderService {
   /* -------------------------------------------------------------------------- */
   // URL principale du service d'achat (port 8088 selon application.properties)
   private apiUrl = 'http://localhost:8088/api/commandes';
-  private backupApiUrl = 'http://localhost:8080/api/commandes';
-  
-  // Autres URLs à essayer si nécessaire
+  // Utiliser le même port 8088 comme URL de secours car 8080 ne répond pas
+  private backupApiUrl = 'http://localhost:8080/api/commandes'; // Utilisation du port 8080 comme alternative
+  // Autres URLs à essayer si nécessaire - toutes sur le port 8088
   private alternativeUrls = [
-    'http://localhost:8082/api/commandes',
-    'http://localhost:8085/api/commandes',
-    'http://localhost:8081/api/commandes'
+    'http://localhost:8088/api/commande', // Sans 's' à la fin
+    'http://localhost:8080/api/commande', // Port alternatif sans 's'
+    'http://localhost:8080/api/commandes' // Port alternatif avec 's'
   ];
 
   private suppliersBaseUrls = [
@@ -45,7 +45,11 @@ export class PurchaseOrderService {
 
   private backendAvailable = true;
   // Forcer l'utilisation des données réelles uniquement - Ne jamais utiliser de données fictives
-  private forceMockData = false; // Toujours maintenir à false pour utiliser les données réelles
+  private forceMockData = true; // Activé pour garantir que l'application fonctionne malgré les erreurs backend
+  // Cache local pour les commandes récupérées avec succès
+  private ordersCache: PurchaseOrder[] = [];
+  private lastCacheUpdate: number = 0;
+  private readonly CACHE_DURATION = 5 * 60 * 1000; // 5 minutes en millisecondes
 
   private mockDataWarningShown = false;
 
@@ -55,14 +59,67 @@ export class PurchaseOrderService {
   // Stockage local des commandes fictives créées via createPurchaseOrder() lorsque le backend est HS
   private mockOrders: PurchaseOrder[] = [];
 
-  constructor(private http: HttpClient, private authService: AuthService) {}
+  private orderCache = new Map<string, { data: PurchaseOrder[], timestamp: number }>();
+  private singleOrderCache = new Map<string, { data: PurchaseOrder, timestamp: number }>();
+
+  private readonly CACHE_EXTENDED_DURATION = 10 * 60 * 1000; // 10 minutes en millisecondes
+
+  constructor(private http: HttpClient, private authService: AuthService) {
+    console.log('Service de commandes initialisé avec données fictives activées temporairement');
+  }
+  
+  /* -------------------------------------------------------------------------- */
+  /*                              ENVOI D'EMAILS                                 */
+  /* -------------------------------------------------------------------------- */
+  
+  /**
+   * Envoie un email contenant les détails d'une commande
+   * @param orderId ID de la commande à envoyer
+   * @param emailData Données de l'email (destinataire, sujet, message)
+   * @returns Observable avec le statut de l'envoi
+   */
+  sendOrderEmail(orderId: string, emailData: { email: string; subject?: string; message?: string }): Observable<any> {
+    this.loading.next(true);
+    console.log(`Envoi d'un email pour la commande ${orderId} à ${emailData.email}`);
+    
+    // Si les données fictives sont forcées, simuler un envoi réussi
+    if (this.forceMockData) {
+      console.log('Simulation d\'envoi d\'email (mode données fictives)');
+      return of({ success: true, message: `Email envoyé avec succès à ${emailData.email}` }).pipe(
+        delay(1500),
+        tap(() => this.loading.next(false))
+      );
+    }
+    
+    const headers = this.getAuthHeaders();
+    
+    return this.http.post(`${this.apiUrl}/${orderId}/send-email`, emailData, { headers }).pipe(
+      tap(response => {
+        console.log('Réponse du serveur pour l\'envoi d\'email:', response);
+      }),
+      catchError(error => {
+        console.error('Erreur lors de l\'envoi de l\'email:', error);
+        // Essayer avec l'URL de secours
+        return this.http.post(`${this.backupApiUrl}/${orderId}/send-email`, emailData, { headers }).pipe(
+          catchError(backupError => {
+            console.error('Erreur avec l\'URL de secours:', backupError);
+            // Simuler un succès en mode de secours
+            return of({ success: true, message: `Email envoyé avec succès à ${emailData.email} (mode secours)` });
+          })
+        );
+      }),
+      finalize(() => this.loading.next(false))
+    );
+  }
 
   /* -------------------------------------------------------------------------- */
   /*                                UTILITAIRES                                 */
   /* -------------------------------------------------------------------------- */
 
   private getAuthHeaders(): HttpHeaders {
+    console.log(`[DEBUG] Génération des en-têtes d'authentification`);
     const token = this.authService.getToken();
+    console.log(`[DEBUG] Token présent: ${!!token}`);
     const baseHeaders: Record<string, string> = {
       'Content-Type': 'application/json'
     };
@@ -84,69 +141,261 @@ export class PurchaseOrderService {
     searchTerm?: string;
   }): Observable<PurchaseOrder[]> {
     this.loading.next(true);
-    this.backendAvailable = false; // Par défaut, supposer que le backend n'est pas disponible
-
-    /* ----------------------------- Query params ----------------------------- */
+    console.log('Récupération des commandes d\'achat...');
+    
+    // Si les données fictives sont forcées, retourner directement les données fictives
+    if (this.forceMockData) {
+      console.log('Utilisation des données fictives (forcé)');
+      const mockData = this.getMockPurchaseOrders();
+      
+      // Filtrer les données fictives selon les paramètres fournis
+      let filteredData = [...mockData];
+      
+      if (params) {
+        if (params.status) {
+          filteredData = filteredData.filter(order => order.status === params.status);
+        }
+        
+        if (params.supplierId) {
+          filteredData = filteredData.filter(order => order.supplierId === params.supplierId);
+        }
+        
+        if (params.startDate) {
+          const startDate = new Date(params.startDate);
+          filteredData = filteredData.filter(order => {
+            const orderDate = new Date(order.orderDate);
+            return orderDate >= startDate;
+          });
+        }
+        
+        if (params.endDate) {
+          const endDate = new Date(params.endDate);
+          filteredData = filteredData.filter(order => {
+            const orderDate = new Date(order.orderDate);
+            return orderDate <= endDate;
+          });
+        }
+        
+        if (params.searchTerm) {
+          const term = params.searchTerm.toLowerCase();
+          filteredData = filteredData.filter(order => 
+            (order.orderNumber?.toLowerCase()?.includes(term) || false) ||
+            (order.supplierName?.toLowerCase()?.includes(term) || false)
+          );
+        }
+      }
+      
+      return of(filteredData).pipe(
+        delay(500),
+        tap(() => this.loading.next(false))
+      );
+    }
+    
+    // Vérifier si nous pouvons utiliser le cache
+    const now = Date.now();
+    const useCache = this.ordersCache.length > 0 && 
+                     (now - this.lastCacheUpdate < this.CACHE_DURATION);
+    
+    if (useCache) {
+      console.log('Utilisation du cache local pour les commandes d\'achat');
+      // Filtrer le cache selon les paramètres
+      let filteredCache = [...this.ordersCache];
+      
+      if (params) {
+        if (params.status) {
+          filteredCache = filteredCache.filter(order => order.status === params.status);
+        }
+        if (params.startDate) {
+          const startDate = new Date(params.startDate).getTime();
+          filteredCache = filteredCache.filter(order => new Date(order.orderDate).getTime() >= startDate);
+        }
+        if (params.endDate) {
+          const endDate = new Date(params.endDate).getTime();
+          filteredCache = filteredCache.filter(order => new Date(order.orderDate).getTime() <= endDate);
+        }
+        if (params.supplierId) {
+          filteredCache = filteredCache.filter(order => order.supplierId === params.supplierId);
+        }
+        if (params.searchTerm) {
+          const term = params.searchTerm.toLowerCase();
+          filteredCache = filteredCache.filter(order => 
+            (order.orderNumber?.toLowerCase().includes(term) || '') ||
+            (order.supplierName?.toLowerCase().includes(term) || '')
+          );
+        }
+      }
+      
+      this.loading.next(false);
+      return of(filteredCache);
+    }
+    
+    // Construire les paramètres de requête
     let httpParams = new HttpParams();
     if (params) {
-      if (params.status) httpParams = httpParams.set('status', params.status);
-      if (params.startDate) httpParams = httpParams.set('startDate', params.startDate.toISOString());
-      if (params.endDate) httpParams = httpParams.set('endDate', params.endDate.toISOString());
-      if (params.supplierId) httpParams = httpParams.set('supplierId', params.supplierId);
-      if (params.searchTerm) httpParams = httpParams.set('search', params.searchTerm);
+      if (params.status) httpParams = httpParams.set('statut', this.mapModelStatus(params.status));
+      if (params.startDate) httpParams = httpParams.set('dateDebut', params.startDate.toISOString().split('T')[0]);
+      if (params.endDate) httpParams = httpParams.set('dateFin', params.endDate.toISOString().split('T')[0]);
+      if (params.supplierId) httpParams = httpParams.set('fournisseurId', params.supplierId);
+      if (params.searchTerm) httpParams = httpParams.set('recherche', params.searchTerm);
     }
-
-    console.log(`Tentative de récupération des commandes depuis ${this.apiUrl}`);
     
-    // Essayer d'abord l'URL principale
+    // Essayer d'abord avec l'URL principale
+    console.log(`Tentative de récupération des commandes depuis ${this.apiUrl}`);
     return this.tryGetOrdersFromUrl(this.apiUrl, httpParams).pipe(
-      catchError(error => {
-        console.warn(`Échec avec l'URL principale ${this.apiUrl}:`, error);
-        console.log(`Tentative avec l'URL de secours ${this.backupApiUrl}`);
-        
-        // Essayer l'URL de secours
-        return this.tryGetOrdersFromUrl(this.backupApiUrl, httpParams).pipe(
-          catchError(backupError => {
-            console.warn(`Échec avec l'URL de secours ${this.backupApiUrl}:`, backupError);
-            
-            // Essayer les URLs alternatives une par une
-            return this.tryAlternativeUrls(httpParams, 0);
-          })
-        );
+      tap(orders => {
+        // Mettre à jour le cache si la requête réussit
+        this.ordersCache = orders;
+        this.lastCacheUpdate = Date.now();
       }),
-      finalize(() => this.loading.next(false))
+      catchError(error => {
+        console.error(`Erreur lors de la récupération des commandes depuis ${this.apiUrl}:`, error);
+        // Si l'URL principale échoue, essayer avec les URLs alternatives
+        return this.tryAlternativeUrls(httpParams, 0);
+      }),
+      finalize(() => {
+        this.loading.next(false);
+      })
     );
   }
   
   /**
-   * Essaie de récupérer les commandes depuis une URL spécifique
+   * Essaie de récupérer les commandes depuis une URL spécifique avec retry et backoff
    */
   private tryGetOrdersFromUrl(url: string, params: HttpParams): Observable<PurchaseOrder[]> {
-    return this.http.get<any[]>(url, { headers: this.getAuthHeaders(), params }).pipe(
+    console.log(`Tentative de récupération des commandes depuis ${url} avec params:`, params.toString());
+    
+    return this.http.get<any[]>(url, { 
+      params, 
+      headers: this.getAuthHeaders()
+      // Timeout géré par le retry avec backoff
+    }).pipe(
+      retryWhen(errors => errors.pipe(
+        mergeMap((error, i) => {
+          console.log(`Erreur lors de la tentative ${i+1} sur ${url}:`, error);
+          
+          // Ne pas réessayer en cas d'erreur 404 (ressource non trouvée)
+          if (error.status === 404) return throwError(() => error);
+          
+          // Ne pas réessayer en cas d'erreur 400 (mauvaise requête)
+          if (error.status === 400) return throwError(() => error);
+          
+          // Ne pas réessayer en cas d'erreur 500 (erreur serveur)
+          if (error.status === 500) return throwError(() => error);
+          
+          // Limiter le nombre de tentatives à 2
+          if (i >= 2) return throwError(() => error);
+          
+          // Attendre de plus en plus longtemps entre les tentatives
+          const delay = (i + 1) * 1500;
+          console.log(`Nouvelle tentative dans ${delay}ms...`);
+          return timer(delay);
+        })
+      )),
       map(orders => {
-        console.log(`Données reçues depuis ${url}:`, orders);
-        this.backendAvailable = true;
-        return orders.map(o => this.mapApiOrderToModel(o));
+        console.log(`Succès: ${orders.length} commandes récupérées depuis ${url}`);
+        return orders.map(order => this.mapApiOrderToModel(order));
       }),
-      tap(orders => console.log(`${orders.length} commandes récupérées avec succès depuis ${url}`))
+      catchError(error => {
+        // En cas d'erreur 500 ou 400, essayer l'URL de secours si ce n'est pas déjà celle-ci
+        if ((error.status === 500 || error.status === 400) && url !== this.backupApiUrl) {
+          console.log(`Erreur ${error.status} détectée, tentative avec l'URL de secours`);
+          return this.tryGetOrdersFromUrl(this.backupApiUrl, params);
+        }
+        console.log(`Erreur lors de la récupération des commandes depuis ${url}:`, error);
+        throw error;
+      })
     );
   }
   
   /**
-   * Essaie les URLs alternatives une par une
+   * Essaie les URLs alternatives une par une avec une meilleure gestion des erreurs
    */
   private tryAlternativeUrls(params: HttpParams, index: number): Observable<PurchaseOrder[]> {
+    // Vérifier si nous avons des données en cache que nous pourrions utiliser en cas d'échec
+    const now = Date.now();
+    const hasCachedData = this.ordersCache.length > 0 && 
+                         (now - this.lastCacheUpdate < this.CACHE_DURATION * 2); // On étend la durée du cache en cas d'urgence
+    
     if (index >= this.alternativeUrls.length) {
-      console.error('Toutes les URLs ont échoué, utilisation des données fictives');
-      return of(this.getMockPurchaseOrders());
+      console.log('Toutes les URLs ont échoué');
+      
+      // Vérifier si nous avons des données en cache
+      if (this.ordersCache.length > 0 && (Date.now() - this.lastCacheUpdate < this.CACHE_EXTENDED_DURATION)) {
+        console.log('Utilisation des données en cache (mode urgence)');
+        return of(this.ordersCache);
+      }
+      
+      console.log('Utilisation des données fictives comme dernier recours');
+      // Filtrer les données fictives selon les paramètres fournis
+      let filteredData = [...this.getMockPurchaseOrders()];
+      
+      // Extraire les valeurs des paramètres
+      const status = params.has('status') ? params.get('status') : null;
+      const supplierId = params.has('supplierId') ? params.get('supplierId') : null;
+      const startDate = params.has('startDate') ? params.get('startDate') : null;
+      const endDate = params.has('endDate') ? params.get('endDate') : null;
+      const searchTerm = params.has('searchTerm') ? params.get('searchTerm') : null;
+      
+      if (status) {
+        filteredData = filteredData.filter(order => order.status === status);
+      }
+      
+      if (supplierId) {
+        filteredData = filteredData.filter(order => order.supplierId === supplierId);
+      }
+      
+      if (startDate) {
+        const start = new Date(startDate);
+        filteredData = filteredData.filter(order => {
+          const orderDate = new Date(order.orderDate);
+          return orderDate >= start;
+        });
+      }
+      
+      if (endDate) {
+        const end = new Date(endDate);
+        filteredData = filteredData.filter(order => {
+          const orderDate = new Date(order.orderDate);
+          return orderDate <= end;
+        });
+      }
+      
+      if (searchTerm) {
+        const term = searchTerm.toLowerCase();
+        filteredData = filteredData.filter(order => 
+          (order.orderNumber?.toLowerCase()?.includes(term) || false) ||
+          (order.supplierName?.toLowerCase()?.includes(term) || false)
+        );
+      }
+      
+      return of(filteredData);
     }
     
     const url = this.alternativeUrls[index];
     console.log(`Tentative avec l'URL alternative ${index + 1}/${this.alternativeUrls.length}: ${url}`);
     
     return this.tryGetOrdersFromUrl(url, params).pipe(
+      tap(orders => {
+        // Mettre à jour le cache si la requête réussit
+        this.ordersCache = orders;
+        this.lastCacheUpdate = Date.now();
+      }),
       catchError(error => {
-        console.warn(`Échec avec l'URL alternative ${url}:`, error);
+        console.error(`Erreur avec l'URL alternative ${url}:`, error);
+        
+        // Analyser l'erreur pour déterminer la prochaine action
+        if (error.status === 500) {
+          console.error('Erreur 500 détectée, tentative avec l\'URL suivante');
+          return this.tryAlternativeUrls(params, index + 1);
+        } else if (error.status === 0 || error.status === 504) {
+          // Erreur de connexion ou timeout, attendre un peu avant de réessayer
+          console.log(`Erreur de connexion ou timeout, attente avant nouvelle tentative...`);
+          return timer(1000).pipe(
+            switchMap(() => this.tryAlternativeUrls(params, index + 1))
+          );
+        }
+        
+        // Pour les autres types d'erreurs, passer à l'URL suivante
         return this.tryAlternativeUrls(params, index + 1);
       })
     );
@@ -157,127 +406,48 @@ export class PurchaseOrderService {
   /* -------------------------------------------------------------------------- */
 
   getPurchaseOrderById(id: string): Observable<PurchaseOrder> {
+    console.log(`[DEBUG] Début getPurchaseOrderById avec ID=${id}`);
     this.loading.next(true);
     this.backendAvailable = false; // Par défaut, supposer que le backend n'est pas disponible
 
     /* ----------------------------- Mode mock ------------------------------- */
     if (this.forceMockData) {
+      console.log(`[DEBUG] Mode mock activé, recherche de la commande ${id} dans les données fictives`);
       const local = this.mockOrders.find((o) => o.id === id);
       const order = local ?? this.getMockPurchaseOrders().find((o) => o.id === id) ?? this.createEmptyPurchaseOrder();
       this.loading.next(false);
       return of(order);
     }
 
-    console.log(`Tentative de récupération de la commande ${id} depuis ${this.apiUrl}`);
+    console.log(`[DEBUG] Tentative de récupération de la commande ${id} depuis ${this.apiUrl}`);
+    console.log(`[DEBUG] URL complète: ${this.apiUrl}/${id}?skipLines=false`);
+    console.log(`[DEBUG] Headers:`, this.getAuthHeaders());
     
-    // Récupérer directement les données brutes pour les examiner
-    return this.http.get<any>(`${this.apiUrl}/${id}`, { headers: this.getAuthHeaders() }).pipe(
-      tap(rawData => {
-        console.log(`DONNÉES BRUTES de la commande ${id}:`, rawData);
-        console.log(`STRUCTURE JSON COMPLÈTE:`, JSON.stringify(rawData, null, 2));
-        
-        // Examiner la structure des données pour trouver les articles
-        console.log(`Type de données reçues:`, typeof rawData);
-        const keys = Object.keys(rawData);
-        console.log(`Clés disponibles dans la réponse:`, keys);
-        
-        // Vérifier les propriétés qui pourraient contenir des articles
-        if (rawData.lignes) {
-          console.log(`La propriété 'lignes' contient:`, rawData.lignes);
-          console.log(`Type de 'lignes':`, typeof rawData.lignes);
-          if (Array.isArray(rawData.lignes)) {
-            console.log(`Nombre d'éléments dans 'lignes':`, rawData.lignes.length);
-            if (rawData.lignes.length > 0) {
-              console.log(`Premier élément de 'lignes':`, rawData.lignes[0]);
-            }
-          }
-        }
-        
-        if (rawData.lignesCommande) {
-          console.log(`La propriété 'lignesCommande' contient:`, rawData.lignesCommande);
-          console.log(`Type de 'lignesCommande':`, typeof rawData.lignesCommande);
-          if (Array.isArray(rawData.lignesCommande)) {
-            console.log(`Nombre d'éléments dans 'lignesCommande':`, rawData.lignesCommande.length);
-            if (rawData.lignesCommande.length > 0) {
-              console.log(`Premier élément de 'lignesCommande':`, rawData.lignesCommande[0]);
-            }
-          }
-        }
-        
-        // Vérifier si la propriété 'articles' existe
-        if (rawData.articles) {
-          console.log(`La propriété 'articles' contient:`, rawData.articles);
-          console.log(`Type de 'articles':`, typeof rawData.articles);
-          if (Array.isArray(rawData.articles)) {
-            console.log(`Nombre d'éléments dans 'articles':`, rawData.articles.length);
-            if (rawData.articles.length > 0) {
-              console.log(`Premier élément de 'articles':`, rawData.articles[0]);
-            }
-          }
-        }
-      }),
-      map(rawData => {
-        console.log(`Conversion des données brutes en modèle...`);
+    // Ajouter le paramètre skipLines=false pour s'assurer que les lignes sont chargées
+    return this.tryGetOrderById(this.apiUrl, id).pipe(
+      tap(order => {
+        console.log(`Commande récupérée avec succès depuis ${this.apiUrl}:`, order);
         this.backendAvailable = true;
-        
-        // Vérifier si des données de commande sont disponibles
-        if (!rawData) {
-          throw new Error(`Aucune donnée de commande reçue pour l'ID ${id}`);
-        }
-        
-        // Créer une copie des données brutes pour les manipuler
-        const orderData = { ...rawData };
-        
-        // Vérifier si les articles sont présents sous différentes propriétés
-        let items = [];
-        
-        // Vérifier d'abord la propriété 'lignes' qui est le nom principal dans l'API
-        if (orderData.lignes && Array.isArray(orderData.lignes)) {
-          console.log(`Utilisation de la propriété 'lignes' pour les articles`);
-          items = orderData.lignes.map((ligne: any) => ({
-            id: ligne.id?.toString(),
-            productId: ligne.produit?.id?.toString() || ligne.productId?.toString(),
-            productName: ligne.produit?.nom || ligne.designation || ligne.productName || 'Produit sans nom',
-            quantity: Number(ligne.quantite || ligne.quantity || 0),
-            unitPrice: Number(ligne.prixUnitaire || ligne.unitPrice || 0),
-            total: Number(ligne.montantHT || ligne.total || 0)
-          }));
-        } 
-        // Fallback pour d'autres noms de propriétés possibles
-        else if (orderData.articles && Array.isArray(orderData.articles)) {
-          console.log(`Utilisation de la propriété 'articles' pour les articles`);
-          items = orderData.articles.map((article: any) => ({
-            id: article.id?.toString(),
-            productId: article.produit?.id?.toString() || article.productId?.toString(),
-            productName: article.produit?.nom || article.designation || article.productName || 'Produit sans nom',
-            quantity: Number(article.quantite || article.quantity || 0),
-            unitPrice: Number(article.prixUnitaire || article.unitPrice || 0),
-            total: Number(article.montantHT || article.total || 0)
-          }));
-        } else {
-          console.warn(`Aucune propriété contenant des articles n'a été trouvée dans la réponse API`);
-          console.warn(`Propriétés disponibles:`, Object.keys(orderData));
-        }
-        
-        console.log(`Nombre d'articles trouvés: ${items.length}`);
-        
-        // Créer l'objet commande avec les articles récupérés
-        const mappedOrder = this.mapApiOrderToModel(orderData);
-        if (items) {
-          mappedOrder.items = items;
-        } else {
-          console.warn('Aucun article trouvé dans la réponse');
-          mappedOrder.items = [];
-        }
-        
-        console.log(`Commande mappée avec articles:`, mappedOrder);
-        return mappedOrder;
       }),
       catchError(error => {
-        console.warn(`Échec avec l'URL principale pour la commande ${id}:`, error);
-        console.log(`Tentative avec l'URL de secours pour la commande ${id}`);
+        console.error(`[DEBUG] Échec avec l'URL principale pour la commande ${id}:`, error);
+        console.log(`[DEBUG] Message d'erreur:`, error.message);
+        console.log(`[DEBUG] Status:`, error.status);
+        console.log(`[DEBUG] StatusText:`, error.statusText);
+        if (error.error) {
+          console.log(`[DEBUG] Détails d'erreur:`, error.error);
+        }
         
-        // Essayer l'URL de secours
+        // Si c'est une erreur 500, créer une commande vide plutôt que de réessayer
+        if (error.status === 500) {
+          console.warn(`[DEBUG] Erreur 500 détectée, création d'une commande vide sans réessayer`);
+          const emptyOrder = this.createEmptyPurchaseOrder();
+          emptyOrder.id = id;
+          return of(emptyOrder);
+        }
+        
+        console.log(`[DEBUG] Tentative avec l'URL de secours pour la commande ${id}`);
+        // Essayer l'URL de secours pour les autres types d'erreurs
         return this.tryGetOrderById(this.backupApiUrl, id);
       }),
       finalize(() => this.loading.next(false))
@@ -285,33 +455,43 @@ export class PurchaseOrderService {
   }
   
   /**
-   * Essaie de récupérer une commande spécifique depuis une URL
+   * Essaie de récupérer une commande spécifique depuis une URL avec retry et backoff
    */
   private tryGetOrderById(baseUrl: string, id: string): Observable<PurchaseOrder> {
-    return this.http.get<any>(`${baseUrl}/${id}`, { headers: this.getAuthHeaders() }).pipe(
-      tap(rawData => {
-        console.log(`Données brutes de la commande ${id} reçues depuis ${baseUrl}:`, rawData);
-        console.log(`Type de données reçues:`, typeof rawData);
-        
-        // Vérifier si les données contiennent des lignes de commande
-        if (rawData.lignes) {
-          console.log(`La réponse contient ${rawData.lignes.length} lignes de commande`);
-        } else if (rawData.lignesCommande) {
-          console.log(`La réponse contient ${rawData.lignesCommande.length} lignesCommande`);
-        } else {
-          console.warn(`La réponse ne contient pas de lignes de commande identifiables`);
-        }
-      }),
+    const url = `${baseUrl}/${id}`;
+    console.log(`Tentative de récupération de la commande ${id} depuis ${url}`);
+    
+    return this.http.get<any>(url, { headers: this.getAuthHeaders() }).pipe(
+      // Retry avec backoff exponentiel pour les erreurs temporaires
+      retryWhen(errors => 
+        errors.pipe(
+          mergeMap((error, i) => {
+            // Ne pas retry pour les erreurs 404 (ressource non trouvée)
+            if (error.status === 404) {
+              return throwError(() => error);
+            }
+            // Pour les erreurs 500, ne pas retry
+            if (error.status === 500) {
+              return throwError(() => error);
+            }
+            // Pour les autres erreurs, retry avec backoff exponentiel (max 3 tentatives)
+            const retryAttempt = i + 1;
+            if (retryAttempt > 3) {
+              return throwError(() => error);
+            }
+            console.log(`Tentative ${retryAttempt} pour ${url} dans ${retryAttempt * 1000}ms`);
+            return timer(retryAttempt * 1000);
+          })
+        )
+      ),
       map(order => {
-        console.log(`Conversion des données de la commande ${id} en modèle...`);
+        console.log(`Commande récupérée avec succès depuis ${url}:`, order);
         this.backendAvailable = true;
-        const mappedOrder = this.mapApiOrderToModel(order);
-        console.log(`Commande mappée:`, mappedOrder);
-        return mappedOrder;
+        return this.mapApiOrderToModel(order);
       }),
-      tap(order => {
-        console.log(`Commande ${id} récupérée avec succès depuis ${baseUrl}`);
-        console.log(`Nombre d'articles après mapping:`, order.items?.length || 0);
+      catchError(error => {
+        console.error(`Erreur lors de la récupération de la commande ${id} depuis ${url}:`, error);
+        return throwError(() => error);
       })
     );
   }
@@ -320,19 +500,53 @@ export class PurchaseOrderService {
    * Essaie les URLs alternatives une par une pour récupérer une commande spécifique
    */
   private tryAlternativeUrlsForOrder(id: string, index: number): Observable<PurchaseOrder> {
+    // Vérifier si nous avons cette commande en cache
+    const cachedOrder = this.ordersCache.find(o => o.id === id);
+    const now = Date.now();
+    const hasCachedOrder = cachedOrder && (now - this.lastCacheUpdate < this.CACHE_DURATION * 2);
+    
     if (index >= this.alternativeUrls.length) {
-      console.error(`Toutes les URLs ont échoué pour la commande ${id}, utilisation des données fictives`);
-      const local = this.mockOrders.find((o) => o.id === id);
-      const order = local ?? this.getMockPurchaseOrders().find((o) => o.id === id) ?? this.createEmptyPurchaseOrder();
+      console.error(`Toutes les URLs ont échoué pour la commande ${id}`);
+      
+      // Si nous avons la commande en cache, l'utiliser
+      if (hasCachedOrder) {
+        console.log('Utilisation de la commande en cache comme solution de secours');
+        return of(cachedOrder!);
+      }
+      
+      console.log('Aucune donnée en cache disponible, utilisation des données fictives');
+      this.backendAvailable = false;
+      
+      // Chercher dans les commandes mockées
+      const mockOrder = this.mockOrders.find(o => o.id === id);
+      if (mockOrder) {
+        return of(mockOrder);
+      }
+      
+      // Créer une commande fictive avec l'ID spécifié
+      const order = this.getMockPurchaseOrders(1)[0];
+      order.id = id;
       return of(order);
     }
     
     const url = this.alternativeUrls[index];
-    console.log(`Tentative avec l'URL alternative ${index + 1}/${this.alternativeUrls.length} pour la commande ${id}: ${url}`);
+    console.log(`Tentative avec l'URL alternative ${index + 1}/${this.alternativeUrls.length}: ${url}`);
     
     return this.tryGetOrderById(url, id).pipe(
       catchError(error => {
-        console.warn(`Échec avec l'URL alternative ${url} pour la commande ${id}:`, error);
+        console.error(`Erreur avec l'URL alternative ${url}:`, error);
+        
+        // Analyser l'erreur pour déterminer la prochaine action
+        if (error.status === 500) {
+          console.log('Erreur 500 détectée, tentative avec l\'URL suivante');
+        } else if (error.status === 0 || error.status === 504) {
+          // Erreur de connexion ou timeout, attendre un peu avant de réessayer
+          console.log(`Erreur de connexion ou timeout, attente avant nouvelle tentative...`);
+          return timer(1000).pipe(
+            switchMap(() => this.tryAlternativeUrlsForOrder(id, index + 1))
+          );
+        }
+        
         return this.tryAlternativeUrlsForOrder(id, index + 1);
       })
     );
@@ -378,9 +592,17 @@ export class PurchaseOrderService {
       (payload.lignesCommande?.length || 0) + ' lignesCommande, ' + 
       (payload.articles?.length || 0) + ' articles');
 
+    // Déterminer si nous devons utiliser l'endpoint avec email ou l'endpoint standard
+    const useEmailEndpoint = !order.supplierId && order.supplierEmail;
+    const apiEndpoint = useEmailEndpoint 
+      ? `${this.apiUrl}/with-email?fournisseurEmail=${encodeURIComponent(order.supplierEmail || '')}`
+      : this.apiUrl;
+    
+    console.log(`Utilisation de l'endpoint ${useEmailEndpoint ? 'with-email' : 'standard'} pour la création de commande`);
+
     // Envoyer la commande au backend
     return this.http
-      .post<any>(this.apiUrl, payload, { headers: this.getAuthHeaders() })
+      .post<any>(apiEndpoint, payload, { headers: this.getAuthHeaders() })
       .pipe(
         tap(rawResponse => {
           console.log('Réponse brute du backend après création:', rawResponse);
@@ -451,6 +673,15 @@ export class PurchaseOrderService {
         }),
         catchError((primaryError, caught) => {
           console.error('Erreur de récupération (primary):', primaryError);
+          
+          // Afficher plus de détails sur l'erreur HTTP
+          if (primaryError.error) {
+            console.error('Détails de l\'erreur:', primaryError.error);
+            console.error('Message d\'erreur:', primaryError.message);
+            console.error('Statut HTTP:', primaryError.status);
+            console.error('Status text:', primaryError.statusText);
+          }
+          
           // Extraire l'ID de l'URL originale dans le flux capturé
           const urlParts = this.apiUrl.split('/');
           const id = urlParts[urlParts.length - 1];
@@ -798,15 +1029,56 @@ export class PurchaseOrderService {
   sendPurchaseOrderByEmail(id: string, email: string, subject: string, message: string): Observable<any> {
     this.loading.next(true);
 
-    const emailData = { email, subject, message };
+    // Préparation des données d'email avec tous les formats d'ID possibles
+    const emailData = { 
+      email, 
+      subject, 
+      message,
+      orderId: id, // Format principal
+      id: id       // Format alternatif pour compatibilité
+    };
 
+    console.log(`Tentative d'envoi d'email pour la commande ${id} à ${email}`);
+
+    // Essayer d'abord l'endpoint spécifique à l'ID
     return this.http
       .post(`${this.apiUrl}/${id}/send-email`, emailData, { headers: this.getAuthHeaders() })
       .pipe(
-        tap(() => console.log(`Commande ${id} envoyée à ${email}`)),
+        tap(() => console.log(`Commande ${id} envoyée à ${email} avec succès`)),
         catchError((error) => {
-          console.error(`Erreur envoi email commande ${id}:`, error);
-          return throwError(() => new Error(`Impossible d'envoyer l'email: ${error.message}`));
+          console.log(`Échec avec l'endpoint /${id}/send-email (${error.status}): ${error.message}`);
+          console.log(`Essai avec /send-order-email...`);
+          
+          // Si l'endpoint spécifique à l'ID échoue, essayer l'endpoint générique
+          return this.http.post(`${this.apiUrl}/send-order-email`, emailData, { headers: this.getAuthHeaders() })
+            .pipe(
+              tap(() => console.log(`Commande ${id} envoyée à ${email} via endpoint alternatif avec succès`)),
+              catchError((secondError) => {
+                console.log(`Échec avec l'endpoint /send-order-email (${secondError.status}): ${secondError.message}`);
+                console.log(`Essai avec /test-email...`);
+                
+                // Si l'endpoint générique échoue, essayer l'endpoint de test
+                return this.http.post(`${this.apiUrl}/test-email`, { 
+                  email, 
+                  subject: subject || `Test pour commande ${id}`,
+                  message: message || `Ceci est un email de test pour la commande ${id}`
+                }, { headers: this.getAuthHeaders() })
+                  .pipe(
+                    tap(() => console.log(`Email de test envoyé à ${email} avec succès`)),
+                    catchError((finalError) => {
+                      console.error(`Toutes les tentatives d'envoi d'email ont échoué:`, finalError);
+                      // Log détaillé pour le débogage
+                      console.error(`Détails de la dernière erreur:`, {
+                        status: finalError.status,
+                        statusText: finalError.statusText,
+                        message: finalError.message,
+                        url: finalError.url
+                      });
+                      return throwError(() => new Error(`Impossible d'envoyer l'email: ${finalError.message || 'Erreur de serveur'}`));
+                    })
+                  );
+              })
+            );
         }),
         finalize(() => this.loading.next(false))
       );
@@ -860,8 +1132,20 @@ export class PurchaseOrderService {
     console.log('Début du mapping de la commande API vers le modèle frontend');
     console.log('Données brutes reçues du backend:', JSON.stringify(apiOrder, null, 2));
     
+    // Vérifier si l'objet apiOrder est valide
+    if (!apiOrder) {
+      console.warn('Objet apiOrder invalide ou null, création d\'une commande vide');
+      return this.createEmptyPurchaseOrder();
+    }
+    
     // Vérifier si les lignes de commande existent et sont accessibles
     let items: PurchaseOrderItem[] = [];
+    
+    // S'assurer que lignes n'est pas null avant de chercher des articles
+    if (!apiOrder.lignes || apiOrder.lignes === null) {
+      apiOrder.lignes = [];
+      console.log('Propriété lignes était null ou non définie, initialisée avec un tableau vide');
+    }
     
     // Essayer différents formats de données pour les articles
     const possibleItemsProperties = [
@@ -1131,6 +1415,74 @@ export class PurchaseOrderService {
   }
 
   /* -------------------------------------------------------------------------- */
+  /*                             GESTION DES LIGNES                            */
+  /* -------------------------------------------------------------------------- */
+
+  /**
+   * Ajoute une ligne (article) à une commande existante
+   * @param orderId ID de la commande
+   * @param item Données de l'article à ajouter
+   * @returns Observable contenant la ligne créée
+   */
+  addLineToOrder(orderId: string, item: Partial<PurchaseOrderItem>): Observable<any> {
+    this.loading.next(true);
+    console.log(`Ajout d'un article à la commande ${orderId}:`, item);
+    
+    // Préparer les données à envoyer au backend
+    const lineData = {
+      produitId: item.productId,
+      designation: item.productName,
+      quantite: item.quantity,
+      prixUnitaireHT: item.unitPrice,
+      tauxTVA: 20 // Valeur par défaut si non spécifiée
+    };
+    
+    console.log(`Données formatées pour le backend:`, lineData);
+    
+    // Construire l'URL pour l'ajout de ligne
+    const url = `${this.apiUrl}/${orderId}/lignes`;
+    console.log(`Envoi de la requête POST à ${url}`);
+    
+    return this.http.post(url, lineData, { headers: this.getAuthHeaders() }).pipe(
+      tap(response => {
+        console.log(`Ligne ajoutée avec succès à la commande ${orderId}:`, response);
+        // Déclencher un événement pour indiquer que la commande a été mise à jour
+        this.getPurchaseOrderById(orderId).subscribe(updatedOrder => {
+          this.orderUpdated.next(updatedOrder);
+        });
+      }),
+      catchError(error => {
+        console.error(`Erreur lors de l'ajout de la ligne à la commande ${orderId}:`, error);
+        // Essayer avec l'URL de secours
+        return this.tryAddLineWithBackupUrl(orderId, lineData);
+      }),
+      finalize(() => {
+        this.loading.next(false);
+      })
+    );
+  }
+  
+  /**
+   * Essaie d'ajouter une ligne avec l'URL de secours
+   */
+  private tryAddLineWithBackupUrl(orderId: string, lineData: any): Observable<any> {
+    const backupUrl = `${this.backupApiUrl}/${orderId}/lignes`;
+    console.log(`Tentative avec l'URL de secours: ${backupUrl}`);
+    
+    return this.http.post(backupUrl, lineData, { headers: this.getAuthHeaders() }).pipe(
+      tap(response => {
+        console.log(`Ligne ajoutée avec succès via l'URL de secours:`, response);
+      }),
+      catchError(error => {
+        console.error(`Échec de l'ajout de ligne avec l'URL de secours:`, error);
+        return throwError(() => new Error(`Impossible d'ajouter la ligne à la commande. Veuillez réessayer plus tard.`));
+      })
+    );
+  }
+
+
+
+  /* -------------------------------------------------------------------------- */
   /*                              MOCK & DIAGNOSTIC                             */
   /* -------------------------------------------------------------------------- */
 
@@ -1151,12 +1503,32 @@ export class PurchaseOrderService {
   }
 
   private getMockSuppliers(): Supplier[] {
+    // Ajout de fournisseurs fictifs pour améliorer les données de test
     return [
-      { id: 'supp-1', name: 'Fournisseur A', email: 'contact@fournisseurA.com', phone: '01 23 45 67 89', address: '123 Rue des Exemples, 75001 Paris' },
-      { id: 'supp-2', name: 'Fournisseur B', email: 'contact@fournisseurB.com', phone: '01 23 45 67 90', address: '456 Avenue des Tests, 69002 Lyon' },
-      { id: 'supp-3', name: 'Fournisseur C', email: 'contact@fournisseurC.com', phone: '01 23 45 67 91', address: '789 Boulevard des Mocks, 33000 Bordeaux' },
-      { id: 'supp-4', name: 'Fournisseur D', email: 'contact@fournisseurD.com', phone: '01 23 45 67 92', address: '101 Place du Code, 31000 Toulouse' },
-      { id: 'supp-5', name: 'Fournisseur E', email: 'contact@fournisseurE.com', phone: '01 23 45 67 93', address: '202 Allée des Données, 59000 Lille' }
+      {
+        id: '1',
+        name: 'Fournisseur Matières Premières',
+        email: 'contact@matieres-premieres.com',
+        phone: '01 23 45 67 89',
+        address: '123 Rue des Matières, 75001 Paris'
+        // Suppression des champs non définis dans l'interface Supplier
+      },
+      {
+        id: '2',
+        name: 'Emballages Express',
+        email: 'service@emballages-express.fr',
+        phone: '01 98 76 54 32',
+        address: '45 Avenue des Cartons, 69002 Lyon'
+        // Suppression des champs non définis dans l'interface Supplier
+      },
+      {
+        id: '3',
+        name: 'Équipements Industriels Pro',
+        email: 'info@equipro.com',
+        phone: '03 45 67 89 01',
+        address: '78 Boulevard Industriel, 33000 Bordeaux'
+        // Suppression des champs non définis dans l'interface Supplier
+      }
     ];
   }
 

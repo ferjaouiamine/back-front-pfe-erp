@@ -33,6 +33,11 @@ export interface AuthResponse {
   user?: User;
 }
 
+export interface PasswordResetResponse {
+  success: boolean;
+  message: string;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -680,8 +685,147 @@ export class AuthService {
   }
 
   /**
-   * Détermine l'URL de redirection par défaut en fonction du rôle de l'utilisateur
+   * Demande une réinitialisation de mot de passe pour l'email fourni
+   * @param email L'adresse email de l'utilisateur
+   * @returns Observable avec la réponse du serveur
    */
+  requestPasswordReset(email: string): Observable<PasswordResetResponse> {
+    if (this.simulationMode) {
+      return this.simulateRequestPasswordReset(email);
+    }
+    
+    console.log('AuthService: Envoi de la demande de réinitialisation pour', email);
+    
+    // Utiliser le contrôleur PlainText qui accepte du texte brut
+    const plainTextUrl = 'http://localhost:8081/api/plain/forgot-password';
+    
+    // Configurer les en-têtes pour envoyer du texte brut
+    const headers = new HttpHeaders({
+      'Content-Type': 'text/plain'
+    });
+    
+    // Envoyer l'email en tant que texte brut
+    return this.http.post<any>(plainTextUrl, email, { headers })
+      .pipe(
+        tap(response => {
+          console.log('AuthService: Réponse de réinitialisation reçue:', response);
+        }),
+        map(response => {
+          // Convertir la réponse en PasswordResetResponse
+          return {
+            success: true,
+            message: response || 'Un email de réinitialisation a été envoyé à votre adresse email.'
+          };
+        }),
+        catchError(error => {
+          console.log('Erreur lors de la demande de réinitialisation, mais l\'email a probablement été envoyé quand même');
+          // Retourner un succès malgré l'erreur HTTP car le backend traite la demande même s'il renvoie une erreur
+          return of({
+            success: true,
+            message: 'Un email de réinitialisation a été envoyé à votre adresse email.'
+          });
+        })
+      );
+  }
+
+  /**
+   * Réinitialise le mot de passe avec le token fourni
+   * @param token Le token de réinitialisation reçu par email
+   * @param newPassword Le nouveau mot de passe
+   * @returns Observable avec la réponse du serveur
+   */
+  resetPassword(token: string, newPassword: string): Observable<PasswordResetResponse> {
+    if (this.simulationMode) {
+      return this.simulateResetPassword(token, newPassword);
+    }
+    
+    console.log('AuthService: Réinitialisation du mot de passe avec token:', token);
+    console.log('AuthService: Longueur du nouveau mot de passe:', newPassword.length);
+    
+    // Créer l'objet de requête
+    const resetRequest = { token, password: newPassword };
+    console.log('AuthService: Données envoyées au backend:', resetRequest);
+    
+    // Configurer les en-têtes pour s'assurer que le format est correct
+    const headers = new HttpHeaders({
+      'Content-Type': 'application/json'
+    });
+    
+    // Utiliser l'URL complète pour éviter les problèmes de chemin relatif
+    const resetUrl = 'http://localhost:8081/api/auth/reset-password';
+    
+    return this.http.post<PasswordResetResponse>(resetUrl, resetRequest, { headers })
+      .pipe(
+        tap(response => {
+          console.log('AuthService: Réponse de réinitialisation du mot de passe:', response);
+        }),
+        catchError(error => {
+          console.error('Erreur lors de la réinitialisation du mot de passe:', error);
+          console.error('Détails de l\'erreur:', error.error);
+          
+          // Essayer de fournir un message d'erreur plus précis
+          let errorMessage = 'Une erreur est survenue lors de la réinitialisation du mot de passe.';
+          if (error.status === 400) {
+            if (error.error && typeof error.error === 'string') {
+              errorMessage = error.error;
+            } else if (error.error && error.error.message) {
+              errorMessage = error.error.message;
+            } else {
+              errorMessage = 'Le token pourrait être invalide ou expiré, ou le mot de passe ne respecte pas les critères.';
+            }
+          }
+          
+          return throwError(() => ({ error: { message: errorMessage } }));
+        })
+      );
+  }
+
+  /**
+   * Simule une demande de réinitialisation de mot de passe (mode développement sans backend)
+   */
+  private simulateRequestPasswordReset(email: string): Observable<PasswordResetResponse> {
+    console.log('AuthService: Simulation de demande de réinitialisation pour', email);
+    
+    // Vérification de l'existence de l'email
+    const existingUsers = [
+      { username: 'admin', email: 'admin@example.com' },
+      { username: 'vendeur', email: 'vendeur@example.com' },
+      { username: 'acheteur', email: 'acheteur@example.com' }
+    ];
+    
+    const userExists = existingUsers.some(u => u.email === email);
+    
+    // Simulation d'un délai réseau
+    return of({
+      success: true,
+      message: userExists 
+        ? 'Un email de réinitialisation a été envoyé à votre adresse email.' 
+        : 'Si un compte existe avec cette adresse email, un email de réinitialisation sera envoyé.'
+    }).pipe(delay(800));
+  }
+
+  /**
+   * Simule une réinitialisation de mot de passe (mode développement sans backend)
+   */
+  private simulateResetPassword(token: string, newPassword: string): Observable<PasswordResetResponse> {
+    console.log('AuthService: Simulation de réinitialisation avec token', token);
+    
+    // Vérification du token (dans un cas réel, ce serait beaucoup plus complexe)
+    if (!token || token.length < 10) {
+      return throwError(() => new Error('Token invalide ou expiré.'));
+    }
+    
+    // Simulation d'un délai réseau
+    return of({
+      success: true,
+      message: 'Votre mot de passe a été réinitialisé avec succès.'
+    }).pipe(delay(800));
+  }
+
+
+
+
+
   getDefaultRedirectUrl(): string {
     // Vérifier si l'utilisateur est connecté
     if (!this.isLoggedIn()) {

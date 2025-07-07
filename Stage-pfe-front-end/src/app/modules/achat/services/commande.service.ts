@@ -39,9 +39,10 @@ export interface LigneCommande {
 export interface Commande {
   id?: number;
   numero?: string;
-  fournisseur: {
-    id: number;
+  fournisseur?: {
+    id?: number;
     nom?: string;
+    email?: string;
   };
   dateCommande?: string;
   dateLivraisonPrevue?: string;
@@ -82,7 +83,16 @@ export interface CommandeStatistiques {
   providedIn: 'root'
 })
 export class CommandeService {
-  private apiUrl = 'http://localhost:8082/api/commandes';
+  // Méthode pour gérer les erreurs de connexion
+  private handleConnectionError<T>(error: any, fallbackValue: T): Observable<T> {
+    console.error('Erreur de connexion au backend:', error);
+    this.isBackendAvailable = false;
+    console.warn('Le backend est considéré comme indisponible');
+    return of(fallbackValue);
+  }
+  // URL principale de l'API
+  private apiUrl = 'http://localhost:8088/api/commandes';
+  private isBackendAvailable = true;
 
   constructor(
     private http: HttpClient,
@@ -103,6 +113,7 @@ export class CommandeService {
     return this.http.get<Commande[]>(this.apiUrl, { headers: this.getAuthHeaders() }).pipe(
       map(commandes => {
         console.log('Commandes récupérées depuis l\'API:', commandes);
+        this.isBackendAvailable = true; // Marquer le backend comme disponible
         
         // Filtrer pour ne garder que les commandes réelles
         // Une commande est considérée comme réelle si elle a un numéro de commande valide
@@ -124,7 +135,7 @@ export class CommandeService {
       }),
       catchError(error => {
         console.error('Erreur lors de la récupération des commandes:', error);
-        return of([]);
+        return this.handleConnectionError(error, []);
       })
     );
   }
@@ -146,14 +157,83 @@ export class CommandeService {
     );
   }
 
-  // Récupérer une commande par son ID
+  // Récupérer une commande par son ID avec gestion des erreurs et fallback
   getCommandeById(id: number): Observable<Commande> {
-    return this.http.get<Commande>(`${this.apiUrl}/${id}`, { headers: this.getAuthHeaders() }).pipe(
-      catchError(error => {
-        console.error(`Erreur lors de la récupération de la commande ${id}:`, error);
-        throw error;
-      })
-    );
+    // Essayer d'abord avec l'URL principale
+    return this.http.get<Commande>(`${this.apiUrl}/${id}`, { headers: this.getAuthHeaders() })
+      .pipe(
+        catchError(error => {
+          console.error(`Erreur lors de la récupération de la commande ${id} depuis ${this.apiUrl}:`, error);
+          
+          // Si l'erreur est une erreur 500, essayons de récupérer la commande sans les lignes
+          if (error.status === 500) {
+            console.log(`Tentative de récupération de la commande ${id} sans les lignes...`);
+            return this.http.get<Commande>(`${this.apiUrl}/${id}?skipLines=true`, { headers: this.getAuthHeaders() })
+              .pipe(
+                catchError(innerError => {
+                  console.error(`Échec de la récupération de la commande ${id} sans les lignes:`, innerError);
+                  // Essayer avec une URL alternative sur le port 8080
+                  console.log(`Tentative avec URL alternative sur le port 8080 pour la commande ${id}...`);
+                  return this.http.get<Commande>(`http://localhost:8080/api/commandes/${id}`, { headers: this.getAuthHeaders() })
+                    .pipe(
+                      catchError(altError => {
+                        console.error(`Échec de la récupération depuis l'URL alternative:`, altError);
+                        // Dernière tentative avec une autre URL alternative
+                        console.log(`Dernière tentative avec URL alternative sur le port 8086 pour la commande ${id}...`);
+                        return this.http.get<Commande>(`http://localhost:8086/api/commandes/${id}`, { headers: this.getAuthHeaders() })
+                          .pipe(
+                            catchError(finalError => {
+                              console.error(`Toutes les tentatives ont échoué pour la commande ${id}:`, finalError);
+                              // Si toutes les tentatives échouent, retournons une commande vide mais avec l'ID demandé
+                              const emptyCommande: Commande = {
+                                id: id,
+                                fournisseur: { id: 0 },
+                                statut: StatutCommande.BROUILLON,
+                                lignes: [],
+                                montantHT: 0,
+                                montantTVA: 0,
+                                montantTTC: 0,
+                                numero: `CMD-${id}-ERROR`
+                              };
+                              return of(emptyCommande);
+                            })
+                          );
+                      })
+                    );
+                })
+              );
+          }
+          
+          // Si l'erreur est une erreur de connexion, essayons les URLs alternatives
+          console.log(`Tentative avec URL alternative sur le port 8080 pour la commande ${id}...`);
+          return this.http.get<Commande>(`http://localhost:8080/api/commandes/${id}`, { headers: this.getAuthHeaders() })
+            .pipe(
+              catchError(altError => {
+                console.error(`Échec de la récupération depuis l'URL alternative:`, altError);
+                // Dernière tentative avec une autre URL alternative
+                console.log(`Dernière tentative avec URL alternative sur le port 8086 pour la commande ${id}...`);
+                return this.http.get<Commande>(`http://localhost:8086/api/commandes/${id}`, { headers: this.getAuthHeaders() })
+                  .pipe(
+                    catchError(finalError => {
+                      console.error(`Toutes les tentatives ont échoué pour la commande ${id}:`, finalError);
+                      // Si toutes les tentatives échouent, retournons une commande vide mais avec l'ID demandé
+                      const emptyCommande: Commande = {
+                        id: id,
+                        fournisseur: { id: 0 },
+                        statut: StatutCommande.BROUILLON,
+                        lignes: [],
+                        montantHT: 0,
+                        montantTVA: 0,
+                        montantTTC: 0,
+                        numero: `CMD-${id}-ERROR`
+                      };
+                      return of(emptyCommande);
+                    })
+                  );
+              })
+            );
+        })
+      );
   }
 
   // Créer une nouvelle commande
@@ -161,6 +241,25 @@ export class CommandeService {
     return this.http.post<Commande>(this.apiUrl, commande, { headers: this.getAuthHeaders() }).pipe(
       catchError(error => {
         console.error('Erreur lors de la création de la commande:', error);
+        throw error;
+      })
+    );
+  }
+
+  // Créer une nouvelle commande avec seulement l'email du fournisseur
+  createCommandeWithEmail(commande: Commande, fournisseurEmail: string): Observable<Commande> {
+    // Construire l'URL avec le paramètre d'email
+    const url = `${this.apiUrl}/with-email?fournisseurEmail=${encodeURIComponent(fournisseurEmail)}`;
+    
+    console.log(`Création d'une commande avec l'email du fournisseur: ${fournisseurEmail}`);
+    
+    return this.http.post<Commande>(url, commande, { headers: this.getAuthHeaders() }).pipe(
+      map(response => {
+        console.log('Commande créée avec succès via email:', response);
+        return response;
+      }),
+      catchError(error => {
+        console.error(`Erreur lors de la création de la commande avec l'email ${fournisseurEmail}:`, error);
         throw error;
       })
     );

@@ -130,8 +130,13 @@
               <td>{{ product.quantity }}</td>
               <td>
                 <span class="stock-status" [ngClass]="getStockLevelClass(product.quantity)">
-                  <i class="fas" [ngClass]="{'fa-exclamation-circle': product.quantity <= 5, 'fa-exclamation-triangle': product.quantity > 5 && product.quantity <= 20, 'fa-check-circle': product.quantity > 20}"></i>
-                  {{ product.quantity <= 5 ? 'Critique' : (product.quantity <= 20 ? 'Faible' : 'Normal') }}
+                  <i class="fas" [ngClass]="{
+                    'fa-exclamation-circle': getStockLevelClass(product.quantity) === 'danger', 
+                    'fa-exclamation-triangle': getStockLevelClass(product.quantity) === 'warning', 
+                    'fa-check-circle': getStockLevelClass(product.quantity) === 'success'
+                  }"></i>
+                  {{ getStockLevelClass(product.quantity) === 'danger' ? 'Critique' : 
+                     (getStockLevelClass(product.quantity) === 'warning' ? 'Faible' : 'Normal') }}
                 </span>
               </td>
               <td>

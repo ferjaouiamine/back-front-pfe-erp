@@ -4,6 +4,9 @@ import { RouterModule } from '@angular/router';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { HttpClientModule } from '@angular/common/http';
 
+// Material Module
+import { MaterialModule } from './material.module';
+
 // Components
 import { HeaderComponent } from './components/header/header.component';
 
@@ -16,7 +19,8 @@ import { HeaderComponent } from './components/header/header.component';
     RouterModule,
     FormsModule,
     ReactiveFormsModule,
-    HttpClientModule
+    HttpClientModule,
+    MaterialModule
   ],
   exports: [
     CommonModule,
@@ -24,6 +28,7 @@ import { HeaderComponent } from './components/header/header.component';
     FormsModule,
     ReactiveFormsModule,
     HttpClientModule,
+    MaterialModule,
     HeaderComponent,
     CurrencyPipe
   ],

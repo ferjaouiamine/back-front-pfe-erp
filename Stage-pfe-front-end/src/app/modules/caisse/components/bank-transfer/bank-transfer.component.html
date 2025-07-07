@@ -1,0 +1,49 @@
+<div class="bank-transfer-container">
+  <form [formGroup]="transferForm" (ngSubmit)="initiateTransfer()" *ngIf="!transferUrl">
+    <div class="form-field">
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>Email du client</mat-label>
+        <input matInput type="email" formControlName="email" placeholder="client@example.com">
+        <mat-error *ngIf="transferForm.get('email')?.hasError('required')">
+          L'email est requis
+        </mat-error>
+        <mat-error *ngIf="transferForm.get('email')?.hasError('email')">
+          Veuillez entrer un email valide
+        </mat-error>
+      </mat-form-field>
+    </div>
+    
+    <div class="info-text">
+      <p>
+        <mat-icon>info</mat-icon>
+        Les instructions de virement seront envoyées à cette adresse email.
+      </p>
+    </div>
+    
+    <div class="error-message" *ngIf="error">
+      <div class="alert alert-danger">
+        {{ error }}
+      </div>
+    </div>
+    
+    <div class="button-container">
+      <button mat-raised-button color="primary" type="submit" [disabled]="transferForm.invalid || loading">
+        <span *ngIf="!loading">Générer les instructions de virement</span>
+        <mat-spinner diameter="20" *ngIf="loading"></mat-spinner>
+      </button>
+    </div>
+  </form>
+  
+  <div class="transfer-success" *ngIf="transferUrl">
+    <div class="success-icon">
+      <mat-icon>check_circle</mat-icon>
+    </div>
+    <h3>Instructions de virement générées</h3>
+    <p *ngIf="successMessage">{{ successMessage }}</p>
+    <p>Le client peut accéder aux instructions via le lien suivant:</p>
+    <div class="transfer-link">
+      <a [href]="transferUrl" target="_blank">{{ transferUrl }}</a>
+    </div>
+    <p class="note">Note: La commande sera confirmée une fois le virement reçu.</p>
+  </div>
+</div>
